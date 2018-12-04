@@ -1,4 +1,4 @@
-﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="VolunteerScheduler.ascx.cs" Inherits="RockWeb.Blocks.Groups.VolunteerScheduler" %>
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="GroupScheduler.ascx.cs" Inherits="RockWeb.Blocks.Groups.GroupScheduler" %>
 
 <asp:UpdatePanel ID="upnlContent" runat="server">
     <ContentTemplate>
@@ -9,7 +9,7 @@
             <div class="panel-heading">
                 <h1 class="panel-title">
                     <i class="fa fa-calendar-alt"></i>
-                    Volunteer Scheduler
+                    Group Scheduler
                 </h1>
 
                 <div class="panel-labels">

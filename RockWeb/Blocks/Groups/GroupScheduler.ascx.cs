@@ -35,10 +35,10 @@ namespace RockWeb.Blocks.Groups
     /// <summary>
     ///
     /// </summary>
-    [DisplayName( "Volunteer Scheduler" )]
+    [DisplayName( "Group Scheduler" )]
     [Category( "Groups" )]
     [Description( "Allows volunteer schedules for groups and locations to be managed by a scheduler." )]
-    public partial class VolunteerScheduler : RockBlock
+    public partial class GroupScheduler : RockBlock
     {
         #region Base Control Methods
 
