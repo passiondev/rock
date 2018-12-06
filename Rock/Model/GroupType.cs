@@ -656,7 +656,7 @@ namespace Rock.Model
         /// The schedule confirmation email offset days.
         /// </value>
         [DataMember]
-        public int? ScheduleConfirmationEmailOffsetDays { get; set; }
+        public int? ScheduleConfirmationEmailOffsetDays { get; set; } = 4;
 
         /// <summary>
         /// Gets or sets the number of days prior to the schedule to send a reminder email. See also <seealso cref="GroupMember.ScheduleReminderEmailOffsetDays"/>.
@@ -665,7 +665,7 @@ namespace Rock.Model
         /// The schedule reminder email offset days.
         /// </value>
         [DataMember]
-        public int? ScheduleReminderEmailOffsetDays { get; set; }
+        public int? ScheduleReminderEmailOffsetDays { get; set; } = 1;
 
         /// <summary>
         /// Gets or sets a value indicating whether a person must specify a reason when declining/cancelling.

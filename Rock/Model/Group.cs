@@ -1046,12 +1046,12 @@ namespace Rock.Model
     #region Enumerations
 
     /// <summary>
-    /// Controls what options a person is shown when checking in
+    /// Controls what selections the person is shown when checking in
     /// </summary>
     public enum AttendanceRecordRequiredForCheckIn
     {
         /// <summary>
-        /// All teams are shown
+        /// All groups are shown
         /// </summary>
         AllShow,
 
@@ -1063,7 +1063,7 @@ namespace Rock.Model
         /// <summary>
         /// The group is preselected if the person is scheduled for this team
         /// </summary>
-        RequireAttendanceRecordAsPreference
+        UseAttendanceRecordAsPreference
     }
 
     #endregion
