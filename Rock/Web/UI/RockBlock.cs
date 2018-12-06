@@ -1112,7 +1112,8 @@ namespace Rock.Web.UI
         #region User Preferences
 
         /// <summary>
-        /// Returns the user preference value for the current user for a given key
+        /// Returns the application user preference value for the current user for a given key
+        /// NOTE: To get a user preference for a specific block, use <see cref="GetBlockUserPreference(string)"/>
         /// </summary>
         /// <param name="key">A <see cref="System.String" /> representing the key to the user preference.</param>
         /// <returns>A <see cref="System.String" /> representing the user preference value. If a match for the key is not found,
@@ -1137,7 +1138,8 @@ namespace Rock.Web.UI
         }
 
         /// <summary>
-        /// Sets a user preference for the current user with the specified key and value, and optionally save value to database
+        /// Sets an application user preference for the current user with the specified key and value, and optionally save value to database.
+        /// NOTE: To set a user preference for a specific block, use <see cref="SetBlockUserPreference(string, string, bool)"/>
         /// </summary>
         /// <param name="key">A <see cref="System.String" /> that represents the key value that identifies the
         /// user preference.</param>
