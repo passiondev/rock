@@ -15,7 +15,9 @@
 // </copyright>
 //
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -57,14 +59,29 @@ namespace RockWeb.Blocks.Groups
             public const string SelectedScheduleId = "SelectedScheduleId";
 
             /// <summary>
-            /// The selected location ids
+            /// The selected group location ids
             /// </summary>
-            public const string SelectedLocationIds = "SelectedLocationIds";
+            public const string SelectedGroupLocationIds = "SelectedGroupLocationIds";
 
             /// <summary>
             /// The selected resource list source type
             /// </summary>
             public const string SelectedResourceListSourceType = "SelectedResourceListSourceType";
+
+            /// <summary>
+            /// The group member filter type
+            /// </summary>
+            public const string GroupMemberFilterType = "GroupMemberFilterType";
+
+            /// <summary>
+            /// The alternate group identifier
+            /// </summary>
+            public const string AlternateGroupId = "AlternateGroupId";
+
+            /// <summary>
+            /// The data view identifier
+            /// </summary>
+            public const string DataViewId = "DataViewId";
         }
 
         #endregion UserPreferanceKeys
@@ -81,6 +98,15 @@ namespace RockWeb.Blocks.Groups
             DataView
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        private enum GroupMemberFilterType
+        {
+            ShowMatchingPreference,
+            ShowAllGroupMembers
+        }
+
         #endregion
 
         #region Base Control Methods
@@ -92,6 +118,9 @@ namespace RockWeb.Blocks.Groups
         protected override void OnInit( EventArgs e )
         {
             base.OnInit( e );
+
+            RockPage.AddScriptLink( "~/Scripts/dragula.min.js", true );
+            RockPage.AddCSSLink( "~/Themes/Rock/Styles/group-scheduler.css", true );
 
             // this event gets fired after block settings are updated. it's nice to repaint the screen if these settings would alter it
             this.BlockUpdated += Block_BlockUpdated;
@@ -125,12 +154,13 @@ namespace RockWeb.Blocks.Groups
         private void LoadDropDowns()
         {
             bgResourceListSource.BindToEnum<ResourceListSourceType>();
+            rblGroupMemberFilter.BindToEnum<GroupMemberFilterType>();
         }
 
         /// <summary>
         /// Updates the list of schedules for the selected group
         /// </summary>
-        private void UpdateSchedules()
+        private void UpdateScheduleList()
         {
             Group group = GetSelectedGroup();
 
@@ -200,14 +230,17 @@ namespace RockWeb.Blocks.Groups
             hfGroupId.Value = this.GetBlockUserPreference( UserPreferenceKey.SelectedGroupId );
             gpGroup.SetValue( hfGroupId.Value.AsIntegerOrNull() );
 
-            UpdateSchedules();
+            UpdateScheduleList();
             rblSchedule.SetValue( this.GetBlockUserPreference( UserPreferenceKey.SelectedScheduleId ).AsIntegerOrNull() );
 
-            UpdateLocations();
-            cblLocations.SetValues( this.GetBlockUserPreference( UserPreferenceKey.SelectedLocationIds ).SplitDelimitedValues().AsIntegerList() );
+            UpdateGroupLocationList();
+            cblGroupLocations.SetValues( this.GetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds ).SplitDelimitedValues().AsIntegerList() );
 
             var resouceListSourceType = this.GetBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType ).ConvertToEnumOrNull<ResourceListSourceType>() ?? ResourceListSourceType.Group;
             bgResourceListSource.SetValue( resouceListSourceType.ConvertToInt() );
+
+            var groupMemberFilterType = this.GetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType ).ConvertToEnumOrNull<GroupMemberFilterType>() ?? GroupMemberFilterType.ShowMatchingPreference;
+            rblGroupMemberFilter.SetValue( groupMemberFilterType.ConvertToInt() );
         }
 
         /// <summary>
@@ -217,39 +250,120 @@ namespace RockWeb.Blocks.Groups
         {
             this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupId, hfGroupId.Value );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, dpDate.SelectedDate.ToISO8601DateString() );
-            this.SetBlockUserPreference( UserPreferenceKey.SelectedLocationIds, cblLocations.SelectedValues.AsDelimited(",") );
+            this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds, cblGroupLocations.SelectedValues.AsDelimited( "," ) );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedScheduleId, rblSchedule.SelectedValue );
 
             var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<ResourceListSourceType>();
             this.SetBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType, resourceListSourceType.ToString() );
 
+            var groupMemberFilterType = rblGroupMemberFilter.SelectedValueAsEnum<GroupMemberFilterType>();
+            this.SetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType, groupMemberFilterType.ToString() );
+
             pnlResourceFilterGroup.Visible = resourceListSourceType == ResourceListSourceType.Group;
             pnlResourceFilterAlternateGroup.Visible = resourceListSourceType == ResourceListSourceType.AlternateGroup;
             pnlResourceFilterDataView.Visible = resourceListSourceType == ResourceListSourceType.DataView;
+
+            BindResourceList();
+            BindGroupLocations();
         }
 
         /// <summary>
-        /// Updates the list of locations for the selected group
+        /// Updates the list of group locations for the selected group
         /// </summary>
-        private void UpdateLocations()
+        private void UpdateGroupLocationList()
         {
             Group group = GetSelectedGroup();
 
             if ( group != null )
             {
-                var groupLocations = group.GroupLocations.ToList();
+                var groupLocations = group.GroupLocations.OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
 
-                // get the selected location ids just in case any of them are the same after repopulated
-                var selectedLocationIds = cblLocations.SelectedValuesAsInt;
+                // get the selected group location ids just in case any of them are the same after repopulated
+                var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
-                cblLocations.Items.Clear();
+                cblGroupLocations.Items.Clear();
                 foreach ( var groupLocation in groupLocations )
                 {
-                    cblLocations.Items.Add( new ListItem( groupLocation.Location.ToString(), groupLocation.Id.ToString() ) );
+                    cblGroupLocations.Items.Add( new ListItem( groupLocation.Location.ToString(), groupLocation.Id.ToString() ) );
                 }
 
-                cblLocations.SetValues( selectedLocationIds );
+                cblGroupLocations.SetValues( selectedGroupLocationIds );
             }
+        }
+
+        /// <summary>
+        /// Binds the resource list.
+        /// </summary>
+        private void BindResourceList()
+        {
+            var rockContext = new RockContext();
+            var groupMemberService = new GroupMemberService( rockContext );
+            IQueryable<GroupMember> groupMemberQry = null;
+
+            var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<ResourceListSourceType>();
+            switch ( resourceListSourceType )
+            {
+                case ResourceListSourceType.Group:
+                    {
+                        int groupId = hfGroupId.Value.AsInteger();
+                        groupMemberQry = groupMemberService.Queryable().Where( a => a.GroupId == groupId );
+
+                        // todo matching vs all
+
+                        break;
+                    }
+                case ResourceListSourceType.AlternateGroup:
+                    {
+                        int groupId = gpResourceListAlternateGroup.SelectedValue.AsInteger();
+                        groupMemberQry = groupMemberService.Queryable().Where( a => a.GroupId == groupId );
+
+                        break;
+                    }
+                case ResourceListSourceType.DataView:
+                    {
+                        // TODO
+                        /*
+
+                        var dataViewId = dvpResourceListDataView.SelectedValue.AsInteger();
+                        var dataView = new DataViewService( rockContext ).Get( dataViewId );
+                        IQueryable<Person> personQry = null;
+                        if ( dataView != null )
+                        {
+                            List<string> errorMessages;
+                            personQry = dataView.GetQuery( null, null, out errorMessages ) as IQueryable<Person>;
+                        }
+
+                        */
+
+                        break;
+                    }
+            }
+
+            /*this.Trace.IsEnabled = true;
+            if ( !Debug.Listeners.OfType<System.Web.WebPageTraceListener>().Any() )
+            {
+                Debug.Listeners.Add( new System.Web.WebPageTraceListener() );
+            }
+
+            rockContext.SqlLogging( true );
+            */
+
+            if ( groupMemberQry != null )
+            {
+                rptResources.DataSource = groupMemberQry.ToList();
+                rptResources.DataBind();
+            }
+        }
+
+        private void BindGroupLocations()
+        {
+            var rockContext = new RockContext();
+            var groupLocationService = new GroupLocationService( rockContext );
+            var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
+
+            var groupLocations = groupLocationService.GetByIds( selectedGroupLocationIds ).OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
+            rptGroupLocations.DataSource = groupLocations;
+            rptGroupLocations.DataBind();
         }
 
         #endregion
@@ -274,8 +388,8 @@ namespace RockWeb.Blocks.Groups
         protected void gpGroup_ValueChanged( object sender, EventArgs e )
         {
             hfGroupId.Value = gpGroup.SelectedValue.AsIntegerOrNull().ToString();
-            UpdateSchedules();
-            UpdateLocations();
+            UpdateScheduleList();
+            UpdateGroupLocationList();
             ApplyFilter();
         }
 
@@ -296,16 +410,11 @@ namespace RockWeb.Blocks.Groups
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void cblSchedule_SelectedIndexChanged( object sender, EventArgs e )
         {
-            UpdateLocations();
+            UpdateGroupLocationList();
             ApplyFilter();
         }
 
-        /// <summary>
-        /// Handles the SelectedIndexChanged event of the cblLocations control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void cblLocations_SelectedIndexChanged( object sender, EventArgs e )
+        protected void cblGroupLocations_SelectedIndexChanged( object sender, EventArgs e )
         {
             ApplyFilter();
         }
@@ -320,19 +429,34 @@ namespace RockWeb.Blocks.Groups
             ApplyFilter();
         }
 
-        protected void gpAlternateGroup_ValueChanged( object sender, EventArgs e )
+        /// <summary>
+        /// Handles the ValueChanged event of the gpResourceListAlternateGroup control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="System.EventArgs" /> instance containing the event data.</param>
+        protected void gpResourceListAlternateGroup_ValueChanged( object sender, EventArgs e )
         {
-            // TODO
+            ApplyFilter();
         }
 
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the rblGroupMemberFilter control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void rblGroupMemberFilter_SelectedIndexChanged( object sender, EventArgs e )
         {
-            // TODO
+            ApplyFilter();
         }
 
+        /// <summary>
+        /// Handles the ValueChanged event of the dvpResourceListDataView control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void dvpResourceListDataView_ValueChanged( object sender, EventArgs e )
         {
-            // TODO
+            ApplyFilter();
         }
 
         #endregion
@@ -345,6 +469,29 @@ namespace RockWeb.Blocks.Groups
         protected void btnAddResource_Click( object sender, EventArgs e )
         {
 
+        }
+
+        protected void btnRecompileLess_Click( object sender, EventArgs e )
+        {
+            // #################DEBUG#################
+            // TODO remove this
+            var rockTheme = RockTheme.GetThemes().Where( a => a.Name == "Rock" ).FirstOrDefault();
+            rockTheme.Compile();
+            NavigateToCurrentPageReference();
+        }
+
+        protected void rptResources_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var groupMember = e.Item.DataItem as GroupMember;
+            var lPersonName = e.Item.FindControl( "lPersonName" ) as Literal;
+            lPersonName.Text = groupMember.Person.FullName;
+        }
+
+        protected void rptGroupLocations_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var groupLocation = e.Item.DataItem as GroupLocation;
+            var lLocationTitle = e.Item.FindControl( "lLocationTitle" ) as Literal;
+            lLocationTitle.Text = groupLocation.Location.Name;
         }
     }
 }

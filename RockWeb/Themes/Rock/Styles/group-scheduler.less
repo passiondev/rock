@@ -1,0 +1,141 @@
+/*
+    This is loaded at runtime by the GroupScheduler block
+*/
+
+@import "../../../Styles/Bootstrap/variables.less";
+@import "../../../Styles/_rock-variables.less";
+
+.dropzone {
+  &:empty {
+    position: relative;
+    padding: 30px;
+    outline: 2px dashed rgba(0,0,0,.3);
+    outline-offset: -2px;
+    &::after {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      display: block;
+      width: 100%;
+      font-size: 10px;
+      color: rgba(0, 0, 0, .3);
+      text-align: center;
+      content: "Drop something here";
+      -webkit-transform: translateY(-50%);
+      -moz-transform: translateY(-50%);
+      -ms-transform: translateY(-50%);
+      transform: translateY(-50%);
+    }
+  }
+}
+
+.resource-container {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: 12px 12px 0 12px;
+  overflow: auto;
+  font-family: @font-family-sans-serif;
+  color: @text-color;
+  color: var(--text-color);
+  background-color: @panel-heading-bg;
+}
+
+.resource-container::after {
+  display: table;
+  clear: both;
+  content: "";
+}
+
+.resource {
+  display: block;
+  overflow: auto;
+  cursor: pointer;
+
+  outline: 2px dashed rgba(0,0,0,0);
+  outline-offset: -2px;
+  transition: .2s outline linear;
+
+  padding: 4px;
+  margin-right: 8px;
+  margin-bottom: 12px;
+  font-family: @font-family-sans-serif;
+  color: @btn-default-color;
+  cursor: move;
+  background-color: @btn-default-bg;
+  border: 1px solid @btn-default-border;
+  border-radius: 4px;
+
+  &:hover {
+    outline-color: #eaeef0;
+  }
+
+  .resource-section:hover {
+    outline-color: rgba(0,0,0,0);
+  }
+
+  &.selected {
+    cursor: move;
+    outline: 2px solid #59c9a5;
+    opacity: 1;
+  }
+}
+
+.resource[data-state="assigned"] {
+  display: inline-block;
+}
+
+.resource[data-state="unassigned"] {
+}
+
+/*
+-=-=- Dragula Classes
+*/
+
+/* Is added to the mirror image. It handles fixed positioning and z-index (and removes any prior margins on the element). Note
+that the mirror image is appended to the mirrorContainer, not to its initial container. Keep that in mind when styling your
+elements with nested rules, like .list .item { padding: 10px; }.*/
+.gu-mirror {
+  position: fixed !important;
+  z-index: 9999 !important;
+  max-width: 560px;
+  margin: 0 !important;
+  font-family: Arial, Helvetica, sans-serif;
+  cursor: move;
+
+  -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=80)";
+  filter: alpha(opacity=80);
+  opacity: .8;
+}
+
+/* Is a helper class to apply display: none to an element. */
+.gu-hide {
+  display: none !important;
+}
+
+/* Is added to the mirrorContainer element when dragging. You can use it to style the mirrorContainer while something is being dragged. */
+.gu-unselectable {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Is added to the source element when its mirror image is dragged. It just adds opacity to it.*/
+.gu-transit {
+  box-sizing: border-box;
+  display: block;
+  float: none !important; /* added to override the float from the resource */
+
+  width: 100% !important;
+  height: 100%;
+  // margin: 0 !important;
+  background: repeating-linear-gradient(-55deg,rgba(35, 79, 65, .1), rgba(35, 79, 65, .1) 3px, rgba(35, 79, 65, 0) 3px, rgba(35, 79, 65, 0) 6px) !important;
+  border-radius: 0 !important;
+  opacity: 1 !important;
+}
+
+/* MP: workaround for https://github.com/bevacqua/dragula/issues/421 */
+.gu-transit .container {
+  display: none;
+}
