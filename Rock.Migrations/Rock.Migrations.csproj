@@ -156,6 +156,10 @@
     <Compile Include="Migrations\201811302023228_VolunteerScheduling.Designer.cs">
       <DependentUpon>201811302023228_VolunteerScheduling.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201812072328521_VolunteerScheduling2.cs" />
+    <Compile Include="Migrations\201812072328521_VolunteerScheduling2.Designer.cs">
+      <DependentUpon>201812072328521_VolunteerScheduling2.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.cs" />
     <Compile Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.Designer.cs">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>
@@ -513,6 +517,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\201811302023228_VolunteerScheduling.resx">
       <DependentUpon>201811302023228_VolunteerScheduling.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201812072328521_VolunteerScheduling2.resx">
+      <DependentUpon>201812072328521_VolunteerScheduling2.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.resx">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>

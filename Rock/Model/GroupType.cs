@@ -623,22 +623,22 @@ namespace Rock.Model
         public bool IsSchedulingEnabled { get; set; }
 
         /// <summary>
-        /// Gets or sets the communication template to use when a person is scheduled or when the schedule has been updated
+        /// Gets or sets the system email to use when a person is scheduled or when the schedule has been updated
         /// </summary>
         /// <value>
-        /// The scheduled communication template identifier.
+        /// The scheduled system email identifier.
         /// </value>
         [DataMember]
-        public int? ScheduledCommunicationTemplateId { get; set; }
+        public int? ScheduledSystemEmailId { get; set; }
 
         /// <summary>
-        /// Gets or sets the communication template to use when sending a schedule reminder
+        /// Gets or sets the system email to use when sending a schedule reminder
         /// </summary>
         /// <value>
-        /// The schedule reminder communication template identifier.
+        /// The schedule reminder system email identifier.
         /// </value>
         [DataMember]
-        public int? ScheduleReminderCommunicationTemplateId { get; set; }
+        public int? ScheduleReminderSystemEmailId { get; set; }
 
         /// <summary>
         /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to volunteer at their scheduled time
@@ -795,22 +795,22 @@ namespace Rock.Model
         public virtual DefinedValue GroupTypePurposeValue { get; set; }
 
         /// <summary>
-        /// Gets or sets the communication template to use when a person is scheduled or when the schedule has been updated
+        /// Gets or sets the system email to use when a person is scheduled or when the schedule has been updated
         /// </summary>
         /// <value>
-        /// The scheduled communication template.
+        /// The scheduled system email.
         /// </value>
         [DataMember]
-        public virtual CommunicationTemplate ScheduledCommunicationTemplate { get; set; }
+        public virtual SystemEmail ScheduledSystemEmail { get; set; }
 
         /// <summary>
-        /// Gets or sets the communication template to use when sending a Schedule Reminder
+        /// Gets or sets the system email to use when sending a Schedule Reminder
         /// </summary>
         /// <value>
-        /// The schedule reminder communication template.
+        /// The schedule reminder system email.
         /// </value>
         [DataMember]
-        public virtual CommunicationTemplate ScheduleReminderCommunicationTemplate { get; set; }
+        public virtual SystemEmail ScheduleReminderSystemEmail { get; set; }
 
         /// <summary>
         /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to volunteer at their scheduled time
@@ -1200,8 +1200,8 @@ namespace Rock.Model
             this.HasOptional( p => p.DefaultGroupRole ).WithMany().HasForeignKey( p => p.DefaultGroupRoleId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.GroupStatusDefinedType ).WithMany().HasForeignKey( p => p.GroupStatusDefinedTypeId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.InheritedGroupType ).WithMany().HasForeignKey( p => p.InheritedGroupTypeId ).WillCascadeOnDelete( false );
-            this.HasOptional( p => p.ScheduledCommunicationTemplate ).WithMany().HasForeignKey( p => p.ScheduledCommunicationTemplateId ).WillCascadeOnDelete( false );
-            this.HasOptional( p => p.ScheduleReminderCommunicationTemplate ).WithMany().HasForeignKey( p => p.ScheduleReminderCommunicationTemplateId ).WillCascadeOnDelete( false );
+            this.HasOptional( p => p.ScheduledSystemEmail ).WithMany().HasForeignKey( p => p.ScheduledSystemEmailId ).WillCascadeOnDelete( false );
+            this.HasOptional( p => p.ScheduleReminderSystemEmail ).WithMany().HasForeignKey( p => p.ScheduleReminderSystemEmailId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.ScheduleCancellationWorkflowType ).WithMany().HasForeignKey( p => p.ScheduleCancellationWorkflowTypeId ).WillCascadeOnDelete( false );
         }
     }

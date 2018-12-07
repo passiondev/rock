@@ -168,8 +168,8 @@ namespace Rock.Model
             target.RequiresReasonIfDeclineSchedule = source.RequiresReasonIfDeclineSchedule;
             target.ScheduleCancellationWorkflowTypeId = source.ScheduleCancellationWorkflowTypeId;
             target.ScheduleConfirmationEmailOffsetDays = source.ScheduleConfirmationEmailOffsetDays;
-            target.ScheduledCommunicationTemplateId = source.ScheduledCommunicationTemplateId;
-            target.ScheduleReminderCommunicationTemplateId = source.ScheduleReminderCommunicationTemplateId;
+            target.ScheduledSystemEmailId = source.ScheduledSystemEmailId;
+            target.ScheduleReminderSystemEmailId = source.ScheduleReminderSystemEmailId;
             target.ScheduleReminderEmailOffsetDays = source.ScheduleReminderEmailOffsetDays;
             target.SendAttendanceReminder = source.SendAttendanceReminder;
             target.ShowConnectionStatus = source.ShowConnectionStatus;

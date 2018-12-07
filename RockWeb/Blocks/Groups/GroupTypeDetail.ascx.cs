@@ -525,11 +525,11 @@ namespace RockWeb.Blocks.Groups
 
             // Scheduling
             groupType.IsSchedulingEnabled = cbSchedulingEnabled.Checked;
-            groupType.ScheduledCommunicationTemplateId = ddlScheduledCommunicationTemplate.SelectedValue.AsIntegerOrNull();
+            groupType.ScheduledSystemEmailId = ddlScheduledSystemEmail.SelectedValue.AsIntegerOrNull();
             groupType.RequiresReasonIfDeclineSchedule = cbRequiresReasonIfDeclineSchedule.Checked;
             groupType.ScheduleConfirmationEmailOffsetDays = nbScheduleConfirmationEmailOffsetDays.Text.AsIntegerOrNull();
             groupType.ScheduleCancellationWorkflowTypeId = wtpScheduleCancellationWorkflowType.SelectedValue.AsIntegerOrNull();
-            groupType.ScheduleReminderCommunicationTemplateId = ddlScheduleReminderCommunicationTemplate.SelectedValue.AsIntegerOrNull();
+            groupType.ScheduleReminderSystemEmailId = ddlScheduleReminderSystemEmail.SelectedValue.AsIntegerOrNull();
             groupType.ScheduleReminderEmailOffsetDays = nbScheduleReminderEmailOffsetDays.Text.AsIntegerOrNull();
 
             // if GroupHistory is turned off, we'll delete group and group member history for this group type
@@ -866,11 +866,11 @@ namespace RockWeb.Blocks.Groups
             // Scheduling
             cbSchedulingEnabled.Checked = groupType.IsSchedulingEnabled;
 
-            ddlScheduledCommunicationTemplate.SetValue( groupType.ScheduledCommunicationTemplateId );
+            ddlScheduledSystemEmail.SetValue( groupType.ScheduledSystemEmailId );
             cbRequiresReasonIfDeclineSchedule.Checked = groupType.RequiresReasonIfDeclineSchedule;
             nbScheduleConfirmationEmailOffsetDays.Text = groupType.ScheduleConfirmationEmailOffsetDays.ToString();
             wtpScheduleCancellationWorkflowType.SetValue( groupType.ScheduleCancellationWorkflowTypeId );
-            ddlScheduleReminderCommunicationTemplate.SetValue( groupType.ScheduleReminderCommunicationTemplateId );
+            ddlScheduleReminderSystemEmail.SetValue( groupType.ScheduleReminderSystemEmailId );
             nbScheduleReminderEmailOffsetDays.Text = groupType.ScheduleReminderEmailOffsetDays.ToString();
 
             // Attributes
@@ -1011,6 +1011,26 @@ namespace RockWeb.Blocks.Groups
             foreach ( var definedType in DefinedTypeCache.All().OrderBy( a => a.Order ).ThenBy( a => a.Name ) )
             {
                 ddlGroupStatusDefinedType.Items.Add( new ListItem( definedType.Name, definedType.Id.ToString() ) );
+            }
+
+            ddlScheduledSystemEmail.Items.Clear();
+            ddlScheduledSystemEmail.Items.Add( new ListItem() );
+            ddlScheduleReminderSystemEmail.Items.Clear();
+            ddlScheduleReminderSystemEmail.Items.Add( new ListItem() );
+
+            var systemEmails = new SystemEmailService( new RockContext() ).Queryable().OrderBy( t => t.Title ).Select( a => new
+            {
+                a.Id,
+                a.Title
+            } );
+
+            if ( systemEmails.Any() )
+            {
+                foreach ( var template in systemEmails )
+                {
+                    ddlScheduledSystemEmail.Items.Add( new ListItem( template.Title, template.Id.ToString() ) );
+                    ddlScheduleReminderSystemEmail.Items.Add( new ListItem( template.Title, template.Id.ToString() ) );
+                }
             }
         }
 
