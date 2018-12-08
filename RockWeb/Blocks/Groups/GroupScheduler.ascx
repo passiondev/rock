@@ -12,14 +12,14 @@
                 </h1>
 
                 <div class="panel-labels">
-                    <asp:LinkButton ID="btnRecompileLess" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnRecompileLess_Click" Text="RECOMPILE LESS" style="background-color: violet;" />
+                    <asp:LinkButton ID="btnRecompileLess" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnRecompileLess_Click" Text="RECOMPILE LESS" Style="background-color: violet;" />
                 </div>
             </div>
 
             <%-- Panel Body --%>
             <div class="panel-body panel-groupscheduler">
                 <div class="row">
-                    <%-- Options --%>
+                    <%-- Filter Options --%>
                     <div class="col-md-3 filter-options">
                         <asp:HiddenField ID="hfGroupId" runat="server" />
                         <Rock:GroupPicker ID="gpGroup" runat="server" Label="Group" LimitToSchedulingEnabledGroups="true" OnValueChanged="gpGroup_ValueChanged" />
@@ -32,7 +32,7 @@
                         </asp:Panel>
 
                         <Rock:RockControlWrapper ID="rcwResourceListSource" runat="server" Label="Resource List Source">
-                            <Rock:ButtonGroup ID="bgResourceListSource" runat="server" SelectedItemClass="btn btn-xs btn-primary" UnselectedItemClass="btn btn-xs btn-default" AutoPostBack="true" OnSelectedIndexChanged="bgResourceListSource_SelectedIndexChanged" />
+                            <Rock:ButtonGroup ID="bgResourceListSource" runat="server" CssClass="margin-b-md" SelectedItemClass="btn btn-xs btn-primary" UnselectedItemClass="btn btn-xs btn-default" AutoPostBack="true" OnSelectedIndexChanged="bgResourceListSource_SelectedIndexChanged" />
 
                             <asp:Panel ID="pnlResourceFilterGroup" runat="server">
                                 <Rock:RockRadioButtonList ID="rblGroupMemberFilter" runat="server" AutoPostBack="true" OnSelectedIndexChanged="rblGroupMemberFilter_SelectedIndexChanged" />
@@ -50,45 +50,64 @@
 
                     <%-- Scheduling --%>
                     <div class="col-md-9">
-                        <%-- container for the dragula containers --%>
-                        <asp:Panel ID="pnlSchedulerDragula" runat="server">
+                        <%-- container for the scheduler assignments containers --%>
+                        <asp:Panel ID="pnlScheduler" runat="server">
                             <div class="row">
                                 <div class="col-md-4">
+                                    <div class="group-scheduler-resourcelist">
+                                        <div class="panel panel-block">
 
-                                    <div class="panel panel-block">
-                                        <div class="panel-heading">
-                                            <h1 class="panel-title">
-                                                <i class="fa fa-user"></i>
-                                                Resource List
-                                            </h1>
+                                            <div class="panel-heading">
+                                                <h1 class="panel-title">
+                                                    <i class="fa fa-user"></i>
+                                                    Resource List
+                                                </h1>
 
-                                            <div class="panel-labels">
-                                                <asp:LinkButton ID="btnSelectAllResource" runat="server" CssClass="btn btn-xs btn-default" Text="Select All" OnClick="btnSelectAllResource_Click" />
-                                                <asp:LinkButton ID="btnAddResource" runat="server" CssClass="btn btn-xs btn-default" OnClick="btnAddResource_Click">
+                                                <div class="panel-labels">
+                                                    <asp:LinkButton ID="btnSelectAllResource" runat="server" CssClass="btn btn-xs btn-default" Text="Select All" OnClick="btnSelectAllResource_Click" />
+                                                    <asp:LinkButton ID="btnAddResource" runat="server" CssClass="btn btn-xs btn-default" OnClick="btnAddResource_Click">
                                                 <i class="fa fa-plus"></i>
-                                                </asp:LinkButton>
+                                                    </asp:LinkButton>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="panel-body">
-                                            <Rock:RockTextBox ID="sfResource" runat="server" PrependText="<i class='fa fa-search'></i>" Placeholder="Search" />
-                                            <%-- Dragula container for list of resources --%>
-                                            <asp:Panel ID="pnlResourceListContainer" CssClass="js-scheduler-source-container resource-container" runat="server">
-                                                <asp:Repeater ID="rptResources" runat="server" OnItemDataBound="rptResources_ItemDataBound">
-                                                    <ItemTemplate>
-                                                        <div class="js-resource resource" style="background-color: violet;" data-state="unassigned">
-                                                            <div class="js-resource-name resource-name">
-                                                                <asp:Literal ID="lPersonName" runat="server" />
+
+                                            <div class="panel-body">
+                                                <Rock:RockTextBox ID="sfResource" runat="server" CssClass="margin-b-md" PrependText="<i class='fa fa-search'></i>" Placeholder="Search" />
+                                                <div class="scroll-container scroll-container-resourcelist">
+                                                    <div class="scrollbar">
+                                                        <asp:Panel ID="pnlListTrack" runat="server" CssClass="track">
+                                                            <div class="thumb">
+                                                                <div class="end"></div>
                                                             </div>
+                                                        </asp:Panel>
+                                                    </div>
+                                                    <asp:Panel ID="pnlListViewPort" runat="server" CssClass="js-resource-scroller viewport">
+                                                        <div class="overview">
+                                                            <%-- Dragula container for list of resources --%>
+                                                            <asp:Panel ID="pnlResourceListContainer" CssClass="js-scheduler-source-container resource-container dropzone" runat="server">
+                                                                <asp:Repeater ID="rptResources" runat="server" OnItemDataBound="rptResources_ItemDataBound">
+                                                                    <ItemTemplate>
+                                                                        <div class="js-resource resource" data-state="unassigned">
+                                                                            <div class="js-resource-name resource-name">
+                                                                                <asp:HiddenField ID="hfResourcePersonId" runat="server" />
+                                                                                <asp:HiddenField ID="hfResourceGroupMemberId" runat="server" />
+                                                                                <asp:Literal ID="lPersonName" runat="server" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </ItemTemplate>
+                                                                </asp:Repeater>
+                                                            </asp:Panel>
                                                         </div>
-                                                    </ItemTemplate>
-                                                </asp:Repeater>
-                                            </asp:Panel>
+                                                    </asp:Panel>
+                                                </div>
+
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-
                                 <div class="col-md-8">
+                                    <%-- Dragula containers for locations that resources can be dragged into --%>
                                     <asp:Repeater ID="rptGroupLocations" runat="server" OnItemDataBound="rptGroupLocations_ItemDataBound">
                                         <ItemTemplate>
                                             <div class="location js-location">
@@ -99,7 +118,7 @@
                                                         </h1>
                                                     </div>
                                                     <div class="panel-body">
-                                                        <div class="js-scheduler-target-container dropzone padding-all-md" style="background-color: lime"></div>
+                                                        <div class="js-scheduler-target-container dropzone"></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -115,11 +134,10 @@
         </asp:Panel>
         <script>
             Sys.Application.add_load(function () {
-
-                var schedulerDragulaId = '<%=pnlSchedulerDragula.ClientID%>';
+                var schedulerContainerId = '<%=pnlScheduler.ClientID%>';
 
                 Rock.controls.groupScheduler.initialize({
-                    id: schedulerDragulaId,
+                    id: schedulerContainerId,
                 });
             });
         </script>

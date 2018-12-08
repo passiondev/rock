@@ -241,6 +241,9 @@ namespace RockWeb.Blocks.Groups
 
             var groupMemberFilterType = this.GetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType ).ConvertToEnumOrNull<GroupMemberFilterType>() ?? GroupMemberFilterType.ShowMatchingPreference;
             rblGroupMemberFilter.SetValue( groupMemberFilterType.ConvertToInt() );
+
+            gpResourceListAlternateGroup.SetValue( this.GetBlockUserPreference( UserPreferenceKey.AlternateGroupId ).AsIntegerOrNull() );
+            dvpResourceListDataView.SetValue( this.GetBlockUserPreference( UserPreferenceKey.DataViewId ).AsIntegerOrNull() );
         }
 
         /// <summary>
@@ -258,6 +261,9 @@ namespace RockWeb.Blocks.Groups
 
             var groupMemberFilterType = rblGroupMemberFilter.SelectedValueAsEnum<GroupMemberFilterType>();
             this.SetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType, groupMemberFilterType.ToString() );
+
+            this.SetBlockUserPreference( UserPreferenceKey.AlternateGroupId, gpResourceListAlternateGroup.SelectedValue );
+            this.SetBlockUserPreference( UserPreferenceKey.DataViewId, dvpResourceListDataView.SelectedValue );
 
             pnlResourceFilterGroup.Visible = resourceListSourceType == ResourceListSourceType.Group;
             pnlResourceFilterAlternateGroup.Visible = resourceListSourceType == ResourceListSourceType.AlternateGroup;
@@ -299,6 +305,7 @@ namespace RockWeb.Blocks.Groups
             var rockContext = new RockContext();
             var groupMemberService = new GroupMemberService( rockContext );
             IQueryable<GroupMember> groupMemberQry = null;
+            IQueryable<Person> personQry = null;
 
             var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<ResourceListSourceType>();
             switch ( resourceListSourceType )
@@ -321,40 +328,56 @@ namespace RockWeb.Blocks.Groups
                     }
                 case ResourceListSourceType.DataView:
                     {
-                        // TODO
-                        /*
-
                         var dataViewId = dvpResourceListDataView.SelectedValue.AsInteger();
                         var dataView = new DataViewService( rockContext ).Get( dataViewId );
-                        IQueryable<Person> personQry = null;
+
                         if ( dataView != null )
                         {
                             List<string> errorMessages;
                             personQry = dataView.GetQuery( null, null, out errorMessages ) as IQueryable<Person>;
                         }
 
-                        */
-
                         break;
                     }
             }
-
-            /*this.Trace.IsEnabled = true;
-            if ( !Debug.Listeners.OfType<System.Web.WebPageTraceListener>().Any() )
-            {
-                Debug.Listeners.Add( new System.Web.WebPageTraceListener() );
-            }
-
-            rockContext.SqlLogging( true );
-            */
-
+            
             if ( groupMemberQry != null )
             {
                 rptResources.DataSource = groupMemberQry.ToList();
                 rptResources.DataBind();
             }
+            else if ( personQry != null )
+            {
+                rptResources.DataSource = personQry.ToList();
+                rptResources.DataBind();
+            }
         }
 
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptResources control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
+        protected void rptResources_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var groupMember = e.Item.DataItem as GroupMember;
+            Person person = null;
+            if ( groupMember == null )
+            {
+                person = e.Item.DataItem as Person;
+            }
+            else
+            {
+                person = groupMember.Person;
+            }
+
+            var lPersonName = e.Item.FindControl( "lPersonName" ) as Literal;
+            lPersonName.Text = person.FullName;
+        }
+
+        /// <summary>
+        /// Binds the group locations.
+        /// </summary>
         private void BindGroupLocations()
         {
             var rockContext = new RockContext();
@@ -364,6 +387,18 @@ namespace RockWeb.Blocks.Groups
             var groupLocations = groupLocationService.GetByIds( selectedGroupLocationIds ).OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
             rptGroupLocations.DataSource = groupLocations;
             rptGroupLocations.DataBind();
+        }
+
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptGroupLocations control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
+        protected void rptGroupLocations_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var groupLocation = e.Item.DataItem as GroupLocation;
+            var lLocationTitle = e.Item.FindControl( "lLocationTitle" ) as Literal;
+            lLocationTitle.Text = groupLocation.Location.Name;
         }
 
         #endregion
@@ -478,20 +513,6 @@ namespace RockWeb.Blocks.Groups
             var rockTheme = RockTheme.GetThemes().Where( a => a.Name == "Rock" ).FirstOrDefault();
             rockTheme.Compile();
             NavigateToCurrentPageReference();
-        }
-
-        protected void rptResources_ItemDataBound( object sender, RepeaterItemEventArgs e )
-        {
-            var groupMember = e.Item.DataItem as GroupMember;
-            var lPersonName = e.Item.FindControl( "lPersonName" ) as Literal;
-            lPersonName.Text = groupMember.Person.FullName;
-        }
-
-        protected void rptGroupLocations_ItemDataBound( object sender, RepeaterItemEventArgs e )
-        {
-            var groupLocation = e.Item.DataItem as GroupLocation;
-            var lLocationTitle = e.Item.FindControl( "lLocationTitle" ) as Literal;
-            lLocationTitle.Text = groupLocation.Location.Name;
         }
     }
 }
