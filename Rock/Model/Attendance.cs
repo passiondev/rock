@@ -188,7 +188,7 @@ namespace Rock.Model
         public string Note { get; set; }
 
         /// <summary>
-        /// Gets or sets if the <see cref="PersonAlias"/> person is scheduled to attend.
+        /// Gets or sets if the <see cref="PersonAlias"/> person is scheduled (confirmed) to attend.
         /// </summary>
         /// <value>
         /// The scheduled to attend.
@@ -738,7 +738,36 @@ namespace Rock.Model
 
             var sb = new StringBuilder();
             sb.Append( ( PersonAlias?.Person != null ) ? PersonAlias.Person.ToStringSafe() + " " : string.Empty );
-            sb.Append( DidAttend.Value ? "attended " : "did not attend " );
+
+            string verb = "attended";
+            if ( this.DidAttend != true )
+            {
+                verb = "did not attend";
+
+                if ( this.ScheduledToAttend == true )
+                {
+                    verb = "is scheduled to attend";
+                }
+                else if ( this.RequestedToAttend == true )
+                {
+                    verb = "has been requested to attend";
+                }
+                else if (this.DeclineReasonValueId.HasValue )
+                {
+                    verb = "has declined to attend";
+                }
+                else
+                {
+                    verb = "did not attend";
+                }
+            }
+            else
+            {
+                verb = "attended";
+            }
+
+            sb.Append( $"{verb} " );
+
             sb.Append( Occurrence?.Group?.ToStringSafe() );
             if ( DidAttend.Value )
             {

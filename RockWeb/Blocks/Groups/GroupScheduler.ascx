@@ -87,11 +87,29 @@
                                                             <asp:Panel ID="pnlResourceListContainer" CssClass="js-scheduler-source-container resource-container dropzone" runat="server">
                                                                 <asp:Repeater ID="rptResources" runat="server" OnItemDataBound="rptResources_ItemDataBound">
                                                                     <ItemTemplate>
+                                                                        <%-- resource --%>
                                                                         <div class="js-resource resource" data-state="unassigned">
-                                                                            <div class="js-resource-name resource-name">
-                                                                                <asp:HiddenField ID="hfResourcePersonId" runat="server" />
-                                                                                <asp:HiddenField ID="hfResourceGroupMemberId" runat="server" />
-                                                                                <asp:Literal ID="lPersonName" runat="server" />
+                                                                            <div class="resource-row">
+                                                                                <div class="js-resource-status resource-status pull-left">
+                                                                                    <span class="pull-left resource-scheduled-status"></span>
+                                                                                </div>
+                                                                                <div class="js-resource-name resource-name pull-left">
+                                                                                    <Rock:HiddenFieldWithClass ID="hfResourcePersonId" CssClass="js-resource-personId" runat="server" />
+                                                                                    <asp:HiddenField ID="hfResourceGroupMemberId" runat="server" />
+                                                                                    <asp:Literal ID="lPersonName" runat="server" />
+                                                                                </div>
+
+                                                                                <div class="js-resource-lastscheduleddate resource-lastattendeddate pull-right">
+                                                                                    <asp:Literal ID="lResourceLastAttendedDate" runat="server" />
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="resource-row">
+                                                                                <div class="js-resource-warning resource-warning pull-left">
+                                                                                    <asp:Literal ID="lResourceWarning" runat="server" />
+                                                                                </div>
+                                                                                <div class="js-resource-note resource-note pull-left">
+                                                                                    <asp:Literal ID="lResourceNote" runat="server" />
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </ItemTemplate>
@@ -107,23 +125,42 @@
                                 </div>
 
                                 <div class="col-md-8">
-                                    <%-- Dragula containers for locations that resources can be dragged into --%>
-                                    <asp:Repeater ID="rptGroupLocations" runat="server" OnItemDataBound="rptGroupLocations_ItemDataBound">
-                                        <ItemTemplate>
-                                            <div class="location js-location">
-                                                <div class="panel panel-block">
-                                                    <div class="panel-heading">
-                                                        <h1 class="panel-title">
-                                                            <asp:Literal ID="lLocationTitle" runat="server" />
-                                                        </h1>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="js-scheduler-target-container dropzone"></div>
-                                                    </div>
+                                    
+                                    <%-- template that groupScheduler.js uses to populate assigned resources --%>
+                                    <div class="js-assigned-resource-template" style="display:none">
+                                        <div class="js-resource resource" data-state="assigned">
+                                            <div class="resource-row">
+                                                <div class="resource-status pull-left">
+                                                    <span class="js-resource-status pull-left resource-scheduled-status" data-status="pending"></span>
+                                                </div>
+                                                <div class="js-resource-name resource-name pull-left">
+                                                    <span class="js-resource-name" ></span>
                                                 </div>
                                             </div>
-                                        </ItemTemplate>
-                                    </asp:Repeater>
+                                        </div>
+                                    </div>
+
+                                    <%-- Dragula containers for AttendanceOccurrence locations that resources can be dragged into --%>
+                                    <div class="locations js-locations">
+                                        <asp:Repeater ID="rptAttendanceOccurrences" runat="server" OnItemDataBound="rptAttendanceOccurrences_ItemDataBound">
+                                            <ItemTemplate>
+
+                                                <div class="location js-location">
+                                                    <Rock:HiddenFieldWithClass ID="hfAttendanceOccurrenceId" runat="server" CssClass="js-attendanceoccurrence-id" />
+                                                    <div class="panel panel-block">
+                                                        <div class="panel-heading">
+                                                            <h1 class="panel-title">
+                                                                <asp:Literal ID="lLocationTitle" runat="server" />
+                                                            </h1>
+                                                        </div>
+                                                        <div class="panel-body">
+                                                            <div class="js-scheduler-target-container dropzone"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </ItemTemplate>
+                                        </asp:Repeater>
+                                    </div>
                                 </div>
                             </div>
                         </asp:Panel>

@@ -87,6 +87,35 @@
 .resource[data-state="unassigned"] {
 }
 
+.resource-scheduled-status {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 7.5px;
+  border: 1px solid #d8d8d8;
+  background-color: white;
+}
+
+.resource-scheduled-status[data-status="confirmed"] {
+  background-color: green;
+}
+
+.resource-scheduled-status[data-status="declined"] {
+  background-color: red;
+}
+
+.resource-name {
+  margin-right: 20px;
+}
+
+.resource-lastattendeddate {
+  font-size: 80%;
+}
+
+.resource-note {
+  font-size: 80%;
+}
+
 /* Resource List */
 .group-scheduler-resourcelist {
   width: 350px;
