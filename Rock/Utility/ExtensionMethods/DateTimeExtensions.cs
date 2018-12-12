@@ -172,13 +172,30 @@ namespace Rock
         }
 
         /// <summary>
-        /// Returns the dateTime in ISO-8601 ( https://en.wikipedia.org/wiki/ISO_8601 )  format. Use this when serializing a date/time as an AttributeValue, UserPreference, etc
+        /// Returns the dateTime in ISO-8601 ( https://en.wikipedia.org/wiki/ISO_8601 ) format. Use this when serializing a date/time as an AttributeValue, UserPreference, etc
         /// </summary>
         /// <param name="dateTime">The date time.</param>
         /// <returns></returns>
         public static string ToISO8601DateString( this DateTime? dateTime )
         {
-            return dateTime?.ToString( "o" ) ?? string.Empty;
+            if ( dateTime.HasValue )
+            {
+                return dateTime.Value.ToISO8601DateString();
+            }
+            else
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the dateTime in ISO-8601 ( https://en.wikipedia.org/wiki/ISO_8601 ) format. Use this when serializing a date/time as an AttributeValue, UserPreference, etc
+        /// </summary>
+        /// <param name="dateTime">The date time.</param>
+        /// <returns></returns>
+        public static string ToISO8601DateString( this DateTime dateTime )
+        {
+            return dateTime.ToString( "o" ) ?? string.Empty;
         }
 
         /// <summary>
