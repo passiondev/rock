@@ -32,6 +32,7 @@
                         </asp:Panel>
 
                         <Rock:RockControlWrapper ID="rcwResourceListSource" runat="server" Label="Resource List Source">
+
                             <Rock:ButtonGroup ID="bgResourceListSource" runat="server" CssClass="margin-b-md" SelectedItemClass="btn btn-xs btn-primary" UnselectedItemClass="btn btn-xs btn-default" AutoPostBack="true" OnSelectedIndexChanged="bgResourceListSource_SelectedIndexChanged" />
 
                             <asp:Panel ID="pnlResourceFilterGroup" runat="server">
@@ -55,6 +56,40 @@
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="group-scheduler-resourcelist">
+
+                                        <Rock:HiddenFieldWithClass ID="hfOccurrenceGroupId" CssClass="js-occurrence-group-id" runat="server" />
+                                        <Rock:HiddenFieldWithClass ID="hfOccurrenceOccurrenceDate" CssClass="js-occurrence-occurrence-date" runat="server" />
+                                        <Rock:HiddenFieldWithClass ID="hfOccurrenceScheduleId" CssClass="js-occurrence-schedule-id" runat="server" />
+                                        <Rock:HiddenFieldWithClass ID="hfResourceGroupId" CssClass="js-resource-group-id" runat="server" />
+                                        <Rock:HiddenFieldWithClass ID="hfResourceDataViewId" CssClass="js-resource-dataview-id" runat="server" />
+                                        <Rock:HiddenFieldWithClass ID="hfResourceAdditionalPersonIds" CssClass="js-resource-additional-person-ids" runat="server" />
+
+                                        <div class="js-unassigned-resource-template" style="display: none">
+                                            <%-- template that groupScheduler.js uses to populate unassigned resources --%>
+
+                                            <div class="meta js-resource resource" data-state="unassigned" data-has-conflict="false">
+                                                <input type="hidden" class="js-resource-personid" />
+                                                <div class="meta-figure">
+                                                </div>
+                                                <div class="meta-body">
+                                                    <div class="flex">
+                                                        <div class="resource-name pull-left">
+                                                            <span class="js-resource-name"></span>
+                                                        </div>
+                                                        <div class="resource-note pull-left">
+                                                            <span class="js-resource-warning "></span>
+                                                        </div>
+                                                        <div class="resource-warning pull-left">
+                                                            <span class="js-resource-warning "></span>
+                                                        </div>
+                                                        <div class="resource-lastattendeddate pull-right">
+                                                            <span class="js-resource-lastscheduleddate"></span>
+                                                         </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div class="panel panel-block">
 
                                             <div class="panel-heading">
@@ -83,37 +118,8 @@
                                                     </div>
                                                     <asp:Panel ID="pnlListViewPort" runat="server" CssClass="js-resource-scroller viewport">
                                                         <div class="overview">
-                                                            <%-- Dragula container for list of resources --%>
+                                                            <%-- container for list of resources --%>
                                                             <asp:Panel ID="pnlResourceListContainer" CssClass="js-scheduler-source-container resource-container dropzone" runat="server">
-                                                                <asp:Repeater ID="rptResources" runat="server" OnItemDataBound="rptResources_ItemDataBound">
-                                                                    <ItemTemplate>
-                                                                        <%-- resource --%>
-                                                                        <div class="js-resource resource" data-state="unassigned">
-                                                                            <div class="resource-row">
-                                                                                <div class="js-resource-status resource-status pull-left">
-                                                                                    <span class="pull-left resource-scheduled-status"></span>
-                                                                                </div>
-                                                                                <div class="js-resource-name resource-name pull-left">
-                                                                                    <Rock:HiddenFieldWithClass ID="hfResourcePersonId" CssClass="js-resource-personId" runat="server" />
-                                                                                    <asp:HiddenField ID="hfResourceGroupMemberId" runat="server" />
-                                                                                    <asp:Literal ID="lPersonName" runat="server" />
-                                                                                </div>
-
-                                                                                <div class="js-resource-lastscheduleddate resource-lastattendeddate pull-right">
-                                                                                    <asp:Literal ID="lResourceLastAttendedDate" runat="server" />
-                                                                                </div>
-                                                                            </div>
-                                                                            <div class="resource-row">
-                                                                                <div class="js-resource-warning resource-warning pull-left">
-                                                                                    <asp:Literal ID="lResourceWarning" runat="server" />
-                                                                                </div>
-                                                                                <div class="js-resource-note resource-note pull-left">
-                                                                                    <asp:Literal ID="lResourceNote" runat="server" />
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </ItemTemplate>
-                                                                </asp:Repeater>
                                                             </asp:Panel>
                                                         </div>
                                                     </asp:Panel>
@@ -124,28 +130,49 @@
                                     </div>
                                 </div>
 
+
+
                                 <div class="col-md-8">
-                                    
-                                    <%-- template that groupScheduler.js uses to populate assigned resources --%>
-                                    <div class="js-assigned-resource-template" style="display:none">
-                                        <div class="js-resource resource" data-state="assigned">
-                                            <div class="resource-row">
-                                                <div class="resource-status pull-left">
-                                                    <span class="js-resource-status pull-left resource-scheduled-status" data-status="pending"></span>
-                                                </div>
-                                                <div class="js-resource-name resource-name pull-left">
-                                                    <span class="js-resource-name" ></span>
+
+                                    <div class="js-assigned-resource-template" style="display: none">
+                                        <%-- template that groupScheduler.js uses to populate assigned resources --%>
+
+                                        <div class="meta js-resource resource" data-state="assigned" data-has-conflict="false">
+                                            <input type="hidden" class="js-resource-attendanceid" />
+                                            <input type="hidden" class="js-resource-personid" />
+                                            <div class="meta-figure">
+                                            </div>
+                                            <div class="meta-body">
+                                                <div class="flex">
+
+                                                    <div class="resource-status pull-left">
+                                                        <span class="js-resource-status pull-left resource-scheduled-status" data-status="pending"></span>
+                                                    </div>
+                                                    <div class="resource-name pull-left">
+                                                        <span class="js-resource-name"></span>
+                                                    </div>
+
+                                                    <div class="dropdown">
+                                                        <button class="btn btn-link btn-overflow" type="button" data-toggle="dropdown"><i class="fas fa-ellipsis-h"></i></button>
+                                                        <ul class="dropdown-menu">
+                                                            <li>
+                                                                <button type="button" class="dropdown-item btn-link js-markconfirmed">Mark Confirmed</button></li>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item btn-link js-resendconfirmation">Resend Confirmation</button></li>
+                                                        </ul>
+                                                    </div>
+
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <%-- Dragula containers for AttendanceOccurrence locations that resources can be dragged into --%>
-                                    <div class="locations js-locations">
+                                    <%-- containers for AttendanceOccurrence locations that resources can be dragged into --%>
+                                    <div class="locations js-scheduled-occurrences">
                                         <asp:Repeater ID="rptAttendanceOccurrences" runat="server" OnItemDataBound="rptAttendanceOccurrences_ItemDataBound">
                                             <ItemTemplate>
 
-                                                <div class="location js-location">
+                                                <div class="location js-scheduled-occurrence">
                                                     <Rock:HiddenFieldWithClass ID="hfAttendanceOccurrenceId" runat="server" CssClass="js-attendanceoccurrence-id" />
                                                     <div class="panel panel-block">
                                                         <div class="panel-heading">

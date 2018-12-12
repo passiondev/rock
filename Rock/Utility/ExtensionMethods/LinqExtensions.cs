@@ -698,6 +698,25 @@ namespace Rock
         }
 
         /// <summary>
+        /// Gets the value or null.
+        /// </summary>
+        /// <typeparam name="TKey">The type of the key.</typeparam>
+        /// <param name="dictionary">The dictionary.</param>
+        /// <param name="key">The key.</param>
+        /// <returns></returns>
+        public static bool? GetValueOrNull<TKey>( this IDictionary<TKey, bool> dictionary, TKey key )
+        {
+            if ( dictionary.ContainsKey( key ) )
+            {
+                return dictionary[key];
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Gets ConfigurationValue's Value for the specified key, or null if the dictionary doesn't contain the key or the ConfigurationValue is null
         /// </summary>
         /// <typeparam name="TKey">The type of the key.</typeparam>

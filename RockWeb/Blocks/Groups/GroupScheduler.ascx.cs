@@ -301,13 +301,17 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindResourceList()
         {
-            var rockContext = new RockContext();
+            /*var rockContext = new RockContext();
             var groupMemberService = new GroupMemberService( rockContext );
             var groupService = new GroupService( rockContext );
             var attendanceService = new AttendanceService( rockContext );
             IQueryable<GroupMember> groupMemberQry = null;
             IQueryable<Person> personQry = null;
+            */
+            int groupId = hfGroupId.Value.AsInteger();
             int? resourceGroupId = null;
+            int? resourceDataViewId = null;
+            int scheduleId = rblSchedule.SelectedValue.AsInteger();
 
             var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<ResourceListSourceType>();
             switch ( resourceListSourceType )
@@ -315,38 +319,32 @@ namespace RockWeb.Blocks.Groups
                 case ResourceListSourceType.Group:
                     {
                         resourceGroupId = hfGroupId.Value.AsInteger();
-                        groupMemberQry = groupMemberService.Queryable().Where( a => a.GroupId == resourceGroupId );
-
                         // todo matching vs all
-
                         break;
                     }
                 case ResourceListSourceType.AlternateGroup:
                     {
                         resourceGroupId = gpResourceListAlternateGroup.SelectedValue.AsInteger();
-                        groupMemberQry = groupMemberService.Queryable().Where( a => a.GroupId == resourceGroupId );
-
                         break;
                     }
                 case ResourceListSourceType.DataView:
                     {
-                        var dataViewId = dvpResourceListDataView.SelectedValue.AsInteger();
-                        var dataView = new DataViewService( rockContext ).Get( dataViewId );
-
-                        if ( dataView != null )
-                        {
-                            List<string> errorMessages;
-                            personQry = dataView.GetQuery( null, null, out errorMessages ) as IQueryable<Person>;
-                        }
-
+                        resourceDataViewId = dvpResourceListDataView.SelectedValue.AsInteger();
                         break;
                     }
             }
 
-            _groupMemberIdsThatLackGroupRequirements = null;
+            hfOccurrenceGroupId.Value = hfGroupId.Value;
+            hfOccurrenceScheduleId.Value = rblSchedule.SelectedValue;
+            hfOccurrenceOccurrenceDate.Value = dpDate.SelectedDate.Value.ToISO8601DateString();
 
+            hfResourceGroupId.Value = resourceGroupId.ToString();
+            hfResourceDataViewId.Value = resourceDataViewId.ToString();
+            hfResourceAdditionalPersonIds.Value = string.Empty;
 
+            /*_groupMemberIdsThatLackGroupRequirements = null;
 
+            
             if ( resourceGroupId.HasValue )
             {
                 var resourceGroup = groupService.GetNoTracking( resourceGroupId.Value );
@@ -356,7 +354,12 @@ namespace RockWeb.Blocks.Groups
                 }
             }
 
-            var lastAttendedDateTimeQuery = attendanceService.Queryable().Where( a => a.DidAttend == true && a.PersonAliasId.HasValue );
+            var lastAttendedDateTimeQuery = attendanceService.Queryable()
+                .Where( a => a.DidAttend == true
+                    && a.Occurrence.GroupId == groupId
+                    && a.Occurrence.ScheduleId == scheduleId
+                    && a.PersonAliasId.HasValue );
+
             if ( groupMemberQry != null )
             {
                 lastAttendedDateTimeQuery.Where( a => groupMemberQry.Any( m => m.PersonId == a.PersonAlias.PersonId ) );
@@ -374,21 +377,13 @@ namespace RockWeb.Blocks.Groups
                     LastScheduledDate = a.Max( x => x.StartDateTime )
                 } )
                 .ToDictionary( k => k.PersonId, v => v.LastScheduledDate );
+            */
 
-            if ( groupMemberQry != null )
-            {
-                rptResources.DataSource = groupMemberQry.ToList();
-                rptResources.DataBind();
-            }
-            else if ( personQry != null )
-            {
-                rptResources.DataSource = personQry.ToList();
-                rptResources.DataBind();
-            }
+
         }
 
-        private HashSet<int> _groupMemberIdsThatLackGroupRequirements = null;
-        private Dictionary<int, DateTime> _personIdLastAttendedDateTime = null;
+        //private HashSet<int> _groupMemberIdsThatLackGroupRequirements = null;
+        //private Dictionary<int, DateTime> _personIdLastAttendedDateTime = null;
 
         /// <summary>
         /// Handles the ItemDataBound event of the rptResources control.
@@ -397,7 +392,7 @@ namespace RockWeb.Blocks.Groups
         /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
         protected void rptResources_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
-            var groupMember = e.Item.DataItem as GroupMember;
+            /*var groupMember = e.Item.DataItem as GroupMember;
             Person person = null;
             if ( groupMember == null )
             {
@@ -450,7 +445,7 @@ namespace RockWeb.Blocks.Groups
                         lResourceWarning.Text = "Requirements not met";
                     }
                 }
-            }
+            }*/
         }
 
         /// <summary>
@@ -491,12 +486,20 @@ namespace RockWeb.Blocks.Groups
                 rockContext.SaveChanges();
             }
 
-            var attendanceOccurrencesOrderedQuery = from ao in attendanceOccurrencesQuery
-                                                    join gl in groupLocationQuery.OrderBy( x => x.Order ).ThenBy( x => x.Location.Name )
-                                                    on new { LocationId = ao.LocationId.Value, GroupId = ao.GroupId.Value } equals new { gl.LocationId, gl.GroupId }
-                                                    select ao;
+            // join with the GroupLocation table so that we can sort the list by GroupLocation.Order and Location.Name
+            var attendanceOccurrencesJoinQuery = from ao in attendanceOccurrencesQuery
+                                                 join gl in groupLocationQuery
+                                                 on new { LocationId = ao.LocationId.Value, GroupId = ao.GroupId.Value } equals new { gl.LocationId, gl.GroupId }
+                                                 select new
+                                                 {
+                                                     AttendanceOccurrence = ao,
+                                                     GroupLocationOrder = gl.Order,
+                                                     GroupLocationLocationName = gl.Location.Name
+                                                 };
 
-            var attendanceOccurrencesOrderedList = attendanceOccurrencesOrderedQuery.ToList();
+            var attendanceOccurrencesOrderedList = attendanceOccurrencesJoinQuery.ToList()
+                .OrderBy( a => a.GroupLocationOrder ).ThenBy( a => a.GroupLocationLocationName )
+                .Select( a => a.AttendanceOccurrence ).ToList();
 
             rptAttendanceOccurrences.DataSource = attendanceOccurrencesOrderedList;
             rptAttendanceOccurrences.DataBind();
