@@ -781,8 +781,12 @@
     <Content Include="Migrations\201811271852316_Rollup_1127_spFinance_PledgeAnalyticsQuery_Up.sql">
       <DependentUpon>201811271852316_Rollup_1127.cs</DependentUpon>
     </Content>
-    <Content Include="Migrations\201812111901295_Rollup_1211_FixChartShortcode.sql" />
-    <Content Include="Migrations\201812131648039_GroupScheduling_PopulateScheduleTemplates.sql" />
+    <Content Include="Migrations\201812111901295_Rollup_1211_FixChartShortcode.sql">
+      <DependentUpon>201812111901295_Rollup_1211.cs</DependentUpon>
+    </Content>
+    <Content Include="Migrations\201812131648039_GroupScheduling_PopulateScheduleTemplates.sql">
+      <DependentUpon>201812131648039_GroupScheduling.cs</DependentUpon>
+    </Content>
     <Content Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.sql">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>
     </Content>
