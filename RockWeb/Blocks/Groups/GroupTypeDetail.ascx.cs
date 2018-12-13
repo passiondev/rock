@@ -528,7 +528,7 @@ namespace RockWeb.Blocks.Groups
             groupType.ScheduledSystemEmailId = ddlScheduledSystemEmail.SelectedValue.AsIntegerOrNull();
             groupType.RequiresReasonIfDeclineSchedule = cbRequiresReasonIfDeclineSchedule.Checked;
             groupType.ScheduleConfirmationEmailOffsetDays = nbScheduleConfirmationEmailOffsetDays.Text.AsIntegerOrNull();
-            groupType.ScheduleCancellationWorkflowTypeId = wtpScheduleCancellationWorkflowType.SelectedValue.AsIntegerOrNull();
+            groupType.ScheduleCancellationWorkflowTypeId = wtpScheduleCancellationWorkflowType.SelectedValueAsId();
             groupType.ScheduleReminderSystemEmailId = ddlScheduleReminderSystemEmail.SelectedValue.AsIntegerOrNull();
             groupType.ScheduleReminderEmailOffsetDays = nbScheduleReminderEmailOffsetDays.Text.AsIntegerOrNull();
 

@@ -677,7 +677,7 @@ namespace RockWeb.Blocks.Groups
 
             ddlGroupRole.SetValue( groupMember.GroupRoleId );
             ddlGroupRole.Enabled = ddlGroupRole.Enabled == true ? !readOnly : false;
-            
+
             ShowRequiredDocumentStatus( rockContext, groupMember, group );
 
             ppGroupMemberPerson.SetValue( groupMember.Person );
@@ -982,36 +982,33 @@ namespace RockWeb.Blocks.Groups
         {
             int groupId = hfGroupId.ValueAsInt();
             RockContext rockContext = new RockContext();
-            Group group = new GroupService( rockContext ).Get( groupId );
+            int groupTypeId = new GroupService( rockContext ).GetSelect( groupId, a => a.GroupTypeId );
 
-            if ( group != null )
+            IQueryable<GroupTypeRole> groupTypeRoles = new GroupTypeRoleService( rockContext )
+                .Queryable()
+                .AsNoTracking()
+                .Where( r => r.GroupTypeId == groupTypeId );
+
+            if ( syncdRoles.Any() )
             {
-                IQueryable<GroupTypeRole> groupTypeRoles = new GroupTypeRoleService( rockContext )
-                    .Queryable()
-                    .AsNoTracking()
-                    .Where( r => r.GroupTypeId == group.GroupTypeId );
-
-                if ( syncdRoles.Any() )
+                // At least one role is sync'd so we need to handle them.
+                if ( syncdRoles.Contains( groupMemberRole ) && hfGroupMemberId.ValueAsInt() != 0 )
                 {
-                    // At least one role is sync'd so we need to handle them.
-                    if (syncdRoles.Contains( groupMemberRole ) && hfGroupMemberId.ValueAsInt() != 0 )
-                    {
-                        // This role is being sync'd so keep the full list of roles, disable the ddl, and show a tool tip explaining why it's disabled.
-                        ddlGroupRole.ToolTip = "Role selection disabled because this member was added to this role automatically by Group Sync.";
-                        ddlGroupRole.Enabled = false;
-                    }
-                    else
-                    {
-                        // This role is not being sync'd but the group has sync'd roles. So remove the sync'd roles and display a tool tip explaining their absense.
-                        groupTypeRoles = groupTypeRoles.Where( r => !syncdRoles.Contains( r.Id ) );
-
-                        ddlGroupRole.ToolTip = "Roles used for Group Sync cannot be used for manual additions and so are not being displayed.";
-                    }
+                    // This role is being sync'd so keep the full list of roles, disable the ddl, and show a tool tip explaining why it's disabled.
+                    ddlGroupRole.ToolTip = "Role selection disabled because this member was added to this role automatically by Group Sync.";
+                    ddlGroupRole.Enabled = false;
                 }
+                else
+                {
+                    // This role is not being sync'd but the group has sync'd roles. So remove the sync'd roles and display a tool tip explaining their absense.
+                    groupTypeRoles = groupTypeRoles.Where( r => !syncdRoles.Contains( r.Id ) );
 
-                ddlGroupRole.DataSource = groupTypeRoles.OrderBy( a => a.Order ).ToList();
-                ddlGroupRole.DataBind();
+                    ddlGroupRole.ToolTip = "Roles used for Group Sync cannot be used for manual additions and so are not being displayed.";
+                }
             }
+
+            ddlGroupRole.DataSource = groupTypeRoles.OrderBy( a => a.Order ).ToList();
+            ddlGroupRole.DataBind();
 
             rblStatus.BindToEnum<GroupMemberStatus>();
 

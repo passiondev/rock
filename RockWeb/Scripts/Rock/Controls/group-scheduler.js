@@ -13,6 +13,11 @@
                 }
 
                 var $control = $('#' + options.id);
+
+                if ($control.length == 0) {
+                    return;
+                }
+
                 var scheduledPersonAssignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonAssign';
                 var scheduledPersonUnassignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonUnassign';
 

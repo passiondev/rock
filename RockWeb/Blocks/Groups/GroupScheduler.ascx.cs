@@ -148,6 +148,7 @@ namespace RockWeb.Blocks.Groups
 
             nbGroupWarning.Visible = false;
             pnlGroupScheduleLocations.Visible = false;
+            pnlScheduler.Visible = false;
 
             if ( group != null )
             {
@@ -161,6 +162,7 @@ namespace RockWeb.Blocks.Groups
                 else
                 {
                     pnlGroupScheduleLocations.Visible = true;
+                    pnlScheduler.Visible = true;
                     rblSchedule.Items.Clear();
                     foreach ( var schedule in groupSchedules )
                     {
@@ -288,6 +290,7 @@ namespace RockWeb.Blocks.Groups
             int? resourceGroupId = null;
             int? resourceDataViewId = null;
             int scheduleId = rblSchedule.SelectedValue.AsInteger();
+            hfResourceAdditionalPersonIds.Value = string.Empty;
 
             var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<SchedulerResourceListSourceType>();
             switch ( resourceListSourceType )
@@ -312,7 +315,7 @@ namespace RockWeb.Blocks.Groups
 
             hfOccurrenceGroupId.Value = hfGroupId.Value;
             hfOccurrenceScheduleId.Value = rblSchedule.SelectedValue;
-            hfOccurrenceOccurrenceDate.Value = dpDate.SelectedDate.Value.ToISO8601DateString();
+            hfOccurrenceOccurrenceDate.Value = dpDate.SelectedDate.ToISO8601DateString();
 
             hfResourceGroupId.Value = resourceGroupId.ToString();
             hfResourceGroupMemberFilterType.Value = rblGroupMemberFilter.SelectedValueAsEnum<SchedulerResourceGroupMemberFilterType>().ConvertToInt().ToString();
@@ -327,13 +330,21 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindAttendanceOccurrences()
         {
+            if ( dpDate.SelectedDate == null || rblSchedule.SelectedValue.AsIntegerOrNull() == null )
+            {
+                return;
+            }
+
+            var occurrenceDate = dpDate.SelectedDate.Value;
+            var scheduleId = rblSchedule.SelectedValue.AsInteger();
+
+
             var rockContext = new RockContext();
             var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
             var groupLocationQuery = new GroupLocationService( rockContext ).GetByIds( selectedGroupLocationIds );
-            var occurrenceDate = dpDate.SelectedDate.Value.Date;
-            var scheduleId = rblSchedule.SelectedValue.AsInteger();
+            
 
             var attendanceOccurrencesQuery = attendanceOccurrenceService.Queryable()
                 .Where( a => a.GroupId.HasValue
