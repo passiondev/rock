@@ -87,24 +87,7 @@ namespace RockWeb.Blocks.Groups
 
         #region enums
 
-        /// <summary>
-        /// 
-        /// </summary>
-        private enum ResourceListSourceType
-        {
-            Group,
-            AlternateGroup,
-            DataView
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        private enum GroupMemberFilterType
-        {
-            ShowMatchingPreference,
-            ShowAllGroupMembers
-        }
+        
 
         #endregion
 
@@ -152,8 +135,8 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void LoadDropDowns()
         {
-            bgResourceListSource.BindToEnum<ResourceListSourceType>();
-            rblGroupMemberFilter.BindToEnum<GroupMemberFilterType>();
+            bgResourceListSource.BindToEnum<SchedulerResourceListSourceType>();
+            rblGroupMemberFilter.BindToEnum<SchedulerResourceGroupMemberFilterType>();
         }
 
         /// <summary>
@@ -235,10 +218,10 @@ namespace RockWeb.Blocks.Groups
             UpdateGroupLocationList();
             cblGroupLocations.SetValues( this.GetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds ).SplitDelimitedValues().AsIntegerList() );
 
-            var resouceListSourceType = this.GetBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType ).ConvertToEnumOrNull<ResourceListSourceType>() ?? ResourceListSourceType.Group;
+            var resouceListSourceType = this.GetBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType ).ConvertToEnumOrNull<SchedulerResourceListSourceType>() ?? SchedulerResourceListSourceType.Group;
             bgResourceListSource.SetValue( resouceListSourceType.ConvertToInt() );
 
-            var groupMemberFilterType = this.GetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType ).ConvertToEnumOrNull<GroupMemberFilterType>() ?? GroupMemberFilterType.ShowMatchingPreference;
+            var groupMemberFilterType = this.GetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType ).ConvertToEnumOrNull<SchedulerResourceGroupMemberFilterType>() ?? SchedulerResourceGroupMemberFilterType.ShowMatchingPreference;
             rblGroupMemberFilter.SetValue( groupMemberFilterType.ConvertToInt() );
 
             gpResourceListAlternateGroup.SetValue( this.GetBlockUserPreference( UserPreferenceKey.AlternateGroupId ).AsIntegerOrNull() );
@@ -255,20 +238,20 @@ namespace RockWeb.Blocks.Groups
             this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds, cblGroupLocations.SelectedValues.AsDelimited( "," ) );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedScheduleId, rblSchedule.SelectedValue );
 
-            var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<ResourceListSourceType>();
+            var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<SchedulerResourceListSourceType>();
             this.SetBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType, resourceListSourceType.ToString() );
 
-            var groupMemberFilterType = rblGroupMemberFilter.SelectedValueAsEnum<GroupMemberFilterType>();
+            var groupMemberFilterType = rblGroupMemberFilter.SelectedValueAsEnum<SchedulerResourceGroupMemberFilterType>();
             this.SetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType, groupMemberFilterType.ToString() );
 
             this.SetBlockUserPreference( UserPreferenceKey.AlternateGroupId, gpResourceListAlternateGroup.SelectedValue );
             this.SetBlockUserPreference( UserPreferenceKey.DataViewId, dvpResourceListDataView.SelectedValue );
 
-            pnlResourceFilterGroup.Visible = resourceListSourceType == ResourceListSourceType.Group;
-            pnlResourceFilterAlternateGroup.Visible = resourceListSourceType == ResourceListSourceType.AlternateGroup;
-            pnlResourceFilterDataView.Visible = resourceListSourceType == ResourceListSourceType.DataView;
+            pnlResourceFilterGroup.Visible = resourceListSourceType == SchedulerResourceListSourceType.Group;
+            pnlResourceFilterAlternateGroup.Visible = resourceListSourceType == SchedulerResourceListSourceType.AlternateGroup;
+            pnlResourceFilterDataView.Visible = resourceListSourceType == SchedulerResourceListSourceType.DataView;
 
-            BindResourceList();
+            InitResourceList();
             BindAttendanceOccurrences();
         }
 
@@ -297,37 +280,30 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// Binds the resource list.
+        /// Set the Resource List hidden fields which groupScheduler.js uses to populate the Resource List
         /// </summary>
-        private void BindResourceList()
+        private void InitResourceList()
         {
-            /*var rockContext = new RockContext();
-            var groupMemberService = new GroupMemberService( rockContext );
-            var groupService = new GroupService( rockContext );
-            var attendanceService = new AttendanceService( rockContext );
-            IQueryable<GroupMember> groupMemberQry = null;
-            IQueryable<Person> personQry = null;
-            */
             int groupId = hfGroupId.Value.AsInteger();
             int? resourceGroupId = null;
             int? resourceDataViewId = null;
             int scheduleId = rblSchedule.SelectedValue.AsInteger();
 
-            var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<ResourceListSourceType>();
+            var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<SchedulerResourceListSourceType>();
             switch ( resourceListSourceType )
             {
-                case ResourceListSourceType.Group:
+                case SchedulerResourceListSourceType.Group:
                     {
                         resourceGroupId = hfGroupId.Value.AsInteger();
                         // todo matching vs all
                         break;
                     }
-                case ResourceListSourceType.AlternateGroup:
+                case SchedulerResourceListSourceType.AlternateGroup:
                     {
                         resourceGroupId = gpResourceListAlternateGroup.SelectedValue.AsInteger();
                         break;
                     }
-                case ResourceListSourceType.DataView:
+                case SchedulerResourceListSourceType.DataView:
                     {
                         resourceDataViewId = dvpResourceListDataView.SelectedValue.AsInteger();
                         break;
@@ -339,117 +315,15 @@ namespace RockWeb.Blocks.Groups
             hfOccurrenceOccurrenceDate.Value = dpDate.SelectedDate.Value.ToISO8601DateString();
 
             hfResourceGroupId.Value = resourceGroupId.ToString();
+            hfResourceGroupMemberFilterType.Value = rblGroupMemberFilter.SelectedValueAsEnum<SchedulerResourceGroupMemberFilterType>().ConvertToInt().ToString();
             hfResourceDataViewId.Value = resourceDataViewId.ToString();
             hfResourceAdditionalPersonIds.Value = string.Empty;
-
-            /*_groupMemberIdsThatLackGroupRequirements = null;
-
-            
-            if ( resourceGroupId.HasValue )
-            {
-                var resourceGroup = groupService.GetNoTracking( resourceGroupId.Value );
-                if ( resourceGroup.SchedulingMustMeetRequirements )
-                {
-                    _groupMemberIdsThatLackGroupRequirements = new HashSet<int>( new GroupService( rockContext ).GroupMembersNotMeetingRequirements( resourceGroup, false ).Select( a => a.Key.Id ).ToList().Distinct() );
-                }
-            }
-
-            var lastAttendedDateTimeQuery = attendanceService.Queryable()
-                .Where( a => a.DidAttend == true
-                    && a.Occurrence.GroupId == groupId
-                    && a.Occurrence.ScheduleId == scheduleId
-                    && a.PersonAliasId.HasValue );
-
-            if ( groupMemberQry != null )
-            {
-                lastAttendedDateTimeQuery.Where( a => groupMemberQry.Any( m => m.PersonId == a.PersonAlias.PersonId ) );
-            }
-            else if ( personQry != null )
-            {
-                lastAttendedDateTimeQuery.Where( a => personQry.Any( p => p.Id == a.PersonAlias.PersonId ) );
-            }
-
-            _personIdLastAttendedDateTime = lastAttendedDateTimeQuery
-                .GroupBy( a => a.PersonAlias.PersonId )
-                .Select( a => new
-                {
-                    PersonId = a.Key,
-                    LastScheduledDate = a.Max( x => x.StartDateTime )
-                } )
-                .ToDictionary( k => k.PersonId, v => v.LastScheduledDate );
-            */
-
-
         }
 
-        //private HashSet<int> _groupMemberIdsThatLackGroupRequirements = null;
-        //private Dictionary<int, DateTime> _personIdLastAttendedDateTime = null;
 
         /// <summary>
-        /// Handles the ItemDataBound event of the rptResources control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
-        protected void rptResources_ItemDataBound( object sender, RepeaterItemEventArgs e )
-        {
-            /*var groupMember = e.Item.DataItem as GroupMember;
-            Person person = null;
-            if ( groupMember == null )
-            {
-                person = e.Item.DataItem as Person;
-            }
-            else
-            {
-                person = groupMember.Person;
-            }
-
-            var lPersonName = e.Item.FindControl( "lPersonName" ) as Literal;
-            var hfResourcePersonId = e.Item.FindControl( "hfResourcePersonId" ) as HiddenField;
-            var hfResourceGroupMemberId = e.Item.FindControl( "hfResourceGroupMemberId" ) as HiddenField;
-            var lResourceLastAttendedDate = e.Item.FindControl( "lResourceLastAttendedDate" ) as Literal;
-            var lResourceNote = e.Item.FindControl( "lResourceNote" ) as Literal;
-            var lResourceWarning = e.Item.FindControl( "lResourceWarning" ) as Literal;
-
-            lPersonName.Text = person.FullName;
-            hfResourcePersonId.Value = person.Id.ToString();
-
-            lResourceNote.Text = string.Empty;
-            lResourceWarning.Text = string.Empty;
-
-            var resourceLastAttendedDateTime = _personIdLastAttendedDateTime.GetValueOrNull( person.Id );
-            if ( resourceLastAttendedDateTime.HasValue )
-            {
-                if ( resourceLastAttendedDateTime.Value.Year == RockDateTime.Now.Year )
-                {
-                    lResourceLastAttendedDate.Text = resourceLastAttendedDateTime.Value.ToString( "MMM d" );
-                }
-                else
-                {
-                    lResourceLastAttendedDate.Text = resourceLastAttendedDateTime.Value.ToString( "MMM d, yyyy" );
-                }
-            }
-            else
-            {
-                lResourceLastAttendedDate.Text = string.Empty;
-            }
-
-            if ( groupMember != null )
-            {
-                hfResourceGroupMemberId.Value = groupMember.Id.ToString();
-                lResourceNote.Text = groupMember.Note;
-
-                if ( _groupMemberIdsThatLackGroupRequirements != null )
-                {
-                    if ( _groupMemberIdsThatLackGroupRequirements.Contains( groupMember.Id ) )
-                    {
-                        lResourceWarning.Text = "Requirements not met";
-                    }
-                }
-            }*/
-        }
-
-        /// <summary>
-        /// Binds the Attendance Occurrences ( Which shows the Location for the Attendance Occurrence for the selected Group + DateTime + Location )
+        /// Binds the Attendance Occurrences ( Which shows the Location for the Attendance Occurrence for the selected Group + DateTime + Location ).
+        /// groupScheduler.js will populate these with the assigned resources
         /// </summary>
         private void BindAttendanceOccurrences()
         {
@@ -614,11 +488,6 @@ namespace RockWeb.Blocks.Groups
 
         #endregion
 
-        protected void btnSelectAllResource_Click( object sender, EventArgs e )
-        {
-
-        }
-
         protected void btnAddResource_Click( object sender, EventArgs e )
         {
 
@@ -631,11 +500,6 @@ namespace RockWeb.Blocks.Groups
             var rockTheme = RockTheme.GetThemes().Where( a => a.Name == "Rock" ).FirstOrDefault();
             rockTheme.Compile();
             NavigateToCurrentPageReference();
-        }
-
-        protected void rptAssignedResources_ItemDataBound( object sender, RepeaterItemEventArgs e )
-        {
-
         }
     }
 }

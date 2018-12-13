@@ -20,7 +20,6 @@ using System.Data;
 using System.Data.Entity;
 using System.Data.Entity.SqlServer;
 using System.Linq;
-using System.Linq.Expressions;
 
 using Rock.Chart;
 using Rock.Data;
@@ -104,7 +103,7 @@ namespace Rock.Model
                     int? searchTypeValueId, string searchValue, int? searchResultGroupId, int? attendanceCodeId, int? checkedInByPersonAliasId )
         {
             // Check to see if an occurrence exists already
-            var occurrenceService = new AttendanceOccurrenceService( (RockContext)Context );
+            var occurrenceService = new AttendanceOccurrenceService( ( RockContext ) Context );
             var occurrence = occurrenceService.Get( checkinDateTime.Date, groupId, locationId, scheduleId );
 
             if ( occurrence == null )
@@ -130,7 +129,8 @@ namespace Rock.Model
             }
 
             // If we still don't have an occurrence record (i.e. validation failed) return null 
-            if ( occurrence == null ) return null;
+            if ( occurrence == null )
+                return null;
 
             // Query for existing attendance record
             Attendance attendance = null;
@@ -145,7 +145,7 @@ namespace Rock.Model
             // If an attendance record doesn't exist for the occurrence, add a new record
             if ( attendance == null )
             {
-                attendance = ( (RockContext)Context ).Attendances.Create();
+                attendance = ( ( RockContext ) Context ).Attendances.Create();
                 {
                     attendance.Occurrence = occurrence;
                     attendance.OccurrenceId = occurrence.Id;
@@ -155,13 +155,20 @@ namespace Rock.Model
             }
 
             // Update details of the attendance (do not overwrite an existing value with an empty value)
-            if ( campusId.HasValue ) attendance.CampusId = campusId.Value;
-            if ( deviceId.HasValue ) attendance.DeviceId = deviceId.Value;
-            if ( searchTypeValueId.HasValue ) attendance.SearchTypeValueId = searchTypeValueId;
-            if ( searchValue.IsNotNullOrWhiteSpace() ) attendance.SearchValue = searchValue;
-            if ( checkedInByPersonAliasId.HasValue ) attendance.CheckedInByPersonAliasId = checkedInByPersonAliasId.Value;
-            if ( searchResultGroupId.HasValue ) attendance.SearchResultGroupId = searchResultGroupId;
-            if ( attendanceCodeId.HasValue ) attendance.AttendanceCodeId = attendanceCodeId;
+            if ( campusId.HasValue )
+                attendance.CampusId = campusId.Value;
+            if ( deviceId.HasValue )
+                attendance.DeviceId = deviceId.Value;
+            if ( searchTypeValueId.HasValue )
+                attendance.SearchTypeValueId = searchTypeValueId;
+            if ( searchValue.IsNotNullOrWhiteSpace() )
+                attendance.SearchValue = searchValue;
+            if ( checkedInByPersonAliasId.HasValue )
+                attendance.CheckedInByPersonAliasId = checkedInByPersonAliasId.Value;
+            if ( searchResultGroupId.HasValue )
+                attendance.SearchResultGroupId = searchResultGroupId;
+            if ( attendanceCodeId.HasValue )
+                attendance.AttendanceCodeId = attendanceCodeId;
             attendance.StartDateTime = checkinDateTime;
             attendance.DidAttend = true;
 
@@ -180,12 +187,12 @@ namespace Rock.Model
         public Attendance Get( DateTime date, int locationId, int scheduleId, int groupId, int personId )
         {
             return Queryable( "Occurrence.Group,Occurrence.Schedule,PersonAlias.Person" )
-                .FirstOrDefault(a => 
-                    a.Occurrence.OccurrenceDate == date.Date &&
-                    a.Occurrence.LocationId == locationId &&
-                    a.Occurrence.ScheduleId == scheduleId &&
-                    a.Occurrence.GroupId == groupId &&
-                    a.PersonAlias.PersonId == personId);
+                .FirstOrDefault( a =>
+                     a.Occurrence.OccurrenceDate == date.Date &&
+                     a.Occurrence.LocationId == locationId &&
+                     a.Occurrence.ScheduleId == scheduleId &&
+                     a.Occurrence.GroupId == groupId &&
+                     a.PersonAlias.PersonId == personId );
         }
 
         /// <summary>
@@ -252,7 +259,7 @@ namespace Rock.Model
 
             if ( dataViewId.HasValue )
             {
-                var rockContext = (RockContext)this.Context;
+                var rockContext = ( RockContext ) this.Context;
 
                 var dataView = new DataViewService( rockContext ).Get( dataViewId.Value );
                 if ( dataView != null )
@@ -277,8 +284,8 @@ namespace Rock.Model
             {
                 var groupIdList = groupIds.Split( ',' ).AsIntegerList();
                 qryAttendance = qryAttendance
-                    .Where( a => 
-                        a.Occurrence.GroupId.HasValue && 
+                    .Where( a =>
+                        a.Occurrence.GroupId.HasValue &&
                         groupIdList.Contains( a.Occurrence.GroupId.Value ) );
             }
 
@@ -501,6 +508,19 @@ namespace Rock.Model
             return DbService.GetDataSet( "spCheckin_AttendanceAnalyticsQuery_NonAttendees", System.Data.CommandType.StoredProcedure, parameters, 300 );
         }
 
+        /// <summary>
+        /// Gets the attendance analytics parameters.
+        /// </summary>
+        /// <param name="GroupTypeIds">The group type ids.</param>
+        /// <param name="groupIds">The group ids.</param>
+        /// <param name="start">The start.</param>
+        /// <param name="end">The end.</param>
+        /// <param name="campusIds">The campus ids.</param>
+        /// <param name="includeNullCampusIds">The include null campus ids.</param>
+        /// <param name="scheduleIds">The schedule ids.</param>
+        /// <param name="IncludeParentsWithChild">The include parents with child.</param>
+        /// <param name="IncludeChildrenWithParents">The include children with parents.</param>
+        /// <returns></returns>
         private static Dictionary<string, object> GetAttendanceAnalyticsParameters( List<int> GroupTypeIds, List<int> groupIds, DateTime? start, DateTime? end,
             List<int> campusIds, bool? includeNullCampusIds, List<int> scheduleIds, bool? IncludeParentsWithChild = null, bool? IncludeChildrenWithParents = null )
         {
@@ -575,7 +595,593 @@ namespace Rock.Model
             /// </value>
             public Attendance Attendance { get; set; }
         }
+
+        #region GroupScheduling Related
+
+        /// <summary>
+        /// Gets the scheduler resources.
+        /// </summary>
+        /// <param name="schedulerResourceParameters">The scheduler resource parameters.</param>
+        /// <returns></returns>
+        public IEnumerable<SchedulerResource> GetSchedulerResources( SchedulerResourceParameters schedulerResourceParameters )
+        {
+            var rockContext = new RockContext();
+            var groupMemberService = new GroupMemberService( rockContext );
+            var groupService = new GroupService( rockContext );
+            var attendanceService = new AttendanceService( rockContext );
+            IQueryable<GroupMember> groupMemberQry = null;
+            IQueryable<Person> personQry = null;
+
+            HashSet<int> _groupMemberIdsThatLackGroupRequirements;
+            Dictionary<int, DateTime> _personIdLastAttendedDateTime;
+
+            List<SchedulerResource> schedulerResourceList = new List<SchedulerResource>();
+
+            _groupMemberIdsThatLackGroupRequirements = null;
+
+            if ( schedulerResourceParameters.ResourceGroupId.HasValue )
+            {
+                groupMemberQry = groupMemberService.Queryable().Where( a => a.GroupId == schedulerResourceParameters.ResourceGroupId.Value );
+
+                var resourceGroup = groupService.GetNoTracking( schedulerResourceParameters.ResourceGroupId.Value );
+                if ( resourceGroup?.SchedulingMustMeetRequirements == true )
+                {
+                    _groupMemberIdsThatLackGroupRequirements = new HashSet<int>( new GroupService( rockContext ).GroupMembersNotMeetingRequirements( resourceGroup, false ).Select( a => a.Key.Id ).ToList().Distinct() );
+                }
+            }
+
+            if ( schedulerResourceParameters.ResourceDataViewId.HasValue )
+            {
+                var dataView = new DataViewService( rockContext ).Get( schedulerResourceParameters.ResourceDataViewId.Value );
+
+                if ( dataView != null )
+                {
+                    List<string> errorMessages;
+                    personQry = dataView.GetQuery( null, null, out errorMessages ) as IQueryable<Person>;
+                }
+            }
+
+            var lastAttendedDateTimeQuery = attendanceService.Queryable()
+                .Where( a => a.DidAttend == true
+                    && a.Occurrence.GroupId == schedulerResourceParameters.AttendanceOccurrenceGroupId
+                    && a.Occurrence.ScheduleId == schedulerResourceParameters.AttendanceOccurrenceScheduleId
+                    && a.PersonAliasId.HasValue );
+
+            if ( groupMemberQry != null )
+            {
+                lastAttendedDateTimeQuery.Where( a => groupMemberQry.Any( m => m.PersonId == a.PersonAlias.PersonId ) );
+            }
+            else if ( personQry != null )
+            {
+                lastAttendedDateTimeQuery.Where( a => personQry.Any( p => p.Id == a.PersonAlias.PersonId ) );
+            }
+
+            _personIdLastAttendedDateTime = lastAttendedDateTimeQuery
+                .GroupBy( a => a.PersonAlias.PersonId )
+                .Select( a => new
+                {
+                    PersonId = a.Key,
+                    LastScheduledDate = a.Max( x => x.StartDateTime )
+                } )
+                .ToDictionary( k => k.PersonId, v => v.LastScheduledDate );
+
+            var scheduledAttendanceGroupIdsLookup = attendanceService.Queryable()
+                .Where( a => ( a.RequestedToAttend == true || a.ScheduledToAttend == true )
+                          && a.Occurrence.ScheduleId == schedulerResourceParameters.AttendanceOccurrenceScheduleId
+                          && a.Occurrence.OccurrenceDate == schedulerResourceParameters.AttendanceOccurrenceOccurrenceDate
+                          && a.Occurrence.GroupId.HasValue )
+                .GroupBy( a => a.PersonAlias.PersonId )
+                .Select( a => new
+                {
+                    PersonId = a.Key,
+                    ScheduledOccurrenceGroupIds = a.Select( x => x.Occurrence.GroupId.Value ).ToList()
+                } )
+                .ToDictionary( k => k.PersonId, v => v.ScheduledOccurrenceGroupIds );
+
+
+            if ( groupMemberQry != null )
+            {
+                var resourceList = groupMemberQry.Select( a => new
+                {
+                    GroupMemberId = a.Id,
+                    a.PersonId,
+                    a.Note,
+                    a.Person.NickName,
+                    a.Person.LastName,
+                    a.Person.SuffixValueId,
+                    a.Person.RecordTypeValueId,
+                    a.ScheduleTemplateId,
+                    a.ScheduleStartDate
+                } ).ToList();
+
+                // if using the MatchingPreference filter, limit to people that have ScheduleTemplates that would include the scheduled date
+                if ( schedulerResourceParameters.GroupMemberFilterType == SchedulerResourceGroupMemberFilterType.ShowMatchingPreference )
+                {
+                    // get the scheduleTemplateIds that the groupMemberList has (so we only fetch the ones we need)
+                    List<int> scheduleTemplateIdList = resourceList.Where( a => a.ScheduleTemplateId.HasValue ).Select( a => a.ScheduleTemplateId.Value ).Distinct().ToList();
+
+                    List<int> matchingScheduleGroupMemberIdList = new List<int>();
+                    //
+                    var scheduleTemplateLookup = new GroupMemberScheduleTemplateService( rockContext )
+                        .GetByIds( scheduleTemplateIdList )
+                        .Include( a => a.Schedule )
+                        .AsNoTracking()
+                        .ToList().ToDictionary( a => a.Id, k => k );
+
+                    var occurrenceDate = schedulerResourceParameters.AttendanceOccurrenceOccurrenceDate;
+                    var occurrenceSchedule = new ScheduleService( rockContext ).Get( schedulerResourceParameters.AttendanceOccurrenceScheduleId );
+                    TimeSpan? occurrenceScheduledTime = occurrenceSchedule.GetNextStartDateTime( occurrenceDate )?.TimeOfDay;
+                    var beginDate = occurrenceDate.Date;
+                    var endDate = occurrenceDate.AddDays( 1 );
+
+                    foreach ( var groupMember in resourceList.Where( a => a.ScheduleTemplateId.HasValue && a.ScheduleStartDate.HasValue ) )
+                    {
+                        var schedule = scheduleTemplateLookup.GetValueOrNull( groupMember.ScheduleTemplateId.Value )?.Schedule;
+                        if ( schedule != null )
+                        {
+                            var scheduleStartDateTimeOverride = groupMember.ScheduleStartDate.Value.Add( occurrenceScheduledTime ?? new TimeSpan( 0 ) );
+                            var matches = schedule.GetOccurrences( beginDate, endDate, scheduleStartDateTimeOverride );
+                            if ( matches.Any() )
+                            {
+                                matchingScheduleGroupMemberIdList.Add( groupMember.GroupMemberId );
+                            }
+                        }
+                    }
+
+                    resourceList = resourceList.Where( a => matchingScheduleGroupMemberIdList.Contains( a.GroupMemberId ) ).ToList();
+                }
+
+                schedulerResourceList = resourceList.Select( a => new SchedulerResource
+                {
+                    PersonId = a.PersonId,
+                    Note = a.Note,
+                    PersonName = Person.FormatFullName( a.NickName, a.LastName, a.SuffixValueId, a.RecordTypeValueId ),
+                    HasGroupRequirementsConflict = _groupMemberIdsThatLackGroupRequirements?.Contains( a.GroupMemberId ) ?? false,
+                } ).ToList();
+            }
+            else if ( personQry != null )
+            {
+                var resourceList = personQry.Select( a => new
+                {
+                    a.Id,
+                    a.NickName,
+                    a.LastName,
+                    a.SuffixValueId,
+                    a.RecordTypeValueId,
+                } ).ToList();
+
+                schedulerResourceList = resourceList.Select( a => new SchedulerResource
+                {
+                    PersonId = a.Id,
+                    Note = null,
+                    PersonName = Person.FormatFullName( a.NickName, a.LastName, a.SuffixValueId, a.RecordTypeValueId ),
+                    HasGroupRequirementsConflict = false,
+                } ).ToList();
+            }
+
+            // get any additionalPersonIds that aren't already included in the resource list
+            var additionalPersonIds = schedulerResourceParameters.ResourceAdditionalPersonIds.Where( a => !schedulerResourceList.Any( r => r.PersonId == a ) ).ToList();
+
+            if ( additionalPersonIds.Any() )
+            {
+                var additionalSchedulerResources = new PersonService( rockContext ).GetByIds( additionalPersonIds ).ToList().Select( a => new SchedulerResource
+                {
+                    PersonId = a.Id,
+                    Note = null,
+                    PersonName = a.FullName,
+                    HasGroupRequirementsConflict = false,
+                } ).ToList();
+
+                schedulerResourceList.AddRange( additionalSchedulerResources );
+            }
+
+            foreach ( var schedulerResource in schedulerResourceList )
+            {
+                schedulerResource.LastAttendanceDateTime = _personIdLastAttendedDateTime.GetValueOrNull( schedulerResource.PersonId );
+                var scheduledForGroupIds = scheduledAttendanceGroupIdsLookup.GetValueOrNull( schedulerResource.PersonId );
+                schedulerResource.HasSchedulingConflict = scheduledForGroupIds?.Any( groupId => groupId != schedulerResourceParameters.AttendanceOccurrenceGroupId ) ?? false;
+                schedulerResource.IsAlreadyScheduledForGroup = scheduledForGroupIds?.Any( groupId => groupId == schedulerResourceParameters.AttendanceOccurrenceGroupId ) ?? false;
+                // TODO
+                schedulerResource.HasBlackoutConflict = false;
+            }
+
+            return schedulerResourceList;
+        }
+
+        /// <summary>
+        /// Gets the scheduled.
+        /// </summary>
+        /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
+        /// <returns></returns>
+        public IEnumerable<ScheduledAttendanceItem> GetScheduled( int attendanceOccurrenceId )
+        {
+            var conflictingScheduledAttendancesQuery = this.Queryable();
+
+            var attendanceOccurrenceInfo = new AttendanceOccurrenceService( this.Context as RockContext ).GetSelect( attendanceOccurrenceId, s => new
+            {
+                s.ScheduleId,
+                s.OccurrenceDate
+            } );
+
+            int scheduleId = attendanceOccurrenceInfo.ScheduleId ?? 0;
+            DateTime occurrenceDate = attendanceOccurrenceInfo.OccurrenceDate;
+
+            var scheduledAttendancesQuery = this.Queryable()
+                .Where( a => a.OccurrenceId == attendanceOccurrenceId
+                 && a.PersonAliasId.HasValue
+                 && ( a.RequestedToAttend == true || a.ScheduledToAttend == true ) )
+                .Select( a => new
+                {
+                    a.Id,
+                    a.DeclineReasonValueId,
+                    a.ScheduledToAttend,
+                    a.PersonAlias.PersonId,
+                    a.PersonAlias.Person.NickName,
+                    a.PersonAlias.Person.LastName,
+                    a.PersonAlias.Person.SuffixValueId,
+                    a.PersonAlias.Person.RecordTypeValueId,
+                    // set HasSchedulingConflict = true if the same person is requested/scheduled for another attendance within the same ScheduleId/Date
+                    HasSchedulingConflict = conflictingScheduledAttendancesQuery.Any( c => c.Id != a.Id
+                                                                                && c.PersonAlias.PersonId == a.PersonAlias.PersonId
+                                                                                && ( c.RequestedToAttend == true || c.ScheduledToAttend == true )
+                                                                                && c.Occurrence.ScheduleId == scheduleId
+                                                                                && c.Occurrence.OccurrenceDate == occurrenceDate )
+                } );
+
+            var result = scheduledAttendancesQuery.ToList().Select( a =>
+            {
+                ScheduledAttendanceItemStatus status = ScheduledAttendanceItemStatus.Pending;
+                if ( a.DeclineReasonValueId.HasValue )
+                {
+                    status = ScheduledAttendanceItemStatus.Denied;
+                }
+                else if ( a.ScheduledToAttend == true )
+                {
+                    status = ScheduledAttendanceItemStatus.Confirmed;
+                }
+
+                return new ScheduledAttendanceItem
+                {
+                    AttendanceId = a.Id,
+                    Status = status.ConvertToString( false ).ToLower(),
+                    PersonId = a.PersonId,
+                    PersonName = Person.FormatFullName( a.NickName, a.LastName, a.SuffixValueId, a.RecordTypeValueId ),
+                    HasSchedulingConflict = a.HasSchedulingConflict,
+
+                    // TODO
+                    HasBlackoutConflict = false
+                };
+            } );
+
+
+            return result;
+        }
+
+        /// <summary>
+        /// Add/Updates an attendance record to indicate person is assigned (Requested to Attend) a scheduled attendance
+        /// </summary>
+        /// <param name="personId">The person identifier.</param>
+        /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
+        /// <param name="scheduledByPersonAlias">The scheduled by person alias.</param>
+        /// <returns></returns>
+        public Attendance ScheduledPersonAssign( int personId, int attendanceOccurrenceId, PersonAlias scheduledByPersonAlias )
+        {
+            var rockContext = this.Context as RockContext;
+            var scheduledAttendance = this.Queryable()
+                .FirstOrDefault( a => a.PersonAlias.PersonId == personId
+                    && a.OccurrenceId == attendanceOccurrenceId );
+
+            if ( scheduledAttendance == null )
+            {
+                var personAliasId = new PersonAliasService( rockContext ).GetPrimaryAliasId( personId );
+                var attendanceOccurrence = new AttendanceOccurrenceService( rockContext ).Get( attendanceOccurrenceId );
+                var scheduledDateTime = attendanceOccurrence.OccurrenceDate.Add( attendanceOccurrence.Schedule.StartTimeOfDay );
+                scheduledAttendance = new Attendance
+                {
+                    PersonAliasId = personAliasId,
+                    OccurrenceId = attendanceOccurrenceId,
+                    ScheduledByPersonAliasId = scheduledByPersonAlias?.Id,
+                    StartDateTime = scheduledDateTime,
+                    DidAttend = false,
+                    RequestedToAttend = true,
+                    ScheduledToAttend = false,
+                };
+
+                this.Add( scheduledAttendance );
+            }
+            else
+            {
+                if ( scheduledAttendance.RequestedToAttend != true )
+                {
+                    scheduledAttendance.RequestedToAttend = true;
+
+                }
+            }
+
+            return scheduledAttendance;
+        }
+
+        /// <summary>
+        /// Updates attendance record to indicate person is unassigned from a scheduled attendance
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        public void ScheduledPersonUnassign( int attendanceId )
+        {
+            var scheduledAttendance = this.Get( attendanceId );
+            if ( scheduledAttendance != null )
+            {
+                scheduledAttendance.ScheduledToAttend = false;
+                scheduledAttendance.RequestedToAttend = false;
+            }
+            else
+            {
+                // ignore if there is no attendance record
+            }
+        }
+
+        /// <summary>
+        /// Updates attendance record to indicate person is Scheduled To Attend (Confirmed)
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        public void ScheduledPersonConfirm( int attendanceId )
+        {
+            var scheduledAttendance = this.Get( attendanceId );
+            if ( scheduledAttendance != null )
+            {
+                scheduledAttendance.ScheduledToAttend = true;
+
+            }
+            else
+            {
+                // ignore if there is no attendance record
+            }
+        }
+
+        #endregion GroupScheduling Related
     }
+
+    #region Group Scheduling related classes and types
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public class ScheduledAttendanceItem : SchedulerResource
+    {
+        /// <summary>
+        /// Gets or sets the attendance identifier.
+        /// </summary>
+        /// <value>
+        /// The attendance identifier.
+        /// </value>
+        public int AttendanceId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the <see cref="ScheduledAttendanceItemStatus"/> as a lowercase string
+        /// </summary>
+        /// <value>
+        /// The status.
+        /// </value>
+        public string Status { get; set; }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public class SchedulerResource
+    {
+        /// <summary>
+        /// Gets or sets the person identifier.
+        /// </summary>
+        /// <value>
+        /// The person identifier.
+        /// </value>
+        public int PersonId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the person.
+        /// </summary>
+        /// <value>
+        /// The name of the person.
+        /// </value>
+        public string PersonName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the last attendance date time.
+        /// </summary>
+        /// <value>
+        /// The last attendance date time.
+        /// </value>
+        public DateTime? LastAttendanceDateTime { get; set; }
+
+        /// <summary>
+        /// Gets the last attendance date time formatted.
+        /// </summary>
+        /// <value>
+        /// The last attendance date time formatted.
+        /// </value>
+        public string LastAttendanceDateTimeFormatted
+        {
+            get
+            {
+                if ( LastAttendanceDateTime != null )
+                {
+                    if ( LastAttendanceDateTime.Value.Year == RockDateTime.Now.Year )
+                    {
+                        return LastAttendanceDateTime?.ToString( "MMM d" );
+                    }
+                    else
+                    {
+                        return LastAttendanceDateTime?.ToString( "MMM d, yyyy" );
+                    }
+                }
+                else
+                {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the note.
+        /// </summary>
+        /// <value>
+        /// The note.
+        /// </value>
+        public string Note { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether this instance has conflict.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance has conflict; otherwise, <c>false</c>.
+        /// </value>
+        public bool HasConflict => HasGroupRequirementsConflict || HasSchedulingConflict || HasBlackoutConflict;
+
+        /// <summary>
+        /// Gets or sets the conflict note.
+        /// </summary>
+        /// <value>
+        /// The conflict note.
+        /// </value>
+        public string ConflictNote { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance has blackout conflict.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance has blackout conflict; otherwise, <c>false</c>.
+        /// </value>
+        public bool HasBlackoutConflict { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance has group requirements conflict.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance has group requirements conflict; otherwise, <c>false</c>.
+        /// </value>
+        public bool HasGroupRequirementsConflict { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance has scheduling conflict with some other group for this schedule+date
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance has scheduling conflict; otherwise, <c>false</c>.
+        /// </value>
+        public bool HasSchedulingConflict { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is already scheduled for this group+schedule+date
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance has scheduling conflict; otherwise, <c>false</c>.
+        /// </value>
+        public bool IsAlreadyScheduledForGroup { get; set; }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public enum ScheduledAttendanceItemStatus
+    {
+        /// <summary>
+        /// pending
+        /// </summary>
+        Pending,
+
+        /// <summary>
+        /// confirmed
+        /// </summary>
+        Confirmed,
+
+        /// <summary>
+        /// denied
+        /// </summary>
+        Denied
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public enum SchedulerResourceListSourceType
+    {
+        Group,
+        AlternateGroup,
+        DataView
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public enum SchedulerResourceGroupMemberFilterType
+    {
+        ShowMatchingPreference,
+        ShowAllGroupMembers
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    [RockClientInclude( "Use this as the Content of a api/Attendances/GetSchedulerResources POST" )]
+    public class SchedulerResourceParameters
+    {
+        /// <summary>
+        /// Gets or sets the attendance occurrence group identifier.
+        /// </summary>
+        /// <value>
+        /// The attendance occurrence group identifier.
+        /// </value>
+        public int AttendanceOccurrenceGroupId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the attendance occurrence schedule identifier.
+        /// </summary>
+        /// <value>
+        /// The attendance occurrence schedule identifier.
+        /// </value>
+        public int AttendanceOccurrenceScheduleId { get; set; }
+
+        /// <summary>
+        /// Gets the attendance occurrence occurrence date.
+        /// </summary>
+        /// <value>
+        /// The attendance occurrence occurrence date.
+        /// </value>
+        public DateTime AttendanceOccurrenceOccurrenceDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the resource group identifier.
+        /// </summary>
+        /// <value>
+        /// The resource group identifier.
+        /// </value>
+        public int? ResourceGroupId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the type of the group member filter.
+        /// </summary>
+        /// <value>
+        /// The type of the group member filter.
+        /// </value>
+        public SchedulerResourceGroupMemberFilterType? GroupMemberFilterType { get; set; }
+
+        /// <summary>
+        /// Gets or sets the resource data view identifier.
+        /// </summary>
+        /// <value>
+        /// The resource data view identifier.
+        /// </value>
+        public int? ResourceDataViewId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the resource additional person ids.
+        /// </summary>
+        /// <value>
+        /// The resource additional person ids.
+        /// </value>
+        public List<int> ResourceAdditionalPersonIds { get; set; }
+    }
+
+    #endregion Group Scheduling related classes and types
 
     /// <summary>
     /// 
@@ -604,7 +1210,7 @@ namespace Rock.Model
             {
                 qryAttendanceGroupedBy = qryAttendance.Select( a => new AttendanceService.AttendanceWithSummaryDateTime
                 {
-                    SummaryDateTime = (DateTime)SqlFunctions.DateAdd( "day", -SqlFunctions.DatePart( "day", a.Occurrence.SundayDate ) + 1, a.Occurrence.SundayDate ),
+                    SummaryDateTime = ( DateTime ) SqlFunctions.DateAdd( "day", -SqlFunctions.DatePart( "day", a.Occurrence.SundayDate ) + 1, a.Occurrence.SundayDate ),
                     Attendance = a
                 } );
             }
@@ -612,7 +1218,7 @@ namespace Rock.Model
             {
                 qryAttendanceGroupedBy = qryAttendance.Select( a => new AttendanceService.AttendanceWithSummaryDateTime
                 {
-                    SummaryDateTime = (DateTime)SqlFunctions.DateAdd( "day", -SqlFunctions.DatePart( "dayofyear", a.Occurrence.SundayDate ) + 1, a.Occurrence.SundayDate ),
+                    SummaryDateTime = ( DateTime ) SqlFunctions.DateAdd( "day", -SqlFunctions.DatePart( "dayofyear", a.Occurrence.SundayDate ) + 1, a.Occurrence.SundayDate ),
                     Attendance = a
                 } );
             }

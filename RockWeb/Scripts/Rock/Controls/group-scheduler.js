@@ -18,6 +18,9 @@
 
                 var self = this;
 
+                self.$resourceList = $('.group-scheduler-resourcelist', $control);
+                self.$additionalPersonIds = $('.js-resource-additional-person-ids', self.$resourceList)
+
                 // initialize dragula
                 var containers = [];
 
@@ -62,11 +65,37 @@
                     })
                     .on('drop', function (el, target, source, sibling) {
                         if (target.classList.contains('js-scheduler-source-container')) {
-                            $(el).attr('data-state', 'unassigned');
+                            // deal with the resource that was dragged back into the unassigned resources
+                            var $unassignedResource = $(el);
+                            $unassignedResource.attr('data-state', 'unassigned');
+
+                            var personId = $unassignedResource.attr('data-person-id')
+
+                            debugger
+                            var additionalPersonIds = self.$additionalPersonIds.val().split(',');
+                            additionalPersonIds.push(personId);
+
+                            self.$additionalPersonIds.val(additionalPersonIds);
+
+
+                            var attendanceId = $unassignedResource.attr('data-attendance-id')
+                            $.ajax({
+                                method: "PUT",
+                                url: scheduledPersonUnassignUrl + '?attendanceId=' + attendanceId
+                            }).done(function (scheduledAttendance) {
+                                // after unassigning a resource, repopulate the list of unassigned resources
+                                self.populateSchedulerResources(self.$resourceList);
+                            }).fail(function (a, b, c) {
+                                // TODO
+                                debugger
+                            })
                         }
                         else {
-                            $(el).attr('data-state', 'assigned');
-                            var personId = $(el).find('.js-resource-personid').val();
+                            debugger
+                            // deal with the resource that was dragged into an assigned occurrence (location) 
+                            var $assignedResource = $(el);
+                            $assignedResource.attr('data-state', 'assigned');
+                            var personId = $assignedResource.attr('data-person-id')
                             var attendanceOccurrenceId = $(target).closest('.js-scheduled-occurrence').find('.js-attendanceoccurrence-id').val();
                             $.ajax({
                                 method: "PUT",
@@ -101,9 +130,7 @@
                 this.trimSourceContainer();
                 this.initializeEventHandlers();
 
-                var $resourceList = $('.group-scheduler-resourcelist', $control);
-
-                self.populateSchedulerResources($resourceList);
+                self.populateSchedulerResources(self.$resourceList);
 
                 var occurrenceEls = $(".js-scheduled-occurrence", $control).toArray();
                 $.each(occurrenceEls, function (i) {
@@ -119,60 +146,108 @@
                     $sourceContainer.html("");
                 }
             },
-            /** populates the requested/scheduled resources for the occurrence div */
+            /** populates the assigned (requested/scheduled) resources for the occurrence div */
             populateScheduledOccurrence: function ($occurrence) {
                 var getScheduledUrl = Rock.settings.get('baseUrl') + 'api/Attendances/GetScheduled';
                 var attendanceOccurrenceId = $occurrence.find('.js-attendanceoccurrence-id').val();
                 var $schedulerTargetContainer = $occurrence.find('.js-scheduler-target-container');
+                var self = this;
                 $.get(getScheduledUrl + '?attendanceOccurrenceId=' + attendanceOccurrenceId, function (scheduledAttendanceItems) {
                     $schedulerTargetContainer.html('');
                     $.each(scheduledAttendanceItems, function (i) {
                         var scheduledAttendanceItem = scheduledAttendanceItems[i];
-                        var $scheduleResourceDiv = $('.js-assigned-resource-template').find('.js-resource').clone();
-                        $scheduleResourceDiv.attr('data-state', 'assigned');
-                        $scheduleResourceDiv.attr('data-has-conflict', scheduledAttendanceItem.HasConflict);
-                        $scheduleResourceDiv.find('.js-resource-status').data('data-status', scheduledAttendanceItem.Status);
-                        $scheduleResourceDiv.find('.js-resource-name').text(scheduledAttendanceItem.PersonName);
-                        $schedulerTargetContainer.append($scheduleResourceDiv);
+                        var $resourceDiv = $('.js-assigned-resource-template').find('.js-resource').clone();
+                        self.populateResourceDiv($resourceDiv, scheduledAttendanceItem, 'assigned');
+                        $schedulerTargetContainer.append($resourceDiv);
                     });
                 });
             },
-            /** populates the requested/scheduled resources for the occurrence div */
+            /** populates the resource list with unassigned resources */
             populateSchedulerResources: function ($resourceList) {
+                var self = this;
                 var $resourceContainer = $('.js-scheduler-source-container', $resourceList);
                 var getSchedulerResourcesUrl = Rock.settings.get('baseUrl') + 'api/Attendances/GetSchedulerResources';
+                var additionalPersonIds = self.$additionalPersonIds.val().split(',');
 
                 var schedulerResourceParameters = {
                     AttendanceOccurrenceGroupId: Number($('.js-occurrence-group-id', $resourceList).val()),
                     AttendanceOccurrenceScheduleId: Number($('.js-occurrence-schedule-id', $resourceList).val()),
                     AttendanceOccurrenceOccurrenceDate: $('.js-occurrence-occurrence-date', $resourceList).val(),
                     ResourceGroupId: $('.js-resource-group-id', $resourceList).val(),
+                    GroupMemberFilterType: $('.js-resource-groupmemberfiltertype', $resourceList).val(),
                     ResourceDataViewId: $('.js-resource-dataview-id', $resourceList).val(),
-                    ResourceAdditionalPersonIds: $('.js-resource-additional-person-ids', $resourceList).val().split(',')
+                    ResourceAdditionalPersonIds: additionalPersonIds
                 };
+
+                var $loadingNotification = $resourceList.find('.js-loading-notification');
+
+                $loadingNotification.fadeIn();
 
                 $.ajax({
                     method: "POST",
                     url: getSchedulerResourcesUrl,
                     data: schedulerResourceParameters
                 }).done(function (schedulerResources) {
-                    debugger
+                    var resourceContainerParent = $resourceContainer.parent();
 
+                    // temporarily detach $resourceContainer to speed up adding the resourcedivs
+                    $resourceContainer.detach();
                     $resourceContainer.html('');
-                    $.each(schedulerResources, function (i) {
+                    var $resourceTemplate = $('.js-unassigned-resource-template').find('.js-resource');
+                    for (var i = 0; i < schedulerResources.length; i++) {
                         var schedulerResource = schedulerResources[i];
-                        var $scheduleResourceDiv = $('.js-unassigned-resource-template').find('.js-resource').clone();
-                        $scheduleResourceDiv.attr('data-state', 'unassigned');
-                        $scheduleResourceDiv.attr('data-has-conflict', schedulerResource.HasConflict);
-                        $scheduleResourceDiv.find('.js-resource-status').data('data-status', schedulerResource.Status);
-                        $scheduleResourceDiv.find('.js-resource-name').text(schedulerResource.PersonName);
+                        var $resourceDiv = $resourceTemplate.clone();
+                        self.populateResourceDiv($resourceDiv, schedulerResource, 'unassigned');
+                        $resourceContainer.append($resourceDiv);
+                    }
 
-                        //todo populate more stuff
+                    resourceContainerParent.append($resourceContainer);
 
-                        $resourceContainer.append($scheduleResourceDiv);
-                    });
+                    setTimeout(function () {
+                        $loadingNotification.hide();
+                        self.resourceScroll.refresh();
+                    }, 0)
+
+                }).fail(function (a, b, c) {
+                    // TODO
+                    $loadingNotification.hide();
+                    debugger
                 });
 
+            },
+            /**  populates the resource element (both assigned and unassigned) */
+            populateResourceDiv: function ($resourceDiv, schedulerResource, state) {
+                $resourceDiv.attr('data-state', state);
+                $resourceDiv.attr('data-person-id', schedulerResource.PersonId);
+                $resourceDiv.attr('data-has-conflict', schedulerResource.HasConflict);
+                $resourceDiv.attr('data-has-blackout-conflict', schedulerResource.HasBlackoutConflict);
+                $resourceDiv.attr('data-is-scheduled', schedulerResource.IsAlreadyScheduledForGroup);
+
+                //debugger
+
+                $resourceDiv.find('.js-resource-name').text(schedulerResource.PersonName);
+                if (schedulerResource.Note) {
+                    $resourceDiv.find('.js-resource-note').text(schedulerResource.Note);
+                }
+
+                if (schedulerResource.ConflictNote) {
+                    $resourceDiv.find('.js-resource-warning').text(schedulerResource.ConflictNote);
+                }
+
+                if (schedulerResource.LastAttendanceDateTime) {
+                    var $lastAttendedDate = $resourceDiv.find('.js-resource-lastattendeddate');
+                    $lastAttendedDate.attr('data-datetime', schedulerResource.LastAttendanceDateTime);
+                    $lastAttendedDate.text(schedulerResource.LastAttendanceDateTimeFormatted);
+                }
+
+                if (schedulerResource.Status) {
+                    $resourceDiv.find('.js-resource-status').data('data-status', schedulerResource.Status);
+                }
+
+                // note only applies to assigned resource
+                if (schedulerResource.AttendanceId) {
+                    $resourceDiv.attr('data-attendance-id', schedulerResource.AttendanceId);
+                }
             },
             /**  */
             initializeEventHandlers: function () {
@@ -184,6 +259,8 @@
         return exports;
     }());
 }(jQuery));
+
+
 
 
 

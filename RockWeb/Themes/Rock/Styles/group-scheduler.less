@@ -6,7 +6,7 @@
 @import "../../../Styles/_rock-variables.less";
 
 .dropzone {
-  &:empty{
+  &:empty {
     position: relative;
     padding: 30px;
     outline: 2px dashed rgba(0,0,0,.3);
@@ -50,7 +50,7 @@
 
 .resource {
   display: block;
-  overflow: auto;
+  //overflow: auto;
   cursor: pointer;
   outline: 2px dashed rgba(0,0,0,0);
   outline-offset: -2px;
@@ -85,6 +85,17 @@
 }
 
 .resource[data-state="unassigned"] {
+  .resource-visible-assigned {
+    display: none;
+  }
+}
+
+.resource[data-state="unassigned"][data-is-scheduled="true"] {
+  background-color: red;
+}
+
+.resource[data-has-conflict="true"] {
+  background-color: lightyellow;
 }
 
 .resource-scheduled-status {
@@ -115,7 +126,6 @@
 .resource-note {
   font-size: 80%;
 }
-
 /* Resource List */
 .group-scheduler-resourcelist {
   width: 350px;
@@ -153,14 +163,9 @@
     }
   }
 }
-
-
-
-
 /*
 -=-=- Dragula Classes
 */
-
 /* Is added to the mirror image. It handles fixed positioning and z-index (and removes any prior margins on the element). Note
 that the mirror image is appended to the mirrorContainer, not to its initial container. Keep that in mind when styling your
 elements with nested rules, like .list .item { padding: 10px; }.*/
@@ -175,12 +180,10 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   filter: alpha(opacity=80);
   opacity: .8;
 }
-
 /* Is a helper class to apply display: none to an element. */
 .gu-hide {
   display: none !important;
 }
-
 /* Is added to the mirrorContainer element when dragging. You can use it to style the mirrorContainer while something is being dragged. */
 .gu-unselectable {
   -webkit-user-select: none !important;
@@ -188,7 +191,6 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   -ms-user-select: none !important;
   user-select: none !important;
 }
-
 /* Is added to the source element when its mirror image is dragged. It just adds opacity to it.*/
 .gu-transit {
   box-sizing: border-box;
@@ -201,7 +203,6 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   border-radius: 0 !important;
   opacity: 1 !important;
 }
-
 /* MP: workaround for https://github.com/bevacqua/dragula/issues/421 */
 .gu-transit .container {
   display: none;
