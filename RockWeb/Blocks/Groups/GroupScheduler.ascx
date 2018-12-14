@@ -156,7 +156,7 @@
                                                         <span class="js-resource-name"></span>
                                                     </div>
 
-                                                    <div class="dropdown">
+                                                    <div class="dropdown js-resource-actions">
                                                         <button class="btn btn-link btn-overflow" type="button" data-toggle="dropdown"><i class="fas fa-ellipsis-h"></i></button>
                                                         <ul class="dropdown-menu">
                                                             <li>

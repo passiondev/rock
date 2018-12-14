@@ -45,7 +45,7 @@ namespace Rock.Rest.Controllers
         #region Group Scheduler Related
 
         /// <summary>
-        /// Gets the scheduler resources
+        /// Gets a list of available the scheduler resources (people) based on the options specified in schedulerResourceParameters 
         /// </summary>
         /// <param name="schedulerResourceParameters">The scheduler resource parameters.</param>
         /// <returns></returns>
@@ -63,7 +63,7 @@ namespace Rock.Rest.Controllers
         }
 
         /// <summary>
-        /// Gets the scheduled.
+        /// Gets a list of scheduled attendances ( people that are scheduled ) for an attendance occurrence
         /// </summary>
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
         /// <returns></returns>
@@ -95,7 +95,7 @@ namespace Rock.Rest.Controllers
         }
 
         /// <summary>
-        /// Scheduleds the person confirm.
+        /// Confirms a person for a scheduled attendance
         /// </summary>
         /// <param name="attendanceId">The attendance identifier.</param>
         [Authenticate, Secured]

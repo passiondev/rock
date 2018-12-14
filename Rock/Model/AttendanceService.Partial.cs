@@ -599,7 +599,7 @@ namespace Rock.Model
         #region GroupScheduling Related
 
         /// <summary>
-        /// Gets the scheduler resources.
+        /// Gets a list of available the scheduler resources (people) based on the options specified in schedulerResourceParameters 
         /// </summary>
         /// <param name="schedulerResourceParameters">The scheduler resource parameters.</param>
         /// <returns></returns>
@@ -612,12 +612,12 @@ namespace Rock.Model
             IQueryable<GroupMember> groupMemberQry = null;
             IQueryable<Person> personQry = null;
 
-            HashSet<int> _groupMemberIdsThatLackGroupRequirements;
-            Dictionary<int, DateTime> _personIdLastAttendedDateTime;
+            HashSet<int> groupMemberIdsThatLackGroupRequirements;
+            Dictionary<int, DateTime> personIdLastAttendedDateTimeLookup;
 
             List<SchedulerResource> schedulerResourceList = new List<SchedulerResource>();
 
-            _groupMemberIdsThatLackGroupRequirements = null;
+            groupMemberIdsThatLackGroupRequirements = null;
 
             if ( schedulerResourceParameters.ResourceGroupId.HasValue )
             {
@@ -626,7 +626,7 @@ namespace Rock.Model
                 var resourceGroup = groupService.GetNoTracking( schedulerResourceParameters.ResourceGroupId.Value );
                 if ( resourceGroup?.SchedulingMustMeetRequirements == true )
                 {
-                    _groupMemberIdsThatLackGroupRequirements = new HashSet<int>( new GroupService( rockContext ).GroupMembersNotMeetingRequirements( resourceGroup, false ).Select( a => a.Key.Id ).ToList().Distinct() );
+                    groupMemberIdsThatLackGroupRequirements = new HashSet<int>( new GroupService( rockContext ).GroupMembersNotMeetingRequirements( resourceGroup, false ).Select( a => a.Key.Id ).ToList().Distinct() );
                 }
             }
 
@@ -656,7 +656,7 @@ namespace Rock.Model
                 lastAttendedDateTimeQuery.Where( a => personQry.Any( p => p.Id == a.PersonAlias.PersonId ) );
             }
 
-            _personIdLastAttendedDateTime = lastAttendedDateTimeQuery
+            personIdLastAttendedDateTimeLookup = lastAttendedDateTimeQuery
                 .GroupBy( a => a.PersonAlias.PersonId )
                 .Select( a => new
                 {
@@ -677,7 +677,6 @@ namespace Rock.Model
                     ScheduledOccurrenceGroupIds = a.Select( x => x.Occurrence.GroupId.Value ).ToList()
                 } )
                 .ToDictionary( k => k.PersonId, v => v.ScheduledOccurrenceGroupIds );
-
 
             if ( groupMemberQry != null )
             {
@@ -735,8 +734,10 @@ namespace Rock.Model
                 {
                     PersonId = a.PersonId,
                     Note = a.Note,
+                    PersonNickName = a.NickName,
+                    PersonLastName = a.LastName,
                     PersonName = Person.FormatFullName( a.NickName, a.LastName, a.SuffixValueId, a.RecordTypeValueId ),
-                    HasGroupRequirementsConflict = _groupMemberIdsThatLackGroupRequirements?.Contains( a.GroupMemberId ) ?? false,
+                    HasGroupRequirementsConflict = groupMemberIdsThatLackGroupRequirements?.Contains( a.GroupMemberId ) ?? false,
                 } ).ToList();
             }
             else if ( personQry != null )
@@ -754,6 +755,8 @@ namespace Rock.Model
                 {
                     PersonId = a.Id,
                     Note = null,
+                    PersonNickName = a.NickName,
+                    PersonLastName = a.LastName,
                     PersonName = Person.FormatFullName( a.NickName, a.LastName, a.SuffixValueId, a.RecordTypeValueId ),
                     HasGroupRequirementsConflict = false,
                 } ).ToList();
@@ -768,6 +771,8 @@ namespace Rock.Model
                 {
                     PersonId = a.Id,
                     Note = null,
+                    PersonNickName = a.NickName,
+                    PersonLastName = a.LastName,
                     PersonName = a.FullName,
                     HasGroupRequirementsConflict = false,
                 } ).ToList();
@@ -777,7 +782,7 @@ namespace Rock.Model
 
             foreach ( var schedulerResource in schedulerResourceList )
             {
-                schedulerResource.LastAttendanceDateTime = _personIdLastAttendedDateTime.GetValueOrNull( schedulerResource.PersonId );
+                schedulerResource.LastAttendanceDateTime = personIdLastAttendedDateTimeLookup.GetValueOrNull( schedulerResource.PersonId );
                 var scheduledForGroupIds = scheduledAttendanceGroupIdsLookup.GetValueOrNull( schedulerResource.PersonId );
                 schedulerResource.HasSchedulingConflict = scheduledForGroupIds?.Any( groupId => groupId != schedulerResourceParameters.AttendanceOccurrenceGroupId ) ?? false;
                 schedulerResource.IsAlreadyScheduledForGroup = scheduledForGroupIds?.Any( groupId => groupId == schedulerResourceParameters.AttendanceOccurrenceGroupId ) ?? false;
@@ -785,11 +790,16 @@ namespace Rock.Model
                 schedulerResource.HasBlackoutConflict = false;
             }
 
+            // remove anybody that is already scheduled for this group, and sort by person
+            schedulerResourceList = schedulerResourceList
+                .Where( a => a.IsAlreadyScheduledForGroup != true )
+                .OrderBy( a => a.PersonLastName ).ThenBy( a => a.PersonNickName ).ThenBy( a => a.PersonId ).ToList();
+
             return schedulerResourceList;
         }
 
         /// <summary>
-        /// Gets the scheduled.
+        /// Gets a list of scheduled attendances (persons) for an attendance occurrence
         /// </summary>
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
         /// <returns></returns>
@@ -833,7 +843,7 @@ namespace Rock.Model
                 ScheduledAttendanceItemStatus status = ScheduledAttendanceItemStatus.Pending;
                 if ( a.DeclineReasonValueId.HasValue )
                 {
-                    status = ScheduledAttendanceItemStatus.Denied;
+                    status = ScheduledAttendanceItemStatus.Declined;
                 }
                 else if ( a.ScheduledToAttend == true )
                 {
@@ -843,7 +853,7 @@ namespace Rock.Model
                 return new ScheduledAttendanceItem
                 {
                     AttendanceId = a.Id,
-                    Status = status.ConvertToString( false ).ToLower(),
+                    ConfirmationStatus = status.ConvertToString( false ).ToLower(),
                     PersonId = a.PersonId,
                     PersonName = Person.FormatFullName( a.NickName, a.LastName, a.SuffixValueId, a.RecordTypeValueId ),
                     HasSchedulingConflict = a.HasSchedulingConflict,
@@ -961,7 +971,7 @@ namespace Rock.Model
         /// <value>
         /// The status.
         /// </value>
-        public string Status { get; set; }
+        public string ConfirmationStatus { get; set; }
     }
 
     /// <summary>
@@ -976,6 +986,22 @@ namespace Rock.Model
         /// The person identifier.
         /// </value>
         public int PersonId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the person nick.
+        /// </summary>
+        /// <value>
+        /// The name of the person nick.
+        /// </value>
+        public string PersonNickName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the last name of the person.
+        /// </summary>
+        /// <value>
+        /// The last name of the person.
+        /// </value>
+        public string PersonLastName { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the person.
@@ -1075,7 +1101,7 @@ namespace Rock.Model
         /// <value>
         ///   <c>true</c> if this instance has scheduling conflict; otherwise, <c>false</c>.
         /// </value>
-        public bool IsAlreadyScheduledForGroup { get; set; }
+        public bool? IsAlreadyScheduledForGroup { get; set; }
     }
 
     /// <summary>
@@ -1094,9 +1120,9 @@ namespace Rock.Model
         Confirmed,
 
         /// <summary>
-        /// denied
+        /// declined
         /// </summary>
-        Denied
+        Declined
     }
 
     /// <summary>

@@ -196,8 +196,6 @@ namespace Rock.Migrations
             RockMigrationHelper.AddBlock( true, "B7B0864D-91F2-4B24-A7B0-FC7BEE769FA0".AsGuid(), null, "C2D29296-6A87-47A9-A753-EE4E9159C4C4".AsGuid(), "B5EB66A1-7391-49D5-B613-5ED804A31E7B".AsGuid(), "Group Member Schedule Template Detail", "Main", @"", @"", 0, "B251F51D-075A-4744-9788-F9AD89AA0552" );
             // Add Block to Page: Group Scheduler Site: Rock RMS
             RockMigrationHelper.AddBlock( true, "1815D8C6-7C4A-4C05-A810-CF23BA937477".AsGuid(), null, "C2D29296-6A87-47A9-A753-EE4E9159C4C4".AsGuid(), "37D43C21-1A4D-4B13-9555-EF0B7304EB8A".AsGuid(), "Group Scheduler", "Main", @"", @"", 0, "B282B285-4600-4097-9CC0-3439E2B66C34" );
-            // Add/Update HtmlContent for Block: Dev Links
-            RockMigrationHelper.UpdateHtmlContentBlock( "F337823D-BA5D-49F8-9BC4-1EF48C9000CE", @"<a href='http://localhost:6229/GroupScheduler'>Group Scheduler</a>", "3F29F9F7-EC7F-4435-98E2-6D098A4E8F30" );
             // Attrib for BlockType: Group Member Schedule Template List:Detail Page
             RockMigrationHelper.UpdateBlockTypeAttribute( "D930E08B-ACD3-4ADD-9FAC-3B61C021D0F7", "BD53F9C9-EBA9-4D3F-82EA-DE5DD34A8108", "Detail Page", "DetailPage", "", @"", 0, @"", "224F9179-1B11-4EFB-8315-3217301422DE" );
             // Attrib Value for Block:Group Member Schedule Template List, Attribute:Detail Page Page: Group Member Schedule Templates, Site: Rock RMS

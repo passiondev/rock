@@ -12,17 +12,15 @@
                     throw 'id is required';
                 }
 
+                var self = this;
+
                 var $control = $('#' + options.id);
 
                 if ($control.length == 0) {
                     return;
                 }
 
-                var scheduledPersonAssignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonAssign';
-                var scheduledPersonUnassignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonUnassign';
-
-                var self = this;
-
+                self.$groupScheduler = $control;
                 self.$resourceList = $('.group-scheduler-resourcelist', $control);
                 self.$additionalPersonIds = $('.js-resource-additional-person-ids', self.$resourceList)
 
@@ -50,7 +48,9 @@
                         return true;
                     },
                     invalid: function (el, handle) {
-                        return false;
+                        // ignore drag if they are clicking on the actions menu of a resource
+                        var isMenu = $(el).closest('.js-resource-actions').length;
+                        return isMenu;
                     },
                     ignoreInputTextSelection: true
                 })
@@ -75,13 +75,12 @@
                             $unassignedResource.attr('data-state', 'unassigned');
 
                             var personId = $unassignedResource.attr('data-person-id')
-
-                            debugger
+                            
                             var additionalPersonIds = self.$additionalPersonIds.val().split(',');
                             additionalPersonIds.push(personId);
 
                             self.$additionalPersonIds.val(additionalPersonIds);
-
+                            var scheduledPersonUnassignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonUnassign';
 
                             var attendanceId = $unassignedResource.attr('data-attendance-id')
                             $.ajax({
@@ -96,8 +95,8 @@
                             })
                         }
                         else {
-                            debugger
-                            // deal with the resource that was dragged into an assigned occurrence (location) 
+                            // deal with the resource that was dragged into an assigned occurrence (location)
+                            var scheduledPersonAssignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonAssign';
                             var $assignedResource = $(el);
                             $assignedResource.attr('data-state', 'assigned');
                             var personId = $assignedResource.attr('data-person-id')
@@ -186,6 +185,7 @@
 
                 var $loadingNotification = $resourceList.find('.js-loading-notification');
 
+                $resourceContainer.html(' ');
                 $loadingNotification.fadeIn();
 
                 $.ajax({
@@ -226,9 +226,6 @@
                 $resourceDiv.attr('data-person-id', schedulerResource.PersonId);
                 $resourceDiv.attr('data-has-conflict', schedulerResource.HasConflict);
                 $resourceDiv.attr('data-has-blackout-conflict', schedulerResource.HasBlackoutConflict);
-                $resourceDiv.attr('data-is-scheduled', schedulerResource.IsAlreadyScheduledForGroup);
-
-                //debugger
 
                 $resourceDiv.find('.js-resource-name').text(schedulerResource.PersonName);
                 if (schedulerResource.Note) {
@@ -245,11 +242,17 @@
                     $lastAttendedDate.text(schedulerResource.LastAttendanceDateTimeFormatted);
                 }
 
-                if (schedulerResource.Status) {
-                    $resourceDiv.find('.js-resource-status').data('data-status', schedulerResource.Status);
+
+                if (schedulerResource.ConfirmationStatus) {
+                    $resourceDiv.find('.js-resource-status').attr('data-status', schedulerResource.ConfirmationStatus);
                 }
 
-                // note only applies to assigned resource
+                // stuff that only applies to unassigned resource
+                if (schedulerResource.IsAlreadyScheduledForGroup != null) {
+                    $resourceDiv.attr('data-is-scheduled', schedulerResource.IsAlreadyScheduledForGroup);
+                }
+
+                // stuff that only applies to assigned resource
                 if (schedulerResource.AttendanceId) {
                     $resourceDiv.attr('data-attendance-id', schedulerResource.AttendanceId);
                 }
@@ -257,7 +260,26 @@
             /**  */
             initializeEventHandlers: function () {
                 var self = this;
-                // TODO, needed?
+
+                self.$groupScheduler.on('click', '.js-markconfirmed', function () {
+
+                    var $resource = $(this).closest('.js-resource');
+                    var attendanceId = $resource.attr('data-attendance-id');
+                    var scheduledPersonConfirmUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonConfirm';
+
+                    var attendanceId = $resource.attr('data-attendance-id')
+                    $.ajax({
+                        method: "PUT",
+                        url: scheduledPersonConfirmUrl + '?attendanceId=' + attendanceId
+                    }).done(function (scheduledAttendance) {
+                        // after confirming a resource, repopulate the list of resources for this occurrence
+                        var $occurrence = $resource.closest('.js-scheduled-occurrence');
+                        self.populateScheduledOccurrence($occurrence);
+                    }).fail(function (a, b, c) {
+                        debugger
+                    })
+                });
+                
             }
         };
 
