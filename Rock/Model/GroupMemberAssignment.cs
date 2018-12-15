@@ -50,7 +50,7 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         [Index( "IX_GroupMemberIdLocationIdScheduleId", IsUnique = true, Order = 1 )]
-        public int LocationId { get; set; }
+        public int? LocationId { get; set; }
 
         /// <summary>
         /// Gets or sets the schedule identifier.
@@ -60,7 +60,7 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         [Index( "IX_GroupMemberIdLocationIdScheduleId", IsUnique = true, Order = 2 )]
-        public int ScheduleId { get; set; }
+        public int? ScheduleId { get; set; }
 
         #endregion Entity Properties
 
@@ -106,8 +106,8 @@ namespace Rock.Model
         public GroupMemberAssignmentConfiguration()
         {
             this.HasRequired( a => a.GroupMember ).WithMany( a => a.GroupMemberAssignments ).HasForeignKey( a => a.GroupMemberId ).WillCascadeOnDelete( false );
-            this.HasRequired( a => a.Schedule ).WithMany().HasForeignKey( a => a.ScheduleId ).WillCascadeOnDelete( false );
-            this.HasRequired( a => a.Location ).WithMany().HasForeignKey( a => a.LocationId ).WillCascadeOnDelete( false );
+            this.HasOptional( a => a.Schedule ).WithMany().HasForeignKey( a => a.ScheduleId ).WillCascadeOnDelete( false );
+            this.HasOptional( a => a.Location ).WithMany().HasForeignKey( a => a.LocationId ).WillCascadeOnDelete( false );
         }
     }
 }

@@ -15,11 +15,12 @@
 // </copyright>
 //
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.Entity;
 using System.Linq;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+
 using Rock;
 using Rock.Data;
 using Rock.Model;
@@ -84,12 +85,6 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion UserPreferanceKeys
-
-        #region enums
-
-        
-
-        #endregion
 
         #region Base Control Methods
 
@@ -338,56 +333,55 @@ namespace RockWeb.Blocks.Groups
             var occurrenceDate = dpDate.SelectedDate.Value;
             var scheduleId = rblSchedule.SelectedValue.AsInteger();
 
-
             var rockContext = new RockContext();
             var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
-            var groupLocationQuery = new GroupLocationService( rockContext ).GetByIds( selectedGroupLocationIds );
-            
-
-            var attendanceOccurrencesQuery = attendanceOccurrenceService.Queryable()
-                .Where( a => a.GroupId.HasValue
-                        && a.LocationId.HasValue
-                        && groupLocationQuery.Any( gl => gl.GroupId == a.GroupId && gl.LocationId == gl.LocationId )
-                        && a.ScheduleId == scheduleId
-                        && a.OccurrenceDate == occurrenceDate );
-
-            var missingAttendanceOccurrences = groupLocationQuery.Where( gl => !attendanceOccurrencesQuery.Any( ao => ao.LocationId == gl.LocationId && ao.GroupId == gl.GroupId ) )
-                .ToList()
-                .Select( gl => new AttendanceOccurrence
-                {
-                    GroupId = gl.GroupId,
-                    Group = gl.Group,
-                    LocationId = gl.LocationId,
-                    Location = gl.Location,
-                    ScheduleId = scheduleId,
-                    OccurrenceDate = occurrenceDate
-                } ).ToList();
-
+            var missingAttendanceOccurrences = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( occurrenceDate, scheduleId, selectedGroupLocationIds );
             if ( missingAttendanceOccurrences.Any() )
             {
                 attendanceOccurrenceService.AddRange( missingAttendanceOccurrences );
                 rockContext.SaveChanges();
             }
 
-            // join with the GroupLocation table so that we can sort the list by GroupLocation.Order and Location.Name
-            var attendanceOccurrencesJoinQuery = from ao in attendanceOccurrencesQuery
-                                                 join gl in groupLocationQuery
-                                                 on new { LocationId = ao.LocationId.Value, GroupId = ao.GroupId.Value } equals new { gl.LocationId, gl.GroupId }
-                                                 select new
-                                                 {
-                                                     AttendanceOccurrence = ao,
-                                                     GroupLocationOrder = gl.Order,
-                                                     GroupLocationLocationName = gl.Location.Name
-                                                 };
+            var attendanceOccurrenceGroupLocationScheduleConfigQuery = attendanceOccurrenceService.AttendanceOccurrenceGroupLocationScheduleConfigJoinQuery( occurrenceDate, scheduleId, selectedGroupLocationIds );
 
-            var attendanceOccurrencesOrderedList = attendanceOccurrencesJoinQuery.ToList()
-                .OrderBy( a => a.GroupLocationOrder ).ThenBy( a => a.GroupLocationLocationName )
-                .Select( a => a.AttendanceOccurrence ).ToList();
+            var attendanceOccurrencesOrderedList = attendanceOccurrenceGroupLocationScheduleConfigQuery.AsNoTracking()
+                .OrderBy( a => a.GroupLocation.Order ).ThenBy( a => a.GroupLocation.Location.Name )
+                .Select( a => new AttendanceOccurrenceRowItem
+                {
+                    LocationName = a.AttendanceOccurrence.Location.Name,
+                    AttendanceOccurrenceId = a.AttendanceOccurrence.Id,
+                    CapacityInfo = new CapacityInfo
+                    {
+                        MinimumCapacity = a.GroupLocationScheduleConfig.MinimumCapacity,
+                        DesiredCapacity = a.GroupLocationScheduleConfig.DesiredCapacity,
+                        MaximumCapacity = a.GroupLocationScheduleConfig.MaximumCapacity
+                    }
+                } ).ToList();
 
             rptAttendanceOccurrences.DataSource = attendanceOccurrencesOrderedList;
             rptAttendanceOccurrences.DataBind();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private class CapacityInfo
+        {
+            public int? MinimumCapacity { get; set; }
+            public int? DesiredCapacity { get; set; }
+            public int? MaximumCapacity { get; set; }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private class AttendanceOccurrenceRowItem
+        {
+            public int AttendanceOccurrenceId { get; set; }
+            public CapacityInfo CapacityInfo { get; set; }
+            public string LocationName { get; internal set; }
         }
 
         /// <summary>
@@ -397,11 +391,23 @@ namespace RockWeb.Blocks.Groups
         /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
         protected void rptAttendanceOccurrences_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
-            var attendanceOccurrence = e.Item.DataItem as AttendanceOccurrence;
+            var attendanceOccurrenceRowItem = e.Item.DataItem as AttendanceOccurrenceRowItem;
+            var attendanceOccurrenceId = attendanceOccurrenceRowItem.AttendanceOccurrenceId;
             var hfAttendanceOccurrenceId = e.Item.FindControl( "hfAttendanceOccurrenceId" ) as HiddenField;
+            var hfLocationScheduleMinimumCapacity = e.Item.FindControl( "hfLocationScheduleMinimumCapacity" ) as HiddenField;
+            var hfLocationScheduleDesiredCapacity = e.Item.FindControl( "hfLocationScheduleDesiredCapacity" ) as HiddenField;
+            var hfLocationScheduleMaximumCapacity = e.Item.FindControl( "hfLocationScheduleMaximumCapacity" ) as HiddenField;
             var lLocationTitle = e.Item.FindControl( "lLocationTitle" ) as Literal;
-            hfAttendanceOccurrenceId.Value = attendanceOccurrence.Id.ToString();
-            lLocationTitle.Text = attendanceOccurrence.Location.Name;
+            hfAttendanceOccurrenceId.Value = attendanceOccurrenceId.ToString();
+            
+            if ( attendanceOccurrenceRowItem.CapacityInfo != null )
+            {
+                hfLocationScheduleMinimumCapacity.Value = attendanceOccurrenceRowItem.CapacityInfo.MinimumCapacity.ToString();
+                hfLocationScheduleDesiredCapacity.Value = attendanceOccurrenceRowItem.CapacityInfo.DesiredCapacity.ToString();
+                hfLocationScheduleMaximumCapacity.Value = attendanceOccurrenceRowItem.CapacityInfo.MaximumCapacity.ToString();
+            }
+
+            lLocationTitle.Text = attendanceOccurrenceRowItem.LocationName;
         }
 
         #endregion
@@ -495,6 +501,26 @@ namespace RockWeb.Blocks.Groups
         protected void dvpResourceListDataView_ValueChanged( object sender, EventArgs e )
         {
             ApplyFilter();
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnAutoSchedule control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnAutoSchedule_Click( object sender, EventArgs e )
+        {
+            var rockContext = new RockContext();
+
+            var groupId = hfGroupId.Value.AsInteger();
+            var occurrenceDate = dpDate.SelectedDate.Value;
+            var scheduleId = rblSchedule.SelectedValue.AsInteger();
+            var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
+
+            var attendanceService = new AttendanceService( rockContext );
+
+            // NOTE: Doesn't work quite yet
+            attendanceService.SchedulePersonsAutomatically( groupId, occurrenceDate, scheduleId, selectedGroupLocationIds );
         }
 
         #endregion

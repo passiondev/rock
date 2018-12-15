@@ -163,6 +163,62 @@
     }
   }
 }
+
+/* Location (Attendance Occurrence) */
+.scheduling-status {
+  width: 135px;
+  height: 24px;
+  display: inline-block;
+
+  .scheduling-status-progress {
+    width: 100px;
+    float: left;
+
+    .scheduling-progress-confirmed {
+      background-color: green;
+    }
+
+    .scheduling-progress-pending {
+      background-color: blue;
+    }
+
+    .scheduling-progress-declined {
+      background-color: red;
+    }
+
+    .minimum-indicator {
+      position:relative;
+      background-color:white;
+      width:1px;
+      height: 100%;
+    }
+  }
+
+  .scheduling-status-light {
+    width: 24px;
+    height: 24px;
+    float: right;
+    border-radius: 50%;
+    margin-right: 7.5px;
+    border: 1px solid #d8d8d8;
+  }
+
+  .scheduling-status-light[data-status="below-minimum"] {
+    background-color: red;
+  }
+
+  .scheduling-status-light[data-status="below-desired"] {
+    background-color: yellow;
+  }
+
+  .scheduling-status-light[data-status="meets-desired"] {
+    background-color: green;
+  }
+
+  .scheduling-status-light[data-status="none"] {
+    display: none;
+  }
+}
 /*
 -=-=- Dragula Classes
 */

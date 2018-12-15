@@ -75,7 +75,7 @@
                             $unassignedResource.attr('data-state', 'unassigned');
 
                             var personId = $unassignedResource.attr('data-person-id')
-                            
+
                             var additionalPersonIds = self.$additionalPersonIds.val().split(',');
                             additionalPersonIds.push(personId);
 
@@ -89,6 +89,10 @@
                             }).done(function (scheduledAttendance) {
                                 // after unassigning a resource, repopulate the list of unassigned resources
                                 self.populateSchedulerResources(self.$resourceList);
+                                
+                                // after unassigning a resource, repopulate the list of resources for the occurrence
+                                var $occurrence = $(source).closest('.js-scheduled-occurrence');
+                                self.populateScheduledOccurrence($occurrence);
                             }).fail(function (a, b, c) {
                                 // TODO
                                 debugger
@@ -155,15 +159,83 @@
                 var getScheduledUrl = Rock.settings.get('baseUrl') + 'api/Attendances/GetScheduled';
                 var attendanceOccurrenceId = $occurrence.find('.js-attendanceoccurrence-id').val();
                 var $schedulerTargetContainer = $occurrence.find('.js-scheduler-target-container');
+
+                var minimumCapacity = $occurrence.find('.js-minimum-capacity').val();
+                var desiredCapacity = $occurrence.find('.js-desired-capacity').val();
+                var maximumCapacity = $occurrence.find('.js-maximum-capacity').val();
+                var $schedulingStatusContainer = $occurrence.find('.js-scheduling-status');
+
                 var self = this;
                 $.get(getScheduledUrl + '?attendanceOccurrenceId=' + attendanceOccurrenceId, function (scheduledAttendanceItems) {
                     $schedulerTargetContainer.html('');
+                    var totalPending = 0;
+                    var totalConfirmed = 0;
+                    var totalDeclined = 0;
+
                     $.each(scheduledAttendanceItems, function (i) {
                         var scheduledAttendanceItem = scheduledAttendanceItems[i];
+
+                        // add up status numbers
+                        if (scheduledAttendanceItem.ConfirmationStatus == 'confirmed') {
+                            totalConfirmed++;
+                        } else if (scheduledAttendanceItem.ConfirmationStatus == 'Declined') {
+                            totalDeclined++;
+                        } else {
+                            totalPending++;
+                        }
+
                         var $resourceDiv = $('.js-assigned-resource-template').find('.js-resource').clone();
                         self.populateResourceDiv($resourceDiv, scheduledAttendanceItem, 'assigned');
                         $schedulerTargetContainer.append($resourceDiv);
                     });
+
+                    var $statusLight = $schedulingStatusContainer.find('.js-scheduling-status-light');
+
+                    if (minimumCapacity && (totalConfirmed < minimumCapacity)) {
+                        $statusLight.attr('data-status', 'below-minimum');
+                    }
+                    else if (desiredCapacity && (totalConfirmed < desiredCapacity)) {
+                        $statusLight.attr('data-status', 'below-desired');
+                    }
+                    else if (desiredCapacity && (totalConfirmed >= desiredCapacity)) {
+                        $statusLight.attr('data-status', 'meets-desired');
+                    }
+                    else {
+                        // no capacities defined, so just hide it
+                        $statusLight.attr('data-status', 'none');
+                    }
+
+                    // set the progressbar max to the max capacity (if known), or just the sum of scheduled
+                    var progressMax = maximumCapacity;
+                    if (!maximumCapacity) {
+                        progressMax = (totalPending + totalConfirmed + totalDeclined)
+                    }
+
+                    var confirmedPercent = !progressMax || (totalConfirmed*100 / progressMax);
+                    var pendingPercent = !progressMax || (totalPending*100 / progressMax);
+                    var declinedPercent = !progressMax || (totalDeclined * 100 / progressMax);
+                    var minimumPercent = !progressMax || (minimumCapacity * 100 / progressMax);
+
+                    var $progressMinimumIndicator = $schedulingStatusContainer.find('.js-minimum-indicator');
+                    $progressMinimumIndicator
+                        .attr('data-minimum-value', minimumCapacity)
+                        .css({ 'margin-left': minimumCapacity + '%' });
+
+                    $progressMinimumIndicator.toggle(minimumCapacity > 0);
+
+                    var $progressConfirmed = $schedulingStatusContainer.find('.js-scheduling-progress-confirmed');
+                    $progressConfirmed.css({ 'width': confirmedPercent + '%' });
+                    $progressConfirmed.find('.js-progress-text-percent').val(confirmedPercent);
+
+                    var $progressPending = $schedulingStatusContainer.find('.js-scheduling-progress-pending');
+                    $progressPending.css({ 'width': pendingPercent + '%' });
+                    $progressPending.find('.js-progress-text-percent').val(pendingPercent);
+
+                    var $progressDeclined = $schedulingStatusContainer.find('.js-scheduling-progress-declined');
+                    $progressDeclined.css({ 'width': declinedPercent + '%' });
+                    $progressDeclined.find('.js-progress-text-percent').val(declinedPercent);
+
+
                 });
             },
             /** populates the resource list with unassigned resources */
@@ -171,7 +243,12 @@
                 var self = this;
                 var $resourceContainer = $('.js-scheduler-source-container', $resourceList);
                 var getSchedulerResourcesUrl = Rock.settings.get('baseUrl') + 'api/Attendances/GetSchedulerResources';
-                var additionalPersonIds = self.$additionalPersonIds.val().split(',');
+
+                // javascript creates a non-empty [''] array on empty string, so only split if there are additionalPersonIds specified
+                var additionalPersonIds = [];
+                if (self.$additionalPersonIds.val() != '') {
+                    additionalPersonIds = self.$additionalPersonIds.val().split(',');
+                }
 
                 var schedulerResourceParameters = {
                     AttendanceOccurrenceGroupId: Number($('.js-occurrence-group-id', $resourceList).val()),
@@ -279,7 +356,7 @@
                         debugger
                     })
                 });
-                
+
             }
         };
 

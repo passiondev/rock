@@ -13,6 +13,10 @@
 
                 <div class="panel-labels">
                     <asp:LinkButton ID="btnRecompileLess" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnRecompileLess_Click" Text="RECOMPILE LESS" Style="background-color: violet;" />
+                    <asp:LinkButton id="btnAutoSchedule" runat="server" CssClass="js-autoschedule btn btn-default btn-xs" OnClick="btnAutoSchedule_Click">
+                        <i class="fa fa-magic"></i>
+                        Auto Schedule
+                    </asp:LinkButton>
                 </div>
             </div>
 
@@ -100,7 +104,7 @@
                                                 </h1>
 
                                                 <div class="panel-labels">
-                                                    <button class="btn btn-xs btn-default js-select-all" >Select All</button>
+                                                    <button class="btn btn-xs btn-default js-select-all">Select All</button>
                                                     <asp:LinkButton ID="btnAddResource" runat="server" CssClass="btn btn-xs btn-default" OnClick="btnAddResource_Click">
                                                 <i class="fa fa-plus"></i>
                                                     </asp:LinkButton>
@@ -178,11 +182,37 @@
 
                                                 <div class="location js-scheduled-occurrence">
                                                     <Rock:HiddenFieldWithClass ID="hfAttendanceOccurrenceId" runat="server" CssClass="js-attendanceoccurrence-id" />
+                                                    <Rock:HiddenFieldWithClass ID="hfLocationScheduleMinimumCapacity" runat="server" CssClass="js-minimum-capacity" />
+                                                    <Rock:HiddenFieldWithClass ID="hfLocationScheduleDesiredCapacity" runat="server" CssClass="js-desired-capacity" />
+                                                    <Rock:HiddenFieldWithClass ID="hfLocationScheduleMaximumCapacity" runat="server" CssClass="js-maximum-capacity" />
                                                     <div class="panel panel-block">
                                                         <div class="panel-heading">
                                                             <h1 class="panel-title">
                                                                 <asp:Literal ID="lLocationTitle" runat="server" />
                                                             </h1>
+                                                            <div class="panel-labels">
+                                                                <div class="scheduling-status js-scheduling-status">
+                                                                    
+                                                                    <div class="scheduling-status-progress">
+                                                                        <div class="progress js-scheduling-progress">
+                                                                            <div class="progress-bar scheduling-progress-confirmed js-scheduling-progress-confirmed" style="width: 0%">
+                                                                                <span class="sr-only"><span class="js-progress-text-percent"></span>% Complete (confirmed)</span>
+                                                                            </div>
+                                                                            <div class="progress-bar scheduling-progress-pending js-scheduling-progress-pending" style="width: 0%">
+                                                                                <span class="sr-only"><span class="js-progress-text-percent"></span>% Complete (pending)</span>
+                                                                            </div>
+                                                                            <div class="progress-bar scheduling-progress-declined js-scheduling-progress-declined" style="width: 0%">
+                                                                                <span class="sr-only"><span class="js-progress-text-percent"></span>% Complete (declined)</span>
+                                                                            </div>
+                                                                            <div class="minimum-indicator js-minimum-indicator" data-minimum-value="0" style="margin-left: 0%">
+
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="js-scheduling-status-light scheduling-status-light" data-status="none">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                         <div class="panel-body">
                                                             <div class="js-scheduler-target-container dropzone"></div>

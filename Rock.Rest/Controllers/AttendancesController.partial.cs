@@ -54,9 +54,6 @@ namespace Rock.Rest.Controllers
         [HttpPost]
         public IEnumerable<SchedulerResource> GetSchedulerResources( [FromBody]SchedulerResourceParameters schedulerResourceParameters )
         {
-            // remove any 0 ids
-            schedulerResourceParameters.ResourceAdditionalPersonIds = schedulerResourceParameters.ResourceAdditionalPersonIds?.Where( a => a > 0 ).ToList();
-
             var rockContext = new RockContext();
             var attendanceService = new AttendanceService( rockContext );
             return attendanceService.GetSchedulerResources( schedulerResourceParameters );
