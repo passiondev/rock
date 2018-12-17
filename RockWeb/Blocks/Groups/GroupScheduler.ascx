@@ -12,7 +12,6 @@
                 </h1>
 
                 <div class="panel-labels">
-                    <asp:LinkButton ID="btnRecompileLess" runat="server" CssClass="btn btn-default btn-xs" OnClick="btnRecompileLess_Click" Text="RECOMPILE LESS" Style="background-color: violet;" />
                     <asp:LinkButton id="btnAutoSchedule" runat="server" CssClass="js-autoschedule btn btn-default btn-xs" OnClick="btnAutoSchedule_Click">
                         <i class="fa fa-magic"></i>
                         Auto Schedule

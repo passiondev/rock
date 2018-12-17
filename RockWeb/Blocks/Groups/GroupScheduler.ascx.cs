@@ -313,7 +313,17 @@ namespace RockWeb.Blocks.Groups
             hfOccurrenceOccurrenceDate.Value = dpDate.SelectedDate.ToISO8601DateString();
 
             hfResourceGroupId.Value = resourceGroupId.ToString();
-            hfResourceGroupMemberFilterType.Value = rblGroupMemberFilter.SelectedValueAsEnum<SchedulerResourceGroupMemberFilterType>().ConvertToInt().ToString();
+
+            // note, SchedulerResourceGroupMemberFilterType only applies when resourceListSourceType is Group.
+            if ( resourceListSourceType == SchedulerResourceListSourceType.Group )
+            {
+                hfResourceGroupMemberFilterType.Value = rblGroupMemberFilter.SelectedValueAsEnum<SchedulerResourceGroupMemberFilterType>().ConvertToInt().ToString();
+            }
+            else
+            {
+                hfResourceGroupMemberFilterType.Value = SchedulerResourceGroupMemberFilterType.ShowAllGroupMembers.ConvertToInt().ToString();
+            }
+
             hfResourceDataViewId.Value = resourceDataViewId.ToString();
             hfResourceAdditionalPersonIds.Value = string.Empty;
         }
@@ -519,24 +529,18 @@ namespace RockWeb.Blocks.Groups
 
             var attendanceService = new AttendanceService( rockContext );
 
-            // NOTE: Doesn't work quite yet
-            attendanceService.SchedulePersonsAutomatically( groupId, occurrenceDate, scheduleId, selectedGroupLocationIds );
+            // NOTE: Partially functional
+            attendanceService.SchedulePersonsAutomatically( groupId, occurrenceDate, scheduleId, selectedGroupLocationIds, this.CurrentPersonAlias );
+            rockContext.SaveChanges();
+
+            // NOTE: If SchedulePersonsAutomatically ended up scheduling anybody, they'll now show up in the UI. (Javascript+REST takes care of populating it)
         }
 
         #endregion
 
         protected void btnAddResource_Click( object sender, EventArgs e )
         {
-
-        }
-
-        protected void btnRecompileLess_Click( object sender, EventArgs e )
-        {
-            // #################DEBUG#################
-            // TODO remove this
-            var rockTheme = RockTheme.GetThemes().Where( a => a.Name == "Rock" ).FirstOrDefault();
-            rockTheme.Compile();
-            NavigateToCurrentPageReference();
+            // TODO
         }
     }
 }

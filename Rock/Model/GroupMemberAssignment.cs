@@ -93,6 +93,21 @@ namespace Rock.Model
         public virtual Schedule Schedule { get; set; }
 
         #endregion Virtual Properties
+
+        #region Public Methods
+
+        /// <summary>
+        /// Returns a <see cref="System.String" /> that represents this instance.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="System.String" /> that represents this instance.
+        /// </returns>
+        public override string ToString()
+        {
+            return $"{GroupMember} in {this.GroupMember.Group} is assigned to {Location.ToString() ?? "any location"} at {Schedule.ToString() ?? "any schedule"}. ";
+        }
+
+        #endregion
     }
 
     /// <summary>
