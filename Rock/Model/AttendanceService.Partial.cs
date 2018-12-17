@@ -998,7 +998,7 @@ namespace Rock.Model
                 a.AttendanceOccurrence.ScheduleId,
                 a.AttendanceOccurrence.LocationId,
                 Id = a.AttendanceOccurrence.Id,
-            } );
+            } ).ToList();
 
             // loop thru the most specific assignments first (both LocationId and ScheduleId are assigned)
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.ScheduleId.HasValue && a.LocationId.HasValue ).ToList() )
