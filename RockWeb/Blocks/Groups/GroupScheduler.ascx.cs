@@ -176,11 +176,6 @@ namespace RockWeb.Blocks.Groups
                     }
                 }
             }
-            else
-            {
-                nbGroupWarning.Text = "Please select a group";
-                nbGroupWarning.Visible = true;
-            }
         }
 
         /// <summary>
@@ -375,7 +370,7 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         private class CapacityInfo
         {
@@ -385,7 +380,7 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         private class AttendanceOccurrenceRowItem
         {
@@ -409,7 +404,7 @@ namespace RockWeb.Blocks.Groups
             var hfLocationScheduleMaximumCapacity = e.Item.FindControl( "hfLocationScheduleMaximumCapacity" ) as HiddenField;
             var lLocationTitle = e.Item.FindControl( "lLocationTitle" ) as Literal;
             hfAttendanceOccurrenceId.Value = attendanceOccurrenceId.ToString();
-            
+
             if ( attendanceOccurrenceRowItem.CapacityInfo != null )
             {
                 hfLocationScheduleMinimumCapacity.Value = attendanceOccurrenceRowItem.CapacityInfo.MinimumCapacity.ToString();

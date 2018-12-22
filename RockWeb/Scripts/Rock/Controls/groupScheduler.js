@@ -89,7 +89,7 @@
                             }).done(function (scheduledAttendance) {
                                 // after unassigning a resource, repopulate the list of unassigned resources
                                 self.populateSchedulerResources(self.$resourceList);
-                                
+
                                 // after unassigning a resource, repopulate the list of resources for the occurrence
                                 var $occurrence = $(source).closest('.js-scheduled-occurrence');
                                 self.populateScheduledOccurrence($occurrence);
@@ -121,19 +121,19 @@
                     });
 
                 // initialize scrollbar
-                var $scrollContainer = $control.find('.js-resource-scroller');
-                var $scrollIndicator = $control.find('.track');
-                self.resourceScroll = new IScroll($scrollContainer[0], {
-                    mouseWheel: true,
-                    indicators: {
-                        el: $scrollIndicator[0],
-                        interactive: true,
-                        resize: false,
-                        listenY: true,
-                        listenX: false,
-                    },
-                    preventDefaultException: { tagName: /.*/ }
-                });
+                // var $scrollContainer = $control.find('.js-resource-scroller');
+                // var $scrollIndicator = $control.find('.track');
+                // self.resourceScroll = new IScroll($scrollContainer[0], {
+                //     mouseWheel: true,
+                //     indicators: {
+                //         el: $scrollIndicator[0],
+                //         interactive: true,
+                //         resize: false,
+                //         listenY: true,
+                //         listenX: false,
+                //     },
+                //     preventDefaultException: { tagName: /.*/ }
+                // });
 
                 this.trimSourceContainer();
                 this.initializeEventHandlers();

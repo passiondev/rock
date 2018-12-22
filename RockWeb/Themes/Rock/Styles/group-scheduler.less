@@ -2,14 +2,102 @@
     This is loaded at runtime by the GroupScheduler block
 */
 
-@import "../../../Styles/Bootstrap/variables.less";
-@import "../../../Styles/_rock-variables.less";
+@import (reference) "../../../Styles/FontAwesome/fontawesome.less";
+@import '../../../Styles/Bootstrap/variables.less';
+@import '../../../Styles/_rock-variables.less';
+@import "_variables.less";
+@import "_variable-overrides.less";
+
+// .group-scheduler {
+//   position: fixed;
+//   top: 0;
+//   left:0;
+//   right: 0;
+//   bottom:0;
+//   z-index: 9999;
+// }
+
+.viewport {
+  max-height: 50vh;
+  overflow-y: scroll;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    background-color: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    width: 6px;
+    background-color: rgba(0,0,0, .2);
+    border-radius: 3px;
+  }
+}
+
+.resource {
+  display: block;
+  padding: 6px 8px;
+  margin-bottom: 12px;
+  font-family: @font-family-sans-serif;
+  color: @btn-default-color;
+  //overflow: auto;
+  cursor: pointer;
+  cursor: move;
+  background-color: @btn-default-bg;
+  border: 1px solid @btn-default-border;
+  border-radius: 4px;
+  box-shadow: 0 1px 0 hsl(228, 7%, 83%);
+
+  &[data-state="assigned"] {
+    display: inline-block;
+  }
+
+  // &[data-state="unassigned"] {
+  //
+  // }
+
+  &[data-state="unassigned"][data-is-scheduled="true"] {
+    background-color: @state-danger-bg;
+  }
+
+  &[data-has-conflict="true"] {
+    background-color: @state-warning-bg;
+  }
+
+  .resource-section:hover {
+    outline-color: rgba(0, 0, 0, 0);
+  }
+
+  .resource-name {
+    display: block;
+    margin-right: 20px;
+  }
+}
+
+
+.panel-groupscheduler .resource-area {
+  padding-top: 15px;
+  padding-bottom: 15px;
+
+  > .row {
+    height: 100%;
+  }
+}
+
+.panel-groupscheduler .filter-options {
+  padding-top: 15px;
+  padding-bottom: 15px;
+  background-color: #f3f3f3;
+}
+
+.panel-groupscheduler > .panel-body {
+  padding-top: 0;
+  padding-bottom: 0;
+}
 
 .dropzone {
   &:empty {
     position: relative;
-    padding: 30px;
-    outline: 2px dashed rgba(0,0,0,.3);
+    padding: 40px 0;
     outline-offset: -2px;
 
     &::after {
@@ -18,15 +106,40 @@
       left: 0;
       display: block;
       width: 100%;
-      font-size: 10px;
-      color: rgba(0, 0, 0, .3);
+      font-size: 14px;
+      color: rgba(0, 0, 0, .4);
       text-align: center;
-      content: "Drop something here";
+      content: "No Resources Available";
       -webkit-transform: translateY(-50%);
       -moz-transform: translateY(-50%);
       -ms-transform: translateY(-50%);
       transform: translateY(-50%);
     }
+  }
+}
+
+.group-scheduler-resourcelist .panel-heading,
+.location .panel-heading {
+  background-color: fade(@panel-heading-bg, 60%);
+  padding: 12px;
+  height: 48px;
+
+  .panel-title {
+    line-height: 24px;
+  }
+}
+
+.scheduler-target-container {
+  &:empty {
+    outline: 2px dashed rgba(0, 0, 0, .1);
+
+    &::after {
+      content: "Drag and Drop Resources Here";
+    }
+  }
+
+  .resource {
+    margin-right: 8px;
   }
 }
 
@@ -39,83 +152,38 @@
   font-family: @font-family-sans-serif;
   color: @text-color;
   color: var(--text-color);
-  background-color: @panel-heading-bg;
-}
+  background-color: fade(@panel-heading-bg, 40%);
 
-.resource-container::after {
-  display: table;
-  clear: both;
-  content: "";
-}
-
-.resource {
-  display: block;
-  //overflow: auto;
-  cursor: pointer;
-  outline: 2px dashed rgba(0,0,0,0);
-  outline-offset: -2px;
-  transition: .2s outline linear;
-  padding: 4px;
-  margin-right: 8px;
-  margin-bottom: 12px;
-  font-family: @font-family-sans-serif;
-  color: @btn-default-color;
-  cursor: move;
-  background-color: @btn-default-bg;
-  border: 1px solid @btn-default-border;
-  border-radius: 4px;
-
-  &:hover {
-    outline-color: #eaeef0;
+  &::after {
+    display: table;
+    clear: both;
+    content: "";
   }
 
-  .resource-section:hover {
-    outline-color: rgba(0,0,0,0);
-  }
-
-  &.selected {
-    cursor: move;
-    outline: 2px solid #59c9a5;
-    opacity: 1;
+  .resource:hover {
+    background: rgba(85,150,230,.1);
   }
 }
 
-.resource[data-state="assigned"] {
-  display: inline-block;
-}
-
-.resource[data-state="unassigned"] {
-}
-
-.resource[data-state="unassigned"][data-is-scheduled="true"] {
-  // ?? needed?
-  //display:none;
-  background-color: red;
-}
-
-.resource[data-has-conflict="true"] {
-  background-color: lightyellow;
+.resource-search {
+  border-bottom: 1px solid @panel-default-border;
 }
 
 .resource-scheduled-status {
   width: 24px;
   height: 24px;
-  border-radius: 50%;
   margin-right: 7.5px;
+  background-color: #fff;
   border: 1px solid #d8d8d8;
-  background-color: white;
-}
+  border-radius: 50%;
 
-.resource-scheduled-status[data-status="confirmed"] {
-  background-color: green;
-}
+  &[data-status="confirmed"] {
+    background-color: #25c58e;
+  }
 
-.resource-scheduled-status[data-status="declined"] {
-  background-color: red;
-}
-
-.resource-name {
-  margin-right: 20px;
+  &[data-status="declined"] {
+    background-color: #d24838;
+  }
 }
 
 .resource-lastattendeddate {
@@ -125,9 +193,11 @@
 .resource-note {
   font-size: 80%;
 }
+
 /* Resource List */
 .group-scheduler-resourcelist {
-  width: 350px;
+  // width: 350px;
+
   /* Resource List Scroller */
   .scroll-container-resourcelist {
     width: 320px;
@@ -165,62 +235,68 @@
 
 /* Location (Attendance Occurrence) */
 .scheduling-status {
-  width: 135px;
-  height: 24px;
-  display: inline-block;
+  // width: 135px;
+  // height: 24px;
+  // display: inline-block;
+
+  .progress {
+    margin-bottom: 0;
+  }
 
   .scheduling-status-progress {
-    width: 100px;
     float: left;
+    width: 100px;
 
     .scheduling-progress-confirmed {
-      background-color: green;
+      background-color: #25c58e;
     }
 
     .scheduling-progress-pending {
-      background-color: blue;
+      background-color: #009cdf;
     }
 
     .scheduling-progress-declined {
-      background-color: red;
+      background-color: #d24838;
     }
 
     .minimum-indicator {
-      position:relative;
-      background-color:white;
-      width:1px;
+      position: relative;
+      width: 1px;
       height: 100%;
+      background-color: #fff;
     }
   }
 
   .scheduling-status-light {
+    float: right;
     width: 24px;
     height: 24px;
-    float: right;
-    border-radius: 50%;
     margin-right: 7.5px;
     border: 1px solid #d8d8d8;
-  }
+    border-radius: 50%;
 
-  .scheduling-status-light[data-status="below-minimum"] {
-    background-color: red;
-  }
+    &[data-status="below-minimum"] {
+      background-color: #d24838;
+    }
 
-  .scheduling-status-light[data-status="below-desired"] {
-    background-color: yellow;
-  }
+    &[data-status="below-desired"] {
+      background-color: #ffc870;
+    }
 
-  .scheduling-status-light[data-status="meets-desired"] {
-    background-color: green;
-  }
+    &[data-status="meets-desired"] {
+      background-color: #25c58e;
+    }
 
-  .scheduling-status-light[data-status="none"] {
-    display: none;
+    &[data-status="none"] {
+      display: none;
+    }
   }
 }
+
 /*
 -=-=- Dragula Classes
 */
+
 /* Is added to the mirror image. It handles fixed positioning and z-index (and removes any prior margins on the element). Note
 that the mirror image is appended to the mirrorContainer, not to its initial container. Keep that in mind when styling your
 elements with nested rules, like .list .item { padding: 10px; }.*/
@@ -235,10 +311,12 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   filter: alpha(opacity=80);
   opacity: .8;
 }
+
 /* Is a helper class to apply display: none to an element. */
 .gu-hide {
   display: none !important;
 }
+
 /* Is added to the mirrorContainer element when dragging. You can use it to style the mirrorContainer while something is being dragged. */
 .gu-unselectable {
   -webkit-user-select: none !important;
@@ -246,6 +324,7 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   -ms-user-select: none !important;
   user-select: none !important;
 }
+
 /* Is added to the source element when its mirror image is dragged. It just adds opacity to it.*/
 .gu-transit {
   box-sizing: border-box;
@@ -254,10 +333,16 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   width: 100% !important;
   height: 100%;
   // margin: 0 !important;
-  background: repeating-linear-gradient(-55deg,rgba(35, 79, 65, .1), rgba(35, 79, 65, .1) 3px, rgba(35, 79, 65, 0) 3px, rgba(35, 79, 65, 0) 6px) !important;
-  border-radius: 0 !important;
-  opacity: 1 !important;
+  // background: repeating-linear-gradient(
+  //   -55deg,
+  //   rgba(35, 79, 65, 0.1),
+  //   rgba(35, 79, 65, 0.1) 3px,
+  //   rgba(35, 79, 65, 0) 3px,
+  //   rgba(35, 79, 65, 0) 6px
+  // ) !important;
+  opacity: .5;
 }
+
 /* MP: workaround for https://github.com/bevacqua/dragula/issues/421 */
 .gu-transit .container {
   display: none;
