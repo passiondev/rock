@@ -51,6 +51,7 @@ namespace Rock.Model
             ShowInNavigation = true;
             GroupTerm = "Group";
             GroupMemberTerm = "Member";
+            AdministratorTerm = "Administrator";
         }
 
         #region Entity Properties
@@ -428,6 +429,10 @@ namespace Rock.Model
 
             <dd>{{ Group.GroupCapacity }}</dd>
             {% endif %}
+        {% if Group.GroupType.ShowAdministrator and Group.GroupAdministratorPersonAlias != null and Group.GroupAdministratorPersonAlias != '' %}
+            <dt> {{ Group.GroupType.AdministratorTerm }}</dt>
+            <dd>{{ Group.GroupAdministratorPersonAlias.Person.FullName }}</dd>
+            {% endif %}
         </dl>
         <dl>
         {% for attribute in Group.AttributeValues %}
@@ -613,6 +618,8 @@ namespace Rock.Model
 
         #endregion Entity Properties
 
+        #region Group Scheduling Related
+
         /// <summary>
         /// Gets or sets a value indicating whether scheduling is enabled for groups of this type
         /// </summary>
@@ -675,6 +682,28 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public bool RequiresReasonIfDeclineSchedule { get; set; }
+
+        /// <summary>
+        /// Gets or sets the administrator term for the group of this GroupType.
+        /// </summary>
+        /// <value>
+        /// The administrator term for the group of this GroupType.
+        /// </value>
+        [DataMember]
+        [MaxLength( 100 )]
+        public string AdministratorTerm { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether administrator for the group of this GroupType will be shown.
+        /// </summary>
+        /// <value>
+        ///   A <see cref="System.Boolean"/> value that is <c>true</c> if administrator for the group of this GroupType will be shown; otherwise <c>false</c>.
+        /// </value>
+        [Required]
+        [DataMember( IsRequired = true )]
+        public bool ShowAdministrator { get; set; }
+
+        #endregion
 
         #region Virtual Properties
 

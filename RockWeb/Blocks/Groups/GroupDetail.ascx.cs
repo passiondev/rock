@@ -771,6 +771,11 @@ namespace RockWeb.Blocks.Groups
                 group.ParentGroup = groupService.Get( group.ParentGroupId.Value );
             }
 
+            if ( group.GroupType.ShowAdministrator )
+            {
+                group.GroupAdministratorPersonAliasId = ppAdministrator.PersonAliasId;
+            }
+
             // Check to see if group type is allowed as a child of new parent group.
             if ( group.ParentGroup != null )
             {
@@ -1081,6 +1086,7 @@ namespace RockWeb.Blocks.Groups
                 ShowGroupTypeEditDetails( groupType, group, true );
                 BindInheritedAttributes( CurrentGroupTypeId, new AttributeService( new RockContext() ) );
                 BindGroupRequirementsGrid();
+                BindAdministratorPerson( group, groupType );
             }
         }
 
@@ -1474,6 +1480,7 @@ namespace RockWeb.Blocks.Groups
             GroupLocationsState = group.GroupLocations.ToList();
 
             var groupTypeCache = CurrentGroupTypeCache;
+            BindAdministratorPerson( group, groupTypeCache );
             nbGroupCapacity.Visible = groupTypeCache != null && groupTypeCache.GroupCapacityRule != GroupCapacityRule.None;
             SetScheduleControls( groupTypeCache, group );
             ShowGroupTypeEditDetails( groupTypeCache, group, true );
@@ -1517,6 +1524,25 @@ namespace RockWeb.Blocks.Groups
             }
 
             BindMemberWorkflowTriggersGrid();
+        }
+
+        /// <summary>
+        /// Bind the administrator person picker.
+        /// </summary>
+        /// <param name="group">The group.</param>
+        private void BindAdministratorPerson( Group group, GroupTypeCache groupType )
+        {
+            var showAdministrator = groupType != null && groupType.ShowAdministrator;
+            ppAdministrator.Visible = showAdministrator;
+            if ( showAdministrator )
+            {
+                ppAdministrator.Label = groupType.AdministratorTerm;
+                ppAdministrator.Help = string.Format( "Provide the person who is the {0} of the group.", groupType.AdministratorTerm );
+                if ( group.GroupAdministratorPersonAliasId.HasValue )
+                {
+                    ppAdministrator.SetValue( group.GroupAdministratorPersonAlias.Person );
+                }
+            }
         }
 
         /// <summary>

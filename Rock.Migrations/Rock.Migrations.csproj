@@ -156,13 +156,33 @@
     <Compile Include="Migrations\201812111901295_Rollup_1211.Designer.cs">
       <DependentUpon>201812111901295_Rollup_1211.cs</DependentUpon>
     </Compile>
-    <Compile Include="Migrations\201812131648039_GroupScheduling.cs" />
-    <Compile Include="Migrations\201812131648039_GroupScheduling.Designer.cs">
-      <DependentUpon>201812131648039_GroupScheduling.cs</DependentUpon>
+    <Compile Include="Migrations\201812262333000_RegistrationAttributes.cs" />
+    <Compile Include="Migrations\201812262333000_RegistrationAttributes.Designer.cs">
+      <DependentUpon>201812262333000_RegistrationAttributes.cs</DependentUpon>
     </Compile>
-    <Compile Include="Migrations\201812150142513_GroupScheduling2.cs" />
-    <Compile Include="Migrations\201812150142513_GroupScheduling2.Designer.cs">
-      <DependentUpon>201812150142513_GroupScheduling2.cs</DependentUpon>
+    <Compile Include="Migrations\201901042316288_SMSConversations.cs" />
+    <Compile Include="Migrations\201901042316288_SMSConversations.Designer.cs">
+      <DependentUpon>201901042316288_SMSConversations.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201901082226453_Rollup_0108.cs" />
+    <Compile Include="Migrations\201901082226453_Rollup_0108.Designer.cs">
+      <DependentUpon>201901082226453_Rollup_0108.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201901101747023_AddAdministratorForGroup.cs" />
+    <Compile Include="Migrations\201901101747023_AddAdministratorForGroup.Designer.cs">
+      <DependentUpon>201901101747023_AddAdministratorForGroup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201901112105117_Rollup_0111.cs" />
+    <Compile Include="Migrations\201901112105117_Rollup_0111.Designer.cs">
+      <DependentUpon>201901112105117_Rollup_0111.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201901141627393_SMSConversations1.cs" />
+    <Compile Include="Migrations\201901141627393_SMSConversations1.Designer.cs">
+      <DependentUpon>201901141627393_SMSConversations1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201901142159294_GroupScheduling.cs" />
+    <Compile Include="Migrations\201901142159294_GroupScheduling.Designer.cs">
+      <DependentUpon>201901142159294_GroupScheduling.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.cs" />
     <Compile Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.Designer.cs">
@@ -522,11 +542,26 @@
     <EmbeddedResource Include="Migrations\201812111901295_Rollup_1211.resx">
       <DependentUpon>201812111901295_Rollup_1211.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201812131648039_GroupScheduling.resx">
-      <DependentUpon>201812131648039_GroupScheduling.cs</DependentUpon>
+    <EmbeddedResource Include="Migrations\201812262333000_RegistrationAttributes.resx">
+      <DependentUpon>201812262333000_RegistrationAttributes.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201812150142513_GroupScheduling2.resx">
-      <DependentUpon>201812150142513_GroupScheduling2.cs</DependentUpon>
+    <EmbeddedResource Include="Migrations\201901042316288_SMSConversations.resx">
+      <DependentUpon>201901042316288_SMSConversations.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201901082226453_Rollup_0108.resx">
+      <DependentUpon>201901082226453_Rollup_0108.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201901101747023_AddAdministratorForGroup.resx">
+      <DependentUpon>201901101747023_AddAdministratorForGroup.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201901112105117_Rollup_0111.resx">
+      <DependentUpon>201901112105117_Rollup_0111.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201901141627393_SMSConversations1.resx">
+      <DependentUpon>201901141627393_SMSConversations1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201901142159294_GroupScheduling.resx">
+      <DependentUpon>201901142159294_GroupScheduling.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.resx">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>
@@ -791,8 +826,8 @@
     <Content Include="Migrations\201812111901295_Rollup_1211_FixChartShortcode.sql">
       <DependentUpon>201812111901295_Rollup_1211.cs</DependentUpon>
     </Content>
-    <Content Include="Migrations\201812131648039_GroupScheduling_PopulateScheduleTemplates.sql">
-      <DependentUpon>201812131648039_GroupScheduling.cs</DependentUpon>
+    <Content Include="Migrations\201901142159294_GroupScheduling_PopulateScheduleTemplates.sql">
+      <DependentUpon>201901142159294_GroupScheduling.cs</DependentUpon>
     </Content>
     <Content Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.sql">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>

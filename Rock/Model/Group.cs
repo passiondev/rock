@@ -277,6 +277,14 @@ namespace Rock.Model
         [DataMember]
         public int? ScheduleCancellationPersonAliasId { get; set; }
 
+        /// Gets or sets the group administrator person alias identifier.
+        /// </summary>
+        /// <value>
+        /// The group administrator person alias identifier.
+        /// </value>
+        [DataMember]
+        public virtual int? GroupAdministratorPersonAliasId { get; set; }
+
         #endregion
 
         #region Virtual Properties
@@ -334,6 +342,15 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public virtual PersonAlias ArchivedByPersonAlias { get; set; }
+
+        /// <summary>
+        /// Gets or sets the group administrator person alias.
+        /// </summary>
+        /// <value>
+        /// The group administrator person alias.
+        /// </value>
+        [DataMember]
+        public virtual PersonAlias GroupAdministratorPersonAlias { get; set; }
 
         /// <summary>
         /// Gets or sets a collection the Groups that are children of this group.
@@ -1021,6 +1038,7 @@ namespace Rock.Model
         /// </summary>
         public GroupConfiguration()
         {
+            this.HasOptional( c => c.GroupAdministratorPersonAlias ).WithMany().HasForeignKey( c => c.GroupAdministratorPersonAliasId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.ParentGroup ).WithMany( p => p.Groups ).HasForeignKey( p => p.ParentGroupId ).WillCascadeOnDelete( false );
             this.HasRequired( p => p.GroupType ).WithMany( p => p.Groups ).HasForeignKey( p => p.GroupTypeId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.Campus ).WithMany().HasForeignKey( p => p.CampusId ).WillCascadeOnDelete( false );
