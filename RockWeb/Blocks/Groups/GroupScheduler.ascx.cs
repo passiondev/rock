@@ -330,26 +330,26 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindAttendanceOccurrences()
         {
-            if ( dpDate.SelectedDate == null || rblSchedule.SelectedValue.AsIntegerOrNull() == null )
+            var occurrenceDate = dpDate.SelectedDate;
+            var scheduleId = rblSchedule.SelectedValueAsId();
+
+            if ( occurrenceDate == null || scheduleId == null )
             {
                 return;
             }
-
-            var occurrenceDate = dpDate.SelectedDate.Value;
-            var scheduleId = rblSchedule.SelectedValue.AsInteger();
 
             var rockContext = new RockContext();
             var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
-            var missingAttendanceOccurrences = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( occurrenceDate, scheduleId, selectedGroupLocationIds );
+            var missingAttendanceOccurrences = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( occurrenceDate.Value, scheduleId.Value, selectedGroupLocationIds );
             if ( missingAttendanceOccurrences.Any() )
             {
                 attendanceOccurrenceService.AddRange( missingAttendanceOccurrences );
                 rockContext.SaveChanges();
             }
 
-            var attendanceOccurrenceGroupLocationScheduleConfigQuery = attendanceOccurrenceService.AttendanceOccurrenceGroupLocationScheduleConfigJoinQuery( occurrenceDate, scheduleId, selectedGroupLocationIds );
+            var attendanceOccurrenceGroupLocationScheduleConfigQuery = attendanceOccurrenceService.AttendanceOccurrenceGroupLocationScheduleConfigJoinQuery( occurrenceDate.Value, scheduleId.Value, selectedGroupLocationIds );
 
             var attendanceOccurrencesOrderedList = attendanceOccurrenceGroupLocationScheduleConfigQuery.AsNoTracking()
                 .OrderBy( a => a.GroupLocation.Order ).ThenBy( a => a.GroupLocation.Location.Name )
@@ -528,14 +528,28 @@ namespace RockWeb.Blocks.Groups
             attendanceService.SchedulePersonsAutomatically( groupId, occurrenceDate, scheduleId, selectedGroupLocationIds, this.CurrentPersonAlias );
             rockContext.SaveChanges();
 
-            // NOTE: If SchedulePersonsAutomatically ended up scheduling anybody, they'll now show up in the UI. (Javascript+REST takes care of populating it)
+            // NOTE: If SchedulePersonsAutomatically ended up scheduling anybody, they'll now show up in the UI. (JavaScript+REST takes care of populating it)
         }
 
         #endregion
 
-        protected void btnAddResource_Click( object sender, EventArgs e )
+        /// <summary>
+        /// Handles the SelectPerson event of the ppAddResource control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void ppAddResource_SelectPerson( object sender, EventArgs e )
         {
-            // TODO
+            var additionPersonIds = hfResourceAdditionalPersonIds.Value.SplitDelimitedValues().AsIntegerList();
+            if ( ppAddResource.PersonId.HasValue )
+            {
+                additionPersonIds.Add( ppAddResource.PersonId.Value );
+            }
+
+            hfResourceAdditionalPersonIds.Value = additionPersonIds.AsDelimited( "," );
+
+            // clear on the selected person
+            ppAddResource.SetValue( null );
         }
     }
 }

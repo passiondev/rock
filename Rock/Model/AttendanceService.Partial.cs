@@ -711,7 +711,7 @@ namespace Rock.Model
 
                     var occurrenceDate = schedulerResourceParameters.AttendanceOccurrenceOccurrenceDate;
                     var occurrenceSchedule = new ScheduleService( rockContext ).Get( schedulerResourceParameters.AttendanceOccurrenceScheduleId );
-                    TimeSpan? occurrenceScheduledTime = occurrenceSchedule.GetNextStartDateTime( occurrenceDate )?.TimeOfDay;
+                    TimeSpan? occurrenceScheduledTime = occurrenceSchedule?.GetNextStartDateTime( occurrenceDate )?.TimeOfDay;
                     var beginDate = occurrenceDate.Date;
                     var endDate = occurrenceDate.AddDays( 1 );
 
@@ -919,8 +919,8 @@ namespace Rock.Model
         /// <summary>
         /// Automatically schedules people for attendance for the specified groupId, occurrenceDate, and groupLocationIds.
         /// It'll do this by looking at <see cref="GroupMemberAssignment" />s and <see cref="GroupMemberScheduleTemplate" />.
-        /// The most specific assignments will be assigned first (both schedule and location are specified), followed by less specific assigments (just schedule or just location).
-        /// The assigments will be done in random order until all available spots have been filled (in case there are a limited number of spots available).
+        /// The most specific assignments will be assigned first (both schedule and location are specified), followed by less specific assignments (just schedule or just location).
+        /// The assignments will be done in random order until all available spots have been filled (in case there are a limited number of spots available).
         /// </summary>
         /// <param name="groupId">The group identifier.</param>
         /// <param name="occurrenceDate">The occurrence date.</param>
@@ -982,8 +982,8 @@ namespace Rock.Model
             /*
         /// Automatically schedules people for attendance for the specified groupId, occurrenceDate, and groupLocationIds.
         /// It'll do this by looking at <see cref="GroupMemberAssignment"/>s and <see cref="GroupMemberScheduleTemplate"/>.
-        /// The most specific assignments will be assigned first (both schedule and location are specified), followed by less specific assigments (just schedule or just location).
-        /// The assigments will be done in random order until all available spots have been filled (in case there are a limited number of spots available).
+        /// The most specific assignments will be assigned first (both schedule and location are specified), followed by less specific assignments (just schedule or just location).
+        /// The assignments will be done in random order until all available spots have been filled (in case there are a limited number of spots available).
             */
 
             var attendanceOccurrenceGroupLocationScheduleConfigJoinQuery = new AttendanceOccurrenceService( this.Context as RockContext ).AttendanceOccurrenceGroupLocationScheduleConfigJoinQuery( occurrenceDate, scheduleId, groupLocationIds );
@@ -1000,7 +1000,7 @@ namespace Rock.Model
                 Id = a.AttendanceOccurrence.Id,
             } ).ToList();
 
-            // loop thru the most specific assignments first (both LocationId and ScheduleId are assigned)
+            // loop through the most specific assignments first (both LocationId and ScheduleId are assigned)
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.ScheduleId.HasValue && a.LocationId.HasValue ).ToList() )
             {
                 var attendanceOccurrenceId = attendanceOccurrenceLookupByScheduleAndLocation
@@ -1014,7 +1014,7 @@ namespace Rock.Model
                 }
             }
 
-            // loop thru the assignments that only have a ScheduleId (no specific location)
+            // loop through the assignments that only have a ScheduleId (no specific location)
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.ScheduleId.HasValue && !a.LocationId.HasValue ).ToList() )
             {
 
@@ -1030,7 +1030,7 @@ namespace Rock.Model
                 }
             }
 
-            // loop thru the assignments that only have a Location ( no specific schedule )
+            // loop through the assignments that only have a Location ( no specific schedule )
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.LocationId.HasValue && !a.ScheduleId.HasValue ).ToList() )
             {
                 // TODO: Ask which Schedule/Location should be chosen if there are multiple and neither are full
@@ -1045,7 +1045,7 @@ namespace Rock.Model
                 }
             }
 
-            // TODO: loop thru the rest of the groupMemberAssignments (which would be assignments where both Schedule and Location are not specified)
+            // TODO: loop through the rest of the groupMemberAssignments (which would be assignments where both Schedule and Location are not specified)
 
 
         }

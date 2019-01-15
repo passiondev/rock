@@ -92,15 +92,21 @@
                                             </h1>
 
                                             <div class="panel-labels">
-                                                <button class="btn btn-xs btn-default js-select-all">Select All</button>
-                                                <asp:LinkButton ID="btnAddResource" runat="server" CssClass="btn btn-xs btn-default btn-square" OnClick="btnAddResource_Click">
+                                                <div class="btn btn-xs btn-default js-select-all">Select All</div>
+                                                <div class="btn btn-xs btn-default btn-square js-add-resource" title="Add Person">
                                                     <i class="fa fa-plus"></i>
-                                                </asp:LinkButton>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div class="panel-body padding-all-none">
-                                            <Rock:RockTextBox ID="sfResource" runat="server" CssClass="resource-search padding-all-sm" PrependText="<i class='fa fa-search'></i>" Placeholder="Search" />
+
+                                            <div class="js-add-resource-picker margin-all-sm" style="display:none" >
+                                                <Rock:PersonPicker ID="ppAddResource" runat="server" Label="Select Person" OnSelectPerson="ppAddResource_SelectPerson" />
+                                            </div>
+
+
+                                            <Rock:RockTextBox ID="sfResource" runat="server" CssClass="resource-search padding-all-sm js-resource-search" PrependText="<i class='fa fa-search'></i>" Placeholder="Search" />
                                             <!-- <div class="scroll-container scroll-container-resourcelist">
                                                 <div class="scrollbar"> -->
                                                     <asp:Panel ID="pnlListTrack" runat="server" CssClass="track">
@@ -127,8 +133,6 @@
                                     </div>
                                 </div>
                             </div>
-
-
 
                             <div class="col-md-8">
 
@@ -219,6 +223,45 @@
         </asp:Panel>
         <script>
             Sys.Application.add_load(function () {
+                // toggle the person picker
+                $('.js-add-resource').on('click', function () {
+                    $('.js-add-resource-picker').slideToggle();
+                });
+
+                // filter the search list when stuff is typed in the search box
+                $('.js-resource-search').on('keyup', function () {
+                    var value = $(this).find('input').val().toLowerCase().trim();
+                    $(".js-scheduler-source-container .js-resource").filter(function () {
+                        if (value == '') {
+                            // show everybody
+                            $(this).toggle(true);
+                        }
+                        else {
+                            
+                            var resourceName = $(this).find('.js-resource-name').text();
+                            var resourceNameSplit = resourceName.split(' ');
+                            var anyMatch = false;
+                            
+                            // if the first or lastname starts with the searchstring, show the person
+                            $.each(resourceNameSplit, function (nindex) {
+                                if (resourceNameSplit[nindex].toLowerCase().indexOf(value) == 0) {
+                                    anyMatch = true;
+                                }
+                            })
+
+                            // if first or last didn't match, see if fullname starts with the search value
+                            if (!anyMatch) {
+                                if (resourceName.toLowerCase().indexOf(value) == 0) {
+                                    anyMatch = true;
+                                }
+                            }
+
+                            $(this).toggle(anyMatch);
+                        }
+                    });
+                });
+
+
                 var schedulerContainerId = '<%=pnlScheduler.ClientID%>';
 
                 Rock.controls.groupScheduler.initialize({

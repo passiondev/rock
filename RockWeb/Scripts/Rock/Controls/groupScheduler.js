@@ -57,14 +57,14 @@
                     .on('drag', function (el) {
                         if (self.resourceScroll) {
                             // disable the scroller while dragging so that the scroller doesn't move while we are dragging
-                            self.resourceScroll.disable();
+                            //self.resourceScroll.disable();
                         }
                         $('body').addClass('state-drag');
                     })
                     .on('dragend', function (el) {
                         if (self.resourceScroll) {
                             // reenable the scroller when done dragging
-                            self.resourceScroll.enable();
+                            //self.resourceScroll.enable();
                         }
                         $('body').removeClass('state-drag');
                     })
@@ -287,7 +287,7 @@
 
                     setTimeout(function () {
                         $loadingNotification.hide();
-                        self.resourceScroll.refresh();
+                        //self.resourceScroll.refresh();
                     }, 0)
 
                 }).fail(function (a, b, c) {
