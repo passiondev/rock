@@ -158,7 +158,7 @@ namespace Rock.Model
         /// The RSVP.
         /// </value>
         [DataMember]
-        public RSVP RSVP { get; set; }
+        public RSVP RSVP { get; set; } = RSVP.Unknown;
 
         /// <summary>
         /// Gets or sets a flag indicating if the person attended.
@@ -853,6 +853,11 @@ namespace Rock.Model
         /// Maybe
         /// </summary>
         Maybe = 2,
+
+        /// <summary>
+        /// RVSP not answered yet (or doesn't apply)
+        /// </summary>
+        Unknown = 3
     }
 
     #endregion

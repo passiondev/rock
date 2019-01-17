@@ -86,7 +86,7 @@ namespace Rock.Model
         /// Adds or updates an attendance record and will create the occurrence if needed
         /// </summary>
         /// <param name="personAliasId">The person alias identifier.</param>
-        /// <param name="checkinDateTime">The checkin date time.</param>
+        /// <param name="checkinDateTime">The check-in date time.</param>
         /// <param name="groupId">The group identifier.</param>
         /// <param name="locationId">The location identifier.</param>
         /// <param name="scheduleId">The schedule identifier.</param>
@@ -196,7 +196,7 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Returns a queryable collection of <see cref="Rock.Model.Attendance"/> for a <see cref="Rock.Model.Location"/> on a specified date.
+        /// Returns a Queryable collection of <see cref="Rock.Model.Attendance"/> for a <see cref="Rock.Model.Location"/> on a specified date.
         /// </summary>
         /// <param name="locationId">A <see cref="System.Int32"/> representing the Id of the <see cref="Rock.Model.Location"/></param>
         /// <param name="date">A <see cref="System.DateTime"/> representing the date attended.</param>
@@ -210,6 +210,7 @@ namespace Rock.Model
                     a.DidAttend.HasValue &&
                     a.DidAttend.Value );
         }
+          
 
         /// <summary>
         /// Gets the chart data.
@@ -900,6 +901,7 @@ namespace Rock.Model
                     DidAttend = false,
                     RequestedToAttend = true,
                     ScheduledToAttend = false,
+                    RSVP = RSVP.Maybe
                 };
 
                 this.Add( scheduledAttendance );
@@ -1085,6 +1087,64 @@ namespace Rock.Model
                 // ignore if there is no attendance record
             }
         }
+        /// <summary>
+        /// Updates attendance record to indicate person canceled a confirmed attendance
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        public void ScheduledPersonConfirmCancel( int attendanceId )
+        {
+            var scheduledAttendance = this.Get( attendanceId );
+            if ( scheduledAttendance != null )
+            {
+                scheduledAttendance.ScheduledToAttend = null;
+            }
+            else
+            {
+                // ignore if there is no attendance record
+            }
+        }
+
+        /// <summary>
+        /// Updates attendance record to indicate person declined a scheduled attendance
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        public void ScheduledPersonDecline( int attendanceId, int? declineReasonValueId )
+        {
+            var scheduledAttendance = this.Get( attendanceId );
+            if ( scheduledAttendance != null )
+            {
+                // TODO is a DeclinedToAttend field needed?
+                scheduledAttendance.DeclineReasonValueId = declineReasonValueId;
+
+                //
+                scheduledAttendance.RSVP = RSVP.No;
+            }
+            else
+            {
+                // ignore if there is no attendance record
+            }
+        }
+
+        /// <summary>
+        /// Gets a Queryable of Attendance Records that are Scheduled Attendances that are pending confirmation.
+        /// This includes attendance records that have RequestedToAttend, not yet confirmed (not confirmed as scheduled and not declined), and didn't attend yet.
+        /// This doesn't include attendance records that occurred in prior dates.
+        /// </summary>
+        /// <returns></returns>
+        public IQueryable<Attendance> GetPendingScheduledConfirmations()
+        {
+            var occurrenceDate = RockDateTime.Now.Date;
+            return this.Queryable().Where( a => a.RequestedToAttend == true && a.ScheduledToAttend != true && a.DeclineReasonValueId == null && a.DidAttend != true && a.Occurrence.OccurrenceDate >= occurrenceDate );
+        }
+
+        /// <summary>
+        /// Gets a Queryable of Attendance Records that are scheduled and confirmed.
+        /// </summary>
+        /// <returns></returns>
+        public IQueryable<Attendance> GetConfirmedScheduled()
+        {
+            return this.Queryable().Where( a => a.ScheduledToAttend == true && a.DeclineReasonValueId == null && a.DidAttend != true );
+        }
 
         #endregion GroupScheduling Related
     }
@@ -1128,7 +1188,7 @@ namespace Rock.Model
 
         /// <summary>
         /// Gets or sets the GroupMemberId.
-        /// NOTE: This will be NULL if the resource list has manually added personIds and/or comes from a Person dataview.
+        /// NOTE: This will be NULL if the resource list has manually added personIds and/or comes from a Person DataView.
         /// </summary>
         /// <value>
         /// The group member identifier.
@@ -1295,7 +1355,7 @@ namespace Rock.Model
     /// <summary>
     /// 
     /// </summary>
-    [RockClientInclude( "Use this as the Content of a api/Attendances/GetSchedulerResources POST" )]
+    [RockClientInclude( "Use this as the Content of a ~/api/Attendances/GetSchedulerResources POST" )]
     public class SchedulerResourceParameters
     {
         /// <summary>
@@ -1315,10 +1375,10 @@ namespace Rock.Model
         public int AttendanceOccurrenceScheduleId { get; set; }
 
         /// <summary>
-        /// Gets the attendance occurrence occurrence date.
+        /// Gets the attendance occurrence's occurrence date.
         /// </summary>
         /// <value>
-        /// The attendance occurrence occurrence date.
+        /// The attendance occurrence's occurrence date.
         /// </value>
         public DateTime AttendanceOccurrenceOccurrenceDate { get; set; }
 
@@ -1365,7 +1425,7 @@ namespace Rock.Model
         /// <summary>
         /// Gets the attendance with a SummaryDateTime column by Week, Month, or Year
         /// </summary>
-        /// <param name="qryAttendance">The qry attendance.</param>
+        /// <param name="qryAttendance">The attendance queryable.</param>
         /// <param name="summarizeBy">The group by.</param>
         /// <returns></returns>
         public static IQueryable<AttendanceService.AttendanceWithSummaryDateTime> GetAttendanceWithSummaryDateTime( this IQueryable<Attendance> qryAttendance, ChartGroupBy summarizeBy )

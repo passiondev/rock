@@ -16,11 +16,14 @@
 //
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using Rock;
+using Rock.Data;
 using Rock.Model;
 using Rock.Web.UI;
+using Rock.Web.UI.Controls;
 
 namespace RockWeb.Blocks.Groups
 {
@@ -30,9 +33,30 @@ namespace RockWeb.Blocks.Groups
     [DisplayName( "Group Schedule Toolbox" )]
     [Category( "Groups" )]
     [Description( "Allows management of group scheduling for a specific person (worker)." )]
+
+    [ContextAware( typeof( Rock.Model.Person ) )]
     public partial class GroupScheduleToolbox : RockBlock
     {
         #region Enum
+
+        /// <summary>
+        /// Gets or sets the selected person identifier.
+        /// </summary>
+        /// <value>
+        /// The selected person identifier.
+        /// </value>
+        public int? SelectedPersonId
+        {
+            get
+            {
+                return hfSelectedPersonId.Value.AsIntegerOrNull();
+            }
+
+            set
+            {
+                hfSelectedPersonId.Value = value.ToString();
+            }
+        }
 
         /// <summary>
         /// 
@@ -70,8 +94,6 @@ namespace RockWeb.Blocks.Groups
             // this event gets fired after block settings are updated. it's nice to repaint the screen if these settings would alter it
             this.BlockUpdated += Block_BlockUpdated;
             this.AddConfigurationUpdateTrigger( upnlContent );
-
-            this.Page.Trace.IsEnabled = true;
         }
 
         /// <summary>
@@ -84,7 +106,22 @@ namespace RockWeb.Blocks.Groups
 
             if ( !Page.IsPostBack )
             {
-                ShowDetail();
+                var targetPerson = this.ContextEntity<Person>();
+                if ( targetPerson != null )
+                {
+                    this.SelectedPersonId = targetPerson.Id;
+                }
+                else
+                {
+                    this.SelectedPersonId = this.CurrentPersonId;
+
+                    // DEBUG Ted Decker
+                    this.SelectedPersonId = 53;
+                    ppSelectedPerson.SetValue( new PersonService( new RockContext() ).GetNoTracking( 53 ) );
+                }
+
+                LoadDropDowns();
+                ShowDetails();
             }
         }
 
@@ -119,7 +156,130 @@ namespace RockWeb.Blocks.Groups
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void ppSelectedPerson_SelectPerson( object sender, EventArgs e )
         {
+            this.SelectedPersonId = ppSelectedPerson.PersonId;
+            ShowPersonDetails();
+        }
 
+        /// <summary>
+        /// Gets the occurrence details (Date, Group Name, Location)
+        /// </summary>
+        /// <param name="attendance">The attendance.</param>
+        /// <returns></returns>
+        protected string GetOccurrenceDetails( Attendance attendance )
+        {
+            return string.Format( "{0} - {1} - {2}", attendance.Occurrence.OccurrenceDate.ToShortDateString(), attendance.Occurrence.Group.Name, attendance.Occurrence.Location );
+        }
+
+        /// <summary>
+        /// Gets the occurrence time.
+        /// </summary>
+        /// <param name="attendance">The attendance.</param>
+        /// <returns></returns>
+        protected string GetOccurrenceTime( Attendance attendance )
+        {
+            return attendance.Occurrence.Schedule.GetCalenderEvent().DTStart.Value.TimeOfDay.ToTimeString();
+        }
+
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptUpcomingSchedules control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
+        protected void rptUpcomingSchedules_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var lConfirmedOccurrenceDetails = e.Item.FindControl( "lConfirmedOccurrenceDetails" ) as Literal;
+            var lConfirmedOccurrenceTime = e.Item.FindControl( "lConfirmedOccurrenceTime" ) as Literal;
+            var btnCancelConfirmAttending = e.Item.FindControl( "btnCancelConfirmAttending" ) as LinkButton;
+            var attendance = e.Item.DataItem as Attendance;
+
+            lConfirmedOccurrenceDetails.Text = GetOccurrenceDetails( attendance );
+            lConfirmedOccurrenceTime.Text = GetOccurrenceTime( attendance );
+
+            btnCancelConfirmAttending.CommandName = "AttendanceId";
+            btnCancelConfirmAttending.CommandArgument = attendance.Id.ToString();
+        }
+
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptPendingConfirmations control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
+        protected void rptPendingConfirmations_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var lPendingOccurrenceDetails = e.Item.FindControl( "lPendingOccurrenceDetails" ) as Literal;
+            var lPendingOccurrenceTime = e.Item.FindControl( "lPendingOccurrenceTime" ) as Literal;
+            var btnConfirmAttending = e.Item.FindControl( "btnConfirmAttending" ) as LinkButton;
+            var btnDeclineAttending = e.Item.FindControl( "btnDeclineAttending" ) as LinkButton;
+            var attendance = e.Item.DataItem as Attendance;
+
+            lPendingOccurrenceDetails.Text = GetOccurrenceDetails( attendance );
+            lPendingOccurrenceTime.Text = GetOccurrenceTime( attendance );
+            btnConfirmAttending.CommandName = "AttendanceId";
+            btnConfirmAttending.CommandArgument = attendance.Id.ToString();
+
+            btnDeclineAttending.CommandName = "AttendanceId";
+            btnDeclineAttending.CommandArgument = attendance.Id.ToString();
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnCancelConfirmAttending control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnCancelConfirmAttending_Click( object sender, EventArgs e )
+        {
+            var btnCancelConfirmAttending = sender as LinkButton;
+            int? attendanceId = btnCancelConfirmAttending.CommandArgument.AsIntegerOrNull();
+            if ( attendanceId.HasValue )
+            {
+                var rockContext = new RockContext();
+                new AttendanceService( rockContext ).ScheduledPersonConfirmCancel( attendanceId.Value );
+                rockContext.SaveChanges();
+            }
+
+            ShowPersonDetails();
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnConfirmAttending control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnConfirmAttending_Click( object sender, EventArgs e )
+        {
+            var btnConfirmAttending = sender as LinkButton;
+            int? attendanceId = btnConfirmAttending.CommandArgument.AsIntegerOrNull();
+            if ( attendanceId.HasValue )
+            {
+                var rockContext = new RockContext();
+                new AttendanceService( rockContext ).ScheduledPersonConfirm( attendanceId.Value );
+                rockContext.SaveChanges();
+            }
+
+            ShowPersonDetails();
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnDeclineAttending control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnDeclineAttending_Click( object sender, EventArgs e )
+        {
+            var btnDeclineAttending = sender as LinkButton;
+            int? attendanceId = btnDeclineAttending.CommandArgument.AsIntegerOrNull();
+            if ( attendanceId.HasValue )
+            {
+                var rockContext = new RockContext();
+
+                // TODO
+                int? declineReasonValueId = null;
+
+                new AttendanceService( rockContext ).ScheduledPersonDecline( attendanceId.Value, declineReasonValueId );
+                rockContext.SaveChanges();
+            }
+
+            ShowPersonDetails();
         }
 
         #endregion
@@ -129,11 +289,65 @@ namespace RockWeb.Blocks.Groups
         /// <summary>
         /// Shows the detail.
         /// </summary>
-        private void ShowDetail()
+        private void ShowDetails()
         {
-            LoadDropDowns();
             ShowSelectedTab();
+
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
         }
+
+        /// <summary>
+        /// Shows selected person details.
+        /// </summary>
+        private void ShowPersonDetails()
+        {
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
+        }
+
+        /// <summary>
+        /// Binds the Pending Confirmations grid.
+        /// </summary>
+        private void BindPendingConfirmations()
+        {
+            if ( !this.SelectedPersonId.HasValue )
+            {
+                return;
+            }
+
+            var rockContext = new RockContext();
+            var qryPendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
+                .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId.Value )
+                .OrderBy( a => a.Occurrence.OccurrenceDate );
+
+            rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
+            rptPendingConfirmations.DataBind();
+        }
+
+        /// <summary>
+        /// Binds the Upcoming Schedules grid.
+        /// </summary>
+        private void BindUpcomingSchedules()
+        {
+            if ( !this.SelectedPersonId.HasValue )
+            {
+                return;
+            }
+
+            var currentDateTime = RockDateTime.Now;
+
+            var rockContext = new RockContext();
+            var qryPendingConfirmations = new AttendanceService( rockContext ).GetConfirmedScheduled()
+                .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId.Value )
+                .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
+                .OrderBy( a => a.Occurrence.OccurrenceDate );
+
+            rptUpcomingSchedules.DataSource = qryPendingConfirmations.ToList();
+            rptUpcomingSchedules.DataBind();
+        }
+
+
 
         /// <summary>
         /// Shows the selected tab.
@@ -159,6 +373,27 @@ namespace RockWeb.Blocks.Groups
 
         #endregion
 
-        
+        protected void ddlGroupMemberScheduleTemplate_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            // TODO
+        }
+
+        protected void rptGroupPreferences_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            var lGroupPreferencesGroupName = e.Item.FindControl( "lGroupPreferencesGroupName" ) as Literal;
+            var ddlGroupMemberScheduleTemplate = e.Item.FindControl( "ddlGroupMemberScheduleTemplate" ) as RockDropDownList;
+
+            // TODO
+        }
+
+        protected void rptGroupPreferenceAssignments_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+
+        }
+
+        protected void cbGroupPreferenceAssignmentScheduleTime_CheckedChanged( object sender, EventArgs e )
+        {
+
+        }
     }
 }
