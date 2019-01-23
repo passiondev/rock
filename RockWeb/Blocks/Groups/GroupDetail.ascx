@@ -286,7 +286,7 @@
             </Content>
         </Rock:ModalDialog>
 
-        <!-- Locations Modal Dialog -->
+        <!-- Group Location Modal Dialog -->
         <Rock:ModalDialog ID="dlgLocations" runat="server" Title="Group Location" OnSaveClick="dlgLocations_SaveClick" OnCancelScript="clearActiveDialog();" ValidationGroup="Location">
             <Content>
 
@@ -316,7 +316,50 @@
 
                 <Rock:RockDropDownList ID="ddlLocationType" runat="server" Label="Type" DataValueField="Id" DataTextField="Value" ValidationGroup="Location" />
 
-                <Rock:SchedulePicker ID="spSchedules" runat="server" Label="Schedule(s)" ValidationGroup="Location" AllowMultiSelect="true" />
+                <div class="row">
+                    <div class="col-md-3">
+                        <Rock:SchedulePicker ID="spSchedules" runat="server" Label="Schedule(s)" ValidationGroup="Location" AllowMultiSelect="true" />
+                    </div>
+                    <div class="col-md-9">
+                        <%-- Group Location Schedule Capacities (if Group Scheduling Enabled) --%>
+                        <Rock:RockControlWrapper ID="rcwGroupLocationScheduleCapacities" runat="server" Label="Capacities" Help="Set the capacities to use when scheduling people to this location.">
+                            <asp:Repeater ID="rptGroupLocationScheduleCapacities" runat="server" OnItemDataBound="rptGroupLocationScheduleCapacities_ItemDataBound">
+                                <HeaderTemplate>
+                                    <div class="row">
+                                        <div class="col-xs-3">
+                                            <span class="control-label"></span>
+                                        </div>
+                                        <div class="col-xs-3">
+                                            <span class="control-label">Minimum</span>
+                                        </div>
+                                        <div class="col-xs-3">
+                                            <span class="control-label">Desired</span>
+                                        </div>
+                                        <div class="col-xs-3">
+                                            <span class="control-label">Maximum</span>
+                                        </div>
+                                    </div>
+                                </HeaderTemplate>
+                                <ItemTemplate>
+                                    <div class="row margin-t-sm">
+                                        <div class="col-xs-3">
+                                            <asp:Literal ID="lScheduleName" runat="server" />
+                                        </div>
+                                        <div class="col-xs-3">
+                                            <Rock:NumberBox ID="nbMinimumCapacity" CssClass="input-width-sm" runat="server" NumberType="Integer" MinimumValue="0" />
+                                        </div>
+                                        <div class="col-xs-3">
+                                            <Rock:NumberBox ID="nbDesiredCapacity" CssClass="input-width-sm" runat="server" NumberType="Integer" MinimumValue="0" />
+                                        </div>
+                                        <div class="col-xs-3">
+                                            <Rock:NumberBox ID="nbMaximumCapacity" CssClass="input-width-sm" runat="server" NumberType="Integer" MinimumValue="0" />
+                                        </div>
+                                    </div>
+                                </ItemTemplate>
+                            </asp:Repeater>
+                        </Rock:RockControlWrapper>
+                    </div>
+                </div>
 
             </Content>
         </Rock:ModalDialog>

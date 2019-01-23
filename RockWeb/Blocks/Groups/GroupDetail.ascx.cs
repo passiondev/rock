@@ -1484,7 +1484,7 @@ namespace RockWeb.Blocks.Groups
             nbGroupCapacity.Visible = groupTypeCache != null && groupTypeCache.GroupCapacityRule != GroupCapacityRule.None;
             SetScheduleControls( groupTypeCache, group );
             ShowGroupTypeEditDetails( groupTypeCache, group, true );
-            
+
             cbSchedulingMustMeetRequirements.Checked = group.SchedulingMustMeetRequirements;
             ddlAttendanceRecordRequiredForCheckIn.SetValue( group.AttendanceRecordRequiredForCheckIn.ConvertToInt() );
             if ( group.ScheduleCancellationPersonAlias != null )
@@ -2228,127 +2228,188 @@ namespace RockWeb.Blocks.Groups
             var rockContext = new RockContext();
             ddlMember.Items.Clear();
             int? groupTypeId = this.CurrentGroupTypeId;
-            if ( groupTypeId.HasValue )
+            if ( !groupTypeId.HasValue )
             {
-                var groupType = GroupTypeCache.Get( groupTypeId.Value );
-                if ( groupType != null )
+                return;
+            }
+
+            var groupType = GroupTypeCache.Get( groupTypeId.Value );
+            if ( groupType == null )
+            {
+                return;
+            }
+
+            GroupLocationPickerMode groupTypeModes = groupType.LocationSelectionMode;
+            if ( groupTypeModes == GroupLocationPickerMode.None )
+            {
+                return;
+            }
+
+            // Set the location picker modes allowed based on the group type's allowed modes
+            LocationPickerMode modes = LocationPickerMode.None;
+            if ( ( groupTypeModes & GroupLocationPickerMode.Named ) == GroupLocationPickerMode.Named )
+            {
+                modes = modes | LocationPickerMode.Named;
+            }
+
+            if ( ( groupTypeModes & GroupLocationPickerMode.Address ) == GroupLocationPickerMode.Address )
+            {
+                modes = modes | LocationPickerMode.Address;
+            }
+
+            if ( ( groupTypeModes & GroupLocationPickerMode.Point ) == GroupLocationPickerMode.Point )
+            {
+                modes = modes | LocationPickerMode.Point;
+            }
+
+            if ( ( groupTypeModes & GroupLocationPickerMode.Polygon ) == GroupLocationPickerMode.Polygon )
+            {
+                modes = modes | LocationPickerMode.Polygon;
+            }
+
+            bool displayMemberTab = ( groupTypeModes & GroupLocationPickerMode.GroupMember ) == GroupLocationPickerMode.GroupMember;
+            bool displayOtherTab = modes != LocationPickerMode.None;
+
+            ulNav.Visible = displayOtherTab && displayMemberTab;
+            pnlMemberSelect.Visible = displayMemberTab;
+            pnlLocationSelect.Visible = displayOtherTab && !displayMemberTab;
+
+            if ( displayMemberTab )
+            {
+                int groupId = hfGroupId.ValueAsInt();
+                if ( groupId != 0 )
                 {
-                    GroupLocationPickerMode groupTypeModes = groupType.LocationSelectionMode;
-                    if ( groupTypeModes != GroupLocationPickerMode.None )
+                    var personService = new PersonService( rockContext );
+                    Guid previousLocationType = Rock.SystemGuid.DefinedValue.GROUP_LOCATION_TYPE_PREVIOUS.AsGuid();
+
+                    foreach ( GroupMember member in new GroupMemberService( rockContext ).GetByGroupId( groupId ) )
                     {
-                        // Set the location picker modes allowed based on the group type's allowed modes
-                        LocationPickerMode modes = LocationPickerMode.None;
-                        if ( ( groupTypeModes & GroupLocationPickerMode.Named ) == GroupLocationPickerMode.Named )
+                        foreach ( Group family in personService.GetFamilies( member.PersonId ) )
                         {
-                            modes = modes | LocationPickerMode.Named;
-                        }
-
-                        if ( ( groupTypeModes & GroupLocationPickerMode.Address ) == GroupLocationPickerMode.Address )
-                        {
-                            modes = modes | LocationPickerMode.Address;
-                        }
-
-                        if ( ( groupTypeModes & GroupLocationPickerMode.Point ) == GroupLocationPickerMode.Point )
-                        {
-                            modes = modes | LocationPickerMode.Point;
-                        }
-
-                        if ( ( groupTypeModes & GroupLocationPickerMode.Polygon ) == GroupLocationPickerMode.Polygon )
-                        {
-                            modes = modes | LocationPickerMode.Polygon;
-                        }
-
-                        bool displayMemberTab = ( groupTypeModes & GroupLocationPickerMode.GroupMember ) == GroupLocationPickerMode.GroupMember;
-                        bool displayOtherTab = modes != LocationPickerMode.None;
-
-                        ulNav.Visible = displayOtherTab && displayMemberTab;
-                        pnlMemberSelect.Visible = displayMemberTab;
-                        pnlLocationSelect.Visible = displayOtherTab && !displayMemberTab;
-
-                        if ( displayMemberTab )
-                        {
-                            int groupId = hfGroupId.ValueAsInt();
-                            if ( groupId != 0 )
+                            foreach ( GroupLocation familyGroupLocation in family.GroupLocations
+                                .Where( l => l.IsMappedLocation && !l.GroupLocationTypeValue.Guid.Equals( previousLocationType ) ) )
                             {
-                                var personService = new PersonService( rockContext );
-                                Guid previousLocationType = Rock.SystemGuid.DefinedValue.GROUP_LOCATION_TYPE_PREVIOUS.AsGuid();
+                                ListItem li = new ListItem(
+                                    string.Format( "{0} {1} ({2})", member.Person.FullName, familyGroupLocation.GroupLocationTypeValue.Value, familyGroupLocation.Location.ToString() ),
+                                    string.Format( "{0}|{1}", familyGroupLocation.Location.Id, member.PersonId ) );
 
-                                foreach ( GroupMember member in new GroupMemberService( rockContext ).GetByGroupId( groupId ) )
-                                {
-                                    foreach ( Group family in personService.GetFamilies( member.PersonId ) )
-                                    {
-                                        foreach ( GroupLocation familyGroupLocation in family.GroupLocations
-                                            .Where( l => l.IsMappedLocation && !l.GroupLocationTypeValue.Guid.Equals( previousLocationType ) ) )
-                                        {
-                                            ListItem li = new ListItem(
-                                                string.Format( "{0} {1} ({2})", member.Person.FullName, familyGroupLocation.GroupLocationTypeValue.Value, familyGroupLocation.Location.ToString() ),
-                                                string.Format( "{0}|{1}", familyGroupLocation.Location.Id, member.PersonId ) );
-
-                                            ddlMember.Items.Add( li );
-                                        }
-                                    }
-                                }
+                                ddlMember.Items.Add( li );
                             }
                         }
-
-                        if ( displayOtherTab )
-                        {
-                            locpGroupLocation.AllowedPickerModes = modes;
-                            locpGroupLocation.SetBestPickerModeForLocation( null );
-                        }
-
-                        ddlLocationType.DataSource = groupType.LocationTypeValues.ToList();
-                        ddlLocationType.DataBind();
-
-                        var groupLocation = GroupLocationsState.FirstOrDefault( l => l.Guid.Equals( locationGuid ) );
-                        if ( groupLocation != null && groupLocation.Location != null )
-                        {
-                            if ( displayOtherTab )
-                            {
-                                locpGroupLocation.SetBestPickerModeForLocation( groupLocation.Location );
-
-                                locpGroupLocation.MapStyleValueGuid = GetAttributeValue( "MapStyle" ).AsGuid();
-
-                                if ( groupLocation.Location != null )
-                                {
-                                    locpGroupLocation.Location = new LocationService( rockContext ).Get( groupLocation.Location.Id );
-                                }
-                            }
-
-                            if ( displayMemberTab && ddlMember.Items.Count > 0 && groupLocation.GroupMemberPersonAliasId.HasValue )
-                            {
-                                LocationTypeTab = MEMBER_LOCATION_TAB_TITLE;
-                                int? personId = new PersonAliasService( rockContext ).GetPersonId( groupLocation.GroupMemberPersonAliasId.Value );
-                                if ( personId.HasValue )
-                                {
-                                    ddlMember.SetValue( string.Format( "{0}|{1}", groupLocation.LocationId, personId.Value ) );
-                                }
-                            }
-                            else if ( displayOtherTab )
-                            {
-                                LocationTypeTab = OTHER_LOCATION_TAB_TITLE;
-                            }
-
-                            ddlLocationType.SetValue( groupLocation.GroupLocationTypeValueId );
-
-                            spSchedules.SetValues( groupLocation.Schedules );
-
-                            hfAddLocationGroupGuid.Value = locationGuid.ToString();
-                        }
-                        else
-                        {
-                            hfAddLocationGroupGuid.Value = string.Empty;
-                            LocationTypeTab = ( displayMemberTab && ddlMember.Items.Count > 0 ) ? MEMBER_LOCATION_TAB_TITLE : OTHER_LOCATION_TAB_TITLE;
-                        }
-
-                        rptLocationTypes.DataSource = _tabs;
-                        rptLocationTypes.DataBind();
-                        ShowSelectedPane();
-
-                        ShowDialog( "Locations", true );
                     }
                 }
             }
+
+            if ( displayOtherTab )
+            {
+                locpGroupLocation.AllowedPickerModes = modes;
+                locpGroupLocation.SetBestPickerModeForLocation( null );
+            }
+
+            ddlLocationType.DataSource = groupType.LocationTypeValues.ToList();
+            ddlLocationType.DataBind();
+
+            var groupLocation = GroupLocationsState.FirstOrDefault( l => l.Guid.Equals( locationGuid ) );
+            if ( groupLocation != null && groupLocation.Location != null )
+            {
+                if ( displayOtherTab )
+                {
+                    locpGroupLocation.SetBestPickerModeForLocation( groupLocation.Location );
+
+                    locpGroupLocation.MapStyleValueGuid = GetAttributeValue( "MapStyle" ).AsGuid();
+
+                    if ( groupLocation.Location != null )
+                    {
+                        locpGroupLocation.Location = new LocationService( rockContext ).Get( groupLocation.Location.Id );
+                    }
+                }
+
+                if ( displayMemberTab && ddlMember.Items.Count > 0 && groupLocation.GroupMemberPersonAliasId.HasValue )
+                {
+                    LocationTypeTab = MEMBER_LOCATION_TAB_TITLE;
+                    int? personId = new PersonAliasService( rockContext ).GetPersonId( groupLocation.GroupMemberPersonAliasId.Value );
+                    if ( personId.HasValue )
+                    {
+                        ddlMember.SetValue( string.Format( "{0}|{1}", groupLocation.LocationId, personId.Value ) );
+                    }
+                }
+                else if ( displayOtherTab )
+                {
+                    LocationTypeTab = OTHER_LOCATION_TAB_TITLE;
+                }
+
+                ddlLocationType.SetValue( groupLocation.GroupLocationTypeValueId );
+
+                spSchedules.SetValues( groupLocation.Schedules );
+
+                hfAddLocationGroupGuid.Value = locationGuid.ToString();
+            }
+            else
+            {
+                hfAddLocationGroupGuid.Value = string.Empty;
+                LocationTypeTab = ( displayMemberTab && ddlMember.Items.Count > 0 ) ? MEMBER_LOCATION_TAB_TITLE : OTHER_LOCATION_TAB_TITLE;
+            }
+
+            rptLocationTypes.DataSource = _tabs;
+            rptLocationTypes.DataBind();
+
+            rptGroupLocationScheduleCapacities.Visible = groupType.IsSchedulingEnabled;
+            if ( groupType.IsSchedulingEnabled )
+            {
+                var schedules = new ScheduleService( rockContext ).GetByIds( spSchedules.SelectedValuesAsInt().ToList() );
+                var groupLocationScheduleConfigList = schedules.ToList().Select( s =>
+                 {
+                     GroupLocationScheduleConfig groupLocationScheduleConfig = groupLocation.GroupLocationScheduleConfigs.FirstOrDefault( a => a.ScheduleId == s.Id );
+                     if ( groupLocationScheduleConfig != null )
+                     {
+                         return groupLocationScheduleConfig;
+                     }
+                     else
+                     {
+                         return new GroupLocationScheduleConfig
+                         {
+                             Schedule = s,
+                             ScheduleId = s.Id,
+                             GroupLocation = groupLocation,
+                             GroupLocationId = groupLocation.Id
+                         };
+                     }
+                 } ).ToList();
+
+                rptGroupLocationScheduleCapacities.DataSource = groupLocationScheduleConfigList;
+                rptGroupLocationScheduleCapacities.DataBind();
+            }
+
+            ShowSelectedPane();
+
+            ShowDialog( "Locations", true );
+        }
+
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptGroupLocationScheduleCapacities control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
+        protected void rptGroupLocationScheduleCapacities_ItemDataBound( object sender, RepeaterItemEventArgs e )
+        {
+            // TODO
+            GroupLocationScheduleConfig groupLocationScheduleConfig = e.Item.DataItem as GroupLocationScheduleConfig;
+            if ( groupLocationScheduleConfig == null )
+            {
+                return;
+            }
+
+            Literal lScheduleName = e.Item.FindControl( "lScheduleName" ) as Literal;
+            lScheduleName.Text = groupLocationScheduleConfig.Schedule.Name;
+
+            NumberBox nbMinimumCapacity = e.Item.FindControl( "nbMinimumCapacity" ) as NumberBox;
+            NumberBox nbDesiredCapacity = e.Item.FindControl( "nbDesiredCapacity" ) as NumberBox;
+            NumberBox nbMaximumCapacity = e.Item.FindControl( "nbMaximumCapacity" ) as NumberBox;
+
+            nbMinimumCapacity.Text = groupLocationScheduleConfig.MinimumCapacity.ToString();
+            nbDesiredCapacity.Text = groupLocationScheduleConfig.DesiredCapacity.ToString();
+            nbMaximumCapacity.Text = groupLocationScheduleConfig.MaximumCapacity.ToString();
+
         }
 
         /// <summary>
@@ -3444,5 +3505,7 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion
+
+
     }
 }
