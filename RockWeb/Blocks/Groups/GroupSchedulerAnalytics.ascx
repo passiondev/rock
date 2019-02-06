@@ -1,4 +1,4 @@
-﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="GroupSchedulerAnalytics.ascx.cs" Inherits="Blocks_Groups_GroupSchedulerAnalytics" %>
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="GroupSchedulerAnalytics.ascx.cs" Inherits="RockWeb.Blocks.Groups.GroupSchedulerAnalytics" %>
 
 <asp:UpdatePanel ID="upnlContent" runat="server">
     <ContentTemplate>
@@ -44,6 +44,9 @@
 
 
                         <%-- Doughnut chart to show the decline reasons--%>
+
+
+
                     </div>
                     <div class="row">
                         <%-- tabular data --%>
