@@ -12,62 +12,88 @@
             </div>
 
             <div class="panel-body">
+                <div class="row row-eq-height">
+                    <div class="col-lg-2 col-md-3 filter-options">
+                        <Rock:NotificationBox ID="nbFilterNotification" runat="server" NotificationBoxType="Warning" visible="false"></Rock:NotificationBox>
 
-                <div class="filters">
-                    <%-- Group picker --%>
-                    <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="true" Label="Select Groups" LimitToSchedulingEnabledGroups="true" />
+                        <label>Please select a Group, Person, or Data View</label>
+                            
+                        <%-- Group picker --%>
+                        <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem" />
 
-                    <%-- Person Picker --%>
-                    <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" />
+                        <%-- Person Picker --%>
+                        <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" OnSelectPerson="ppPerson_SelectPerson" />
+                        
+                        <%-- Date Picker --%>
+                        <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" AllowPastDateSelection="true" AllowFutureDateSelection="true" />
 
-                    <%-- Date Picker --%>
-                    <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" />
+                        <%-- Locations CBL --%>
+                        <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" OnSelectedIndexChanged="cblLocations_SelectedIndexChanged" AutoPostBack="true" ></Rock:RockCheckBoxList>
 
-                    <%-- Dataview Picker --%>
-                    <Rock:DataViewPicker ID="dvDataViews" runat="server"></Rock:DataViewPicker>
+                        <%-- Schedules CBL --%>
+                        <Rock:RockCheckBoxList ID="cblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" ></Rock:RockCheckBoxList>
 
+                        <%-- Dataview Picker --%>
+                        <Rock:DataViewPicker ID="dvDataViews" runat="server" Label="Data View"></Rock:DataViewPicker>
 
-                    <%-- Locations CBL --%>
-                    <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" ></Rock:RockCheckBoxList>
-
-
-                    <%-- Schedules CBL --%>
-                    <Rock:RockCheckBoxList ID="dblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" ></Rock:RockCheckBoxList>
-
-
-                </div>
-
-                <div class="graphs">
-                    <div class="row">
-                        <%-- Bar chart to show the data in the tabular --%>
-
-
-
-                        <%-- Doughnut chart to show the decline reasons--%>
-
-
-
-                    </div>
-                    <div class="row">
-                        <%-- tabular data --%>
-                        <Rock:Grid ID="gData" runat="server" AllowPaging="true" EmptyDataText="No Data Found" ShowActionsInHeader="false">
-                            <Columns>
-                                <Rock:RockBoundField DataField="FullName" HeaderText="Name"></Rock:RockBoundField>
-                                <Rock:RockBoundField DataField="CheckIns" HeaderText="Checked In"></Rock:RockBoundField>
-                                <Rock:RockBoundField DataField="MissedConfirmations" HeaderText="Missed Confirmations"></Rock:RockBoundField>
-                                <Rock:RockBoundField DataField="Declines" HeaderText="Declines"></Rock:RockBoundField>
-                            </Columns>
-                        </Rock:Grid>
+                        <asp:LinkButton ID="btnUpdate" runat="server" CssClass="btn btn-default btn-block" OnClick="btnUpdate_Click"><i class="fa fa-sync"></i>&nbsp;Refresh</asp:LinkButton>
 
                     </div>
 
-                </div>
+                    <div class="col-lg-10 col-md-9 resource-area">
+                        <div class="row">
+                            <%-- Bar chart to show the data in the tabular --%>
+                            <div class="chart-container">
+                            <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Info" Text="No Group Scheduler Data To Show" />
+                            <canvas id="barChartCanvas" runat="server" style="height: 450px;" />
+                        </div>
 
+
+                            <%-- Doughnut chart to show the decline reasons--%>
+
+
+
+                        </div>
+                        <div class="row">
+                            <%-- tabular data --%>
+                            <Rock:Grid ID="gData" runat="server" AllowPaging="true" EmptyDataText="No Data Found" ShowActionsInHeader="false">
+                                <Columns>
+                                    <Rock:RockBoundField DataField="FullName" HeaderText="Name"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="CheckIns" HeaderText="Checked In"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="MissedConfirmations" HeaderText="Missed Confirmations"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="Declines" HeaderText="Declines"></Rock:RockBoundField>
+                                </Columns>
+                            </Rock:Grid>
+
+                        </div>
+
+                    </div>
+                </div>
             </div>
 
             <script>
+                Sys.Application.add_load(function () {
+
+                    var chartSeriesColors = <%=this.SeriesColorsJSON%>;
+
+                    var getSeriesColors = function(numberOfColors) {
+
+                        var result = chartSeriesColors;
+                        while (result.length < numberOfColors)
+                        {
+                            result = result.concat(chartSeriesColors);
+                        }
+
+                        return result;
+                    };
 
 
+
+
+
+
+
+                });
             </script>
 
         </asp:Panel>

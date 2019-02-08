@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.Entity;
 using System.Linq;
 using System.Web.UI;
 using System.Web.UI.HtmlControls;
@@ -36,8 +37,17 @@ namespace RockWeb.Blocks.Groups
     [DisplayName( "Group Scheduler Analytics" )]
     [Category( "Groups" )]
     [Description( "Provides some visibility into scheduling accountability. Shows check-ins, missed confirmations, declines, and decline reasons with ability to filter by group, date range, data view, and person." )]
+
+    [TextField( "Series Colors", "A comma-delimited list of colors that the Clients chart will use.", false, "#5DA5DA,#60BD68,#FFBF2F,#F36F13,#C83013,#676766", order: 0 )]
     public partial class GroupSchedulerAnalytics : RockBlock
     {
+        #region Properties
+        public string SeriesColorsJSON { get; set; }
+
+        #endregion Properties
+
+
+        #region Overrides
         /// <summary>
         /// Raises the <see cref="E:System.Web.UI.Control.Init" /> event.
         /// </summary>
@@ -65,43 +75,109 @@ namespace RockWeb.Blocks.Groups
         
             if( !Page.IsPostBack )
             {
-                LoadLocations();
-                LoadSchedules();
-                ShowBarGraph();
-                ShowDoughnutGraph();
-                ShowTable();
+                
             }
         }
 
+        #endregion Overrides
+
         /// <summary>
-        /// Populates the locations checkbox list
+        /// Populates the locations checkbox list for the selected group
         /// </summary>
-        protected void LoadLocations()
+        protected void LoadLocationsForGroupSelection()
         {
             using ( var rockContext = new RockContext() )
             {
-                var locationService = new LocationService( rockContext );
-                var locations = locationService
+                var groupLocationService = new GroupLocationService( rockContext );
+                var locations = groupLocationService
                     .Queryable()
-                    .Where( l => l.IsActive == true )
-                    //.Select( l => new { l.Id, l.Name } )
-                    .OrderBy( l => l.Name ).ToList();
+                    .Where( gl => gl.GroupId == gpGroups.GroupId )
+                    .Where( gl => gl.Location.IsActive == true )
+                    .OrderBy( gl => gl.Order )
+                    .ThenBy( gl => gl.Location.Name )
+                    .Select( gl => gl.Location )
+                    .ToList();
 
+                cblLocations.DataValueField = "Id";
+                cblLocations.DataTextField = "Name";
                 cblLocations.DataSource = locations;
                 cblLocations.DataBind();
             }
         }
 
         /// <summary>
-        /// Populates the schedules checkbox list
+        /// Populates the locations checkbox list for the selected person.
         /// </summary>
-        protected void LoadSchedules()
+        protected void LoadLocationsForPersonSelection()
         {
             using ( var rockContext = new RockContext() )
             {
+                var groupLocationService = new GroupLocationService( rockContext );
+                var locations = groupLocationService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId )
+                    .Where( gl => gl.Location.IsActive == true )
+                    .OrderBy( gl => gl.Order )
+                    .ThenBy( gl => gl.Location.Name )
+                    .Select( gl => gl.Location)
+                    .ToList();
 
+                cblLocations.DataValueField = "Id";
+                cblLocations.DataTextField = "Name";
+                cblLocations.DataSource = locations;
+                cblLocations.DataBind();
             }
         }
+
+        /// <summary>
+        /// Populates the schedules checkbox list for the selected group and locations
+        /// </summary>
+        protected void LoadSchedulesForGroupSelection()
+        {
+            using ( var rockContext = new RockContext() )
+            {
+                var groupLocationService = new GroupLocationService( rockContext );
+                var schedules = groupLocationService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( gl => gl.GroupId == gpGroups.GroupId )
+                    .Where( gl => cblLocations.SelectedValuesAsInt.Contains( gl.Location.Id ) )
+                    .SelectMany( gl => gl.Schedules )
+                    .DistinctBy( s => s.Guid )
+                    .ToList();
+
+                cblSchedules.DataValueField = "Id";
+                cblSchedules.DataTextField = "Name";
+                cblSchedules.DataSource = schedules;
+                cblSchedules.DataBind();
+            }
+        }
+
+        /// <summary>
+        /// Populates the schedules checkbox list for the selected person and locations
+        /// </summary>
+        protected void LoadSchedulesForPersonSelection()
+        {
+            using ( var rockContext = new RockContext() )
+            {
+                var groupLocationService = new GroupLocationService( rockContext );
+                var schedules = groupLocationService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId )
+                    .Where( gl => cblLocations.SelectedValuesAsInt.Contains( gl.LocationId ) )
+                    .SelectMany( gl => gl.Schedules )
+                    .DistinctBy( s => s.Guid )
+                    .ToList();
+
+                cblSchedules.DataValueField = "Id";
+                cblSchedules.DataTextField = "Name";
+                cblSchedules.DataSource = schedules;
+                cblSchedules.DataBind();
+            }
+        }
+
 
         protected void ShowBarGraph()
         {
@@ -118,5 +194,39 @@ namespace RockWeb.Blocks.Groups
 
         }
 
+        protected void ShowGrid()
+        {
+            using ( var rockContext = new RockContext() )
+            {
+
+            }
+        }
+
+        #region Control Events
+
+        protected void gpGroups_SelectItem( object sender, EventArgs e )
+        {
+            LoadLocationsForGroupSelection();
+        }
+
+        protected void ppPerson_SelectPerson( object sender, EventArgs e )
+        {
+            LoadLocationsForPersonSelection();
+            LoadSchedulesForPersonSelection();
+        }
+
+        protected void btnUpdate_Click( object sender, EventArgs e )
+        {
+            ShowBarGraph();
+            ShowDoughnutGraph();
+            ShowTable();
+        }
+
+        protected void cblLocations_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            LoadSchedulesForGroupSelection();
+        }
+
+        #endregion Control Events
     }
 }
