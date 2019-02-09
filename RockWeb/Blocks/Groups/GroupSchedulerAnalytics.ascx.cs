@@ -194,12 +194,39 @@ namespace RockWeb.Blocks.Groups
 
         }
 
-        protected void ShowGrid()
+        protected void ShowGridForGroup()
         {
+            var schedulerGroupMembers = new List<SchedulerGroupMember>();
+
             using ( var rockContext = new RockContext() )
             {
+                var attendanceService = new AttendanceService( rockContext );
+                var attendances = attendanceService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( a => a.Occurrence.GroupId == gpGroups.GroupId )
+                    .ToList();
+
+                
+                foreach ( var attendance in attendances )
+                {
+                    var schedulerGroupMember = new SchedulerGroupMember();
+                    // set the props here
+                    //SELECT PersonAliasId, COUNT(Id) AS Scheduled FROM #tmp GROUP BY PersonAliasId
+                    //SELECT PersonAliasId, COUNT(Id) AS NoResponse FROM #tmp WHERE [RSVP] = 3 GROUP BY PersonAliasId
+                    //SELECT PersonAliasId, COUNT(Id) AS Declines FROM #tmp WHERE [RSVP] = 0 GROUP BY PersonAliasId
+                    //SELECT PersonAliasId, COUNT(Id) AS [Attended] FROM #tmp WHERE [DidAttend] = 1 GROUP BY PersonAliasId
+                    //SELECT PersonAliasId, COUNT(Id) AS CommitedNoShow FROM #tmp WHERE [RSVP] = 1 AND [DidAttend] = 0 GROUP BY PersonAliasId
+                    //SELECT PersonAliasId, COUNT(Id) AS TentativeNoShow FROM #tmp WHERE [RSVP] = 2 AND [DidAttend] = 0 GROUP BY PersonAliasId
+
+
+                    schedulerGroupMembers.Add( schedulerGroupMember );
+                }
 
             }
+
+            gData.DataSource = schedulerGroupMembers;
+            gData.DataBind();
         }
 
         #region Control Events
@@ -228,5 +255,18 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion Control Events
+
+        protected class SchedulerGroupMember
+        {
+            public Person person { get; set; }
+            public int Scheduled { get; set; }
+            public int NoResponse { get; set; }
+            public int Declines { get; set; }
+            public int Attended { get; set; }
+            public int CommitedNoShow { get; set; }
+            public int TentativeNoShow { get; set; }
+
+        }
+
     }
 }
