@@ -74,48 +74,39 @@
                     </div>
                 </div>
             </div>
+            <asp:HiddenField ID="hfBarLabels" runat="server" Value="<%=this.BarChartLabelsJSON%>" />
             <script>
-                window.onload = function () {
-                    <%--
-                    var barChartScheduled = '[{\"Name\":\"02\",\"Count\":14}]';
-                    var barchartCtx = $('#<%=this.barChartCanvas.ClientID%>')[0].getContext('2d');
+                pageLoad = function () {
 
-                    var barChart = new Chart(barchartCtx, {
-                        type: 'bar',
-                        data: {
-                            datasets: [{
-                                xAxisID: 'Name',
-                                yAxisID: 'Count',
-                                label: 'Scheduled',
-                                data: barChartScheduled
-                            }],
+                    //var ctx = $('#ctl00_main_ctl23_ctl01_ctl06_barChartCanvas')[0].getContext('2d');
+                    //var chart = new Chart(ctx, {
+                    //    type: 'bar',
+                    //    data: {
+                    //        labels: ['8-2018','9-2018','10-2018','11-2018','12-2018','1-2019','2-2019','3-2019','4-2019','5-2019','6-2019','7-2019'],
+                    //        datasets: [{
+                    //            label: "Scheduled",
+                    //            backgroundColor: 'rgb(255, 99, 132)',
+                    //            borderColor: 'rgb(255, 99, 132)',
+                    //            data: [0,0,0,0,0,16,19,2,0,0,0,0]
+                    //        }]
+                    //    },
 
-                        },
-                        options: {
-                            title: {
-                                display: true,
-                                text: 'My Title'
-                            }
-                        }
-                    });--%>
+                    //    options: {}
+                    //});
 
                     var ctx = $('#<%=this.barChartCanvas.ClientID%>')[0].getContext('2d');
                     var chart = new Chart(ctx, {
-                        // The type of chart we want to create
                         type: 'bar',
-
-                        // The data for our dataset
                         data: {
-                            labels: ["01", "02", "03", "04"],
+                            labels: $('#<%=this.hfBarLabels.ClientID%>'),
                             datasets: [{
-                                label: "My First dataset",
+                                label: "Scheduled",
                                 backgroundColor: 'rgb(255, 99, 132)',
                                 borderColor: 'rgb(255, 99, 132)',
-                                data: [0,14,0],
+                                data: <%=this.BarChartScheduledJSON%>,
                             }]
                         },
 
-                        // Configuration options go here
                         options: {}
                     });
                 };

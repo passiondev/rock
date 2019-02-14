@@ -47,7 +47,7 @@ namespace RockWeb.Blocks.Groups
         protected List<Attendance> attendances = new List<Attendance>();
 
         public string SeriesColorsJSON { get; set; }
-
+        public string BarChartLabelsJSON  { get; set; }
         public string BarChartScheduledJSON { get; set; }
         public string BarChartNoResponseJSON { get; set; }
         public string BarChartDeclinesJSON { get; set; }
@@ -368,57 +368,45 @@ var barChart = new Chart(barchartCtx, {{
                 lastDateTime = attendances.Max( a => a.StartDateTime );
             }
 
-            TimeSpan roundTimeSpan = TimeSpan.FromDays( 1 );
+            var daysCount = ( lastDateTime - firstDateTime ).TotalDays;
+            string groupBy = string.Empty;
 
-            //var daysCount = ( lastDateTime - firstDateTime ).TotalDays;
-            //string groupBy = string.Empty;
-
-            //if ( daysCount / 7 > 26 )
-            //{
-            //    // if more than 6 months summarize by month
-            //    groupBy = "MM";
-            //}
-            //else if ( daysCount > 30 )
-            //{
-            //    // if more than 1 month summarize by week
-            //}
-            //else if ( daysCount > 1 )
-            //{
-            //    // if more than 1 day summarize by day
-            //}
-            //else
-            //{
-            //    // For one day summarize by hour
-            //    this.BarChartTimeFormat = "h A";
-            //}
-
-            var weeksCount = ( lastDateTime - firstDateTime ).TotalDays / 7;
-
-            if ( weeksCount > 26 )
+            if ( daysCount / 7 > 26 )
             {
-                // if there is more than 26 weeks worth, summarize by week
-                roundTimeSpan = TimeSpan.FromDays( 7 );
+                // if more than 6 months summarize by month
+                groupBy = "MM";
             }
-            else if ( weeksCount > 3 )
+            else if ( daysCount > 30 )
             {
-                // if there is more than 3 weeks worth, summarize by day
-                roundTimeSpan = TimeSpan.FromDays( 1 );
+                // if more than 1 month summarize by week
+            }
+            else if ( daysCount > 1 )
+            {
+                // if more than 1 day summarize by day
             }
             else
             {
-                // if there is less than 3 weeks worth, summarize by hour
-                roundTimeSpan = TimeSpan.FromHours( 1 );
-                this.BarChartTimeFormat = "LLLL";
+                // For one day summarize by hour
+                this.BarChartTimeFormat = "h A";
             }
+
+            var now = DateTime.Now;
+            now = now.Date.AddDays( 1 - now.Day );
+            var months = Enumerable.Range(-6, 12)
+                .Select(x => new
+                { 
+                    year = now.AddMonths(x).Year, 
+                    month = now.AddMonths(x).Month
+                } );
 
 
             barchartdata = attendances
                 //.GroupBy( a => new { roundedTime = a.Min( b => b.StartDateTime ).Round( roundTimeSpan ) } )
-                .GroupBy( a => new { StartTime = a.StartDateTime.ToString( "MM") } )
+                .GroupBy( a => new { StartYear = a.StartDateTime.Year, StartMonth = a.StartDateTime.Month  } )
                 .Select( a => new SchedulerGroupMember
                 {
-                    //Name = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName( a.Key.StartTime.AsIntegerOrNull() ?? 1 ),
-                    Name = a.Key.StartTime,
+                    Name = a.Key.StartMonth.ToString() + "-" + a.Key.StartYear.ToString(),
+                    StartDateTime = new DateTime(a.Key.StartYear, a.Key.StartMonth, 1 ),
                     Scheduled = a.Count(),
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
@@ -428,15 +416,36 @@ var barChart = new Chart(barchartCtx, {{
                 } )
                 .ToList();
 
+            var changesPerYearAndMonth = months
+                .GroupJoin( barchartdata, m => new
+                {
+                    month = m.month,
+                    year = m.year,
+                },
+                    a => new
+                    {
+                        month = a.StartDateTime.Month,
+                        year = a.StartDateTime.Year,
+                    },
+                    ( p, g ) => new
+                    {
+                        month = p.month,
+                        year = p.year,
+                        scheduled = g.Sum( a => a.Scheduled )
+                    }
+                );
+
+            this.BarChartLabelsJSON = "['" + changesPerYearAndMonth.OrderBy(a => a.year).ThenBy( a => a.month).Select( a => a.month + "-" + a.year ).ToList().AsDelimited( "','" ) + "']";
+
             barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
             nbBarChartMessage.Visible = !barchartdata.Any();
 
-            BarChartScheduledJSON = barchartdata.Select( d => d.Scheduled ).ToJson();
-            BarChartNoResponseJSON = barchartdata.Select( d => d.NoResponse ).ToJson();
-            BarChartDeclinesJSON = barchartdata.Select( d => d.Declines ).ToJson();
-            BarChartAttendedJSON = barchartdata.Select( d => d.Attended ).ToJson();
-            BarChartCommitedNoShowJSON = barchartdata.Select( d => d.CommitedNoShow ).ToJson();
-            BarChartTentativeNoShowJSON = barchartdata.Select( d => d.TentativeNoShow ).ToJson();
+            BarChartScheduledJSON = changesPerYearAndMonth.OrderBy(a => a.year).ThenBy( a => a.month).Select( d => d.scheduled ).ToJson();
+            //BarChartNoResponseJSON = barchartdata.Select( d => d.NoResponse ).ToJson();
+            //BarChartDeclinesJSON = barchartdata.Select( d => d.Declines ).ToJson();
+            //BarChartAttendedJSON = barchartdata.Select( d => d.Attended ).ToJson();
+            //BarChartCommitedNoShowJSON = barchartdata.Select( d => d.CommitedNoShow ).ToJson();
+            //BarChartTentativeNoShowJSON = barchartdata.Select( d => d.TentativeNoShow ).ToJson();
         }
 
         protected void ShowBarGraphForPerson()
@@ -529,6 +538,7 @@ var barChart = new Chart(barchartCtx, {{
         {
             public string Name { get; set; }
             public string Key { get { return Name; } }
+            public DateTime StartDateTime { get; set; }
             public int Scheduled { get; set; }
             public int NoResponse { get; set; }
             public int Declines { get; set; }
