@@ -40,20 +40,24 @@ namespace RockWeb.Blocks.Groups
     [Category( "Groups" )]
     [Description( "Provides some visibility into scheduling accountability. Shows check-ins, missed confirmations, declines, and decline reasons with ability to filter by group, date range, data view, and person." )]
 
-    [TextField( "Series Colors", "A comma-delimited list of colors that the Clients chart will use.", false, "#5DA5DA,#60BD68,#FFBF2F,#F36F13,#C83013,#676766", order: 0 )]
+    [TextField( "Decline Chart Colors", "A comma-delimited list of colors that the decline reason chart will use.", false, "#5DA5DA,#60BD68,#FFBF2F,#F36F13,#C83013,#676766", order: 0, key: "DeclineChartColors" )]
+
     public partial class GroupSchedulerAnalytics : RockBlock
     {
         #region Properties
         protected List<Attendance> attendances = new List<Attendance>();
 
         public string SeriesColorsJSON { get; set; }
-        public string BarChartLabelsJSON  { get; set; }
+        public string BarChartLabelsJSON { get; set; }
         public string BarChartScheduledJSON { get; set; }
         public string BarChartNoResponseJSON { get; set; }
         public string BarChartDeclinesJSON { get; set; }
         public string BarChartAttendedJSON { get; set; }
         public string BarChartCommitedNoShowJSON { get; set; }
         public string BarChartTentativeNoShowJSON { get; set; }
+
+        public string DoughnutChartDeclineLabelsJSON { get; set; }
+        public string DoughnutChartDeclineValuesJSON { get; set; }
 
         /// <summary>
         /// Gets or sets the line chart time format. see http://momentjs.com/docs/#/displaying/format/
@@ -86,67 +90,131 @@ namespace RockWeb.Blocks.Groups
 
         }
 
-        /// <summary>
-        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
-        protected override void OnLoad( EventArgs e )
+        #endregion Overrides
+        protected void RegisterChartScripts()
         {
-            base.OnLoad( e );
-        
-            if( Page.IsPostBack )
-            {
-                
-            }
+            RegisterBarChartScript();
+            RegisterDoughnutChartScript();
         }
 
-        #endregion Overrides
-
-        protected void RegisterScript()
+        protected void RegisterDoughnutChartScript()
         {
+            int valLength = DoughnutChartDeclineValuesJSON.Split( ',' ).Length;
+
+            //var c1 = this.GetAttributeValue( "DeclineChartColors" );
+            //var c2 = c1.Split( ',' );
+            //var c3 = c2.Take( DoughnutChartDeclineValuesJSON.Length );
+            //var c4 = "['" + string.Join( "','", c3 ) + "']";
+
+            string colors = "['" + string.Join("','", this.GetAttributeValue( "DeclineChartColors" ).Split( ',' ).Take( valLength ) ) + "']";
+
             string script = string.Format( @"
-var barChartScheduled = '{0}';
-var barChartNoResponse = '{1}';
-var barChartDeclines = '{2}';
-var barChartAttended = '{3}';
-var barChartCommitedNoShow = '{4}';
-var barChartTentativeNoShow = '{5}';
+var dnutCtx = $('#{0}')[0].getContext('2d');
 
-var barchartCtx = $('#{6}')[0].getContext('2d');
-
-var barChart = new Chart(barchartCtx, {{
-    type: 'bar',
+var dnutChart = new Chart(dnutCtx, {{
+    type: 'doughnut',
     data: {{
-        labels: ['1', '2', '3'],
+        labels: {1},
         datasets: [{{
-            xAxisID: 'Name',
-            yAxisID: 'Count',
-            label: 'Scheduled',
-            data: barChartScheduled
-        }}],
-
+            type: 'doughnut',
+            data: {2},
+            backgroundColor: {3}
+        }}]
     }},
     options: {{
-        title: {{
-            display: true,
-            text: 'My Title'
-        }}
+
+        responsive: true,
+        legend: {{
+            position: 'right',
+            fullWidth: true
+        }},
+        cutoutPercentage: 75,
+
+        animation: {{
+			animateScale: true,
+			animateRotate: true
+		}}
     }}
-}});
-",
+}});",
+                doughnutChartCanvas.ClientID,
+                DoughnutChartDeclineLabelsJSON,
+                DoughnutChartDeclineValuesJSON,
+                colors
+                
+            );
+
+            ScriptManager.RegisterStartupScript( this.Page, this.GetType(), "groupSchedulerDoughnutChartScript", script, true );
+        }
+
+        protected void RegisterBarChartScript()
+        {
+            string script = string.Format( @"
+var barCtx = $('#{0}')[0].getContext('2d');
+
+var barChart = new Chart(barCtx, {{
+    type: 'bar',
+    data: {{
+        labels: {1},
+        datasets: [{{
+            label: 'Scheduled',
+            backgroundColor: 'rgb(0,0,255)',
+            borderColor: 'rgb(0,0,0)',
+            data: {2},
+        }},
+        {{
+            label: 'No Response',
+            backgroundColor: 'rgb(255,255,0)',
+            borderColor: 'rgb(0,0,0)',
+            data: {3},
+        }},
+        {{
+            label: 'Declines',
+            backgroundColor: 'rgb(139,0,0)',
+            borderColor: 'rgb(0,0,0)',
+            data: {4}
+        }},
+        {{
+            label: 'Attended',
+            backgroundColor: 'rgb(0,128,0)',
+            borderColor: 'rgb(0,0,0)',
+            data: {5}
+        }},
+        {{
+            label: 'Committed No Show',
+            backgroundColor: 'rgb(255,0,0)',
+            borderColor: 'rgb(0,0,0)',
+            data: {6}
+        }},
+        {{
+            label: 'Tentative No Show',
+            backgroundColor: 'rgb(255,165,0)',
+            borderColor: 'rgb(0,0,0)',
+            data: {7}
+        }}]
+    }},
+
+    options: {{
+        scales: {{
+			xAxes: [{{
+				stacked: true,
+			}}],
+			yAxes: [{{
+				stacked: true
+			}}]
+		}}
+    }}
+}});",
+            barChartCanvas.ClientID,
+            BarChartLabelsJSON,
             BarChartScheduledJSON,
             BarChartNoResponseJSON,
             BarChartDeclinesJSON,
             BarChartAttendedJSON,
             BarChartCommitedNoShowJSON,
-            BarChartTentativeNoShowJSON,
-            barChartCanvas.ClientID
+            BarChartTentativeNoShowJSON
             );
 
-            if ( gpGroups.GroupId != null )
-            {
-                    ScriptManager.RegisterClientScriptBlock( this, this.GetType(), "chartScript", script, true );
-            }
+            ScriptManager.RegisterStartupScript( this.Page, this.GetType(), "groupSchedulerBarChartScript", script, true );
         }
 
         /// <summary>
@@ -173,7 +241,8 @@ var barChart = new Chart(barchartCtx, {{
                 var groupAttendances = attendanceService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( a => a.Occurrence.GroupId == gpGroups.GroupId );
+                    .Where( a => a.Occurrence.GroupId == gpGroups.GroupId )
+                    .Where( a => a.RequestedToAttend == true );
 
                 if ( sdrpDateRange.DelimitedValues.IsNotNullOrWhiteSpace())
                 {
@@ -360,7 +429,6 @@ var barChart = new Chart(barchartCtx, {{
                 var dateRange = SlidingDateRangePicker.CalculateDateRangeFromDelimitedValues( sdrpDateRange.DelimitedValues );
                 firstDateTime = dateRange.Start.Value;
                 lastDateTime = dateRange.End.Value;
-                var timeUnit = sdrpDateRange.TimeUnit;
             }
             else
             {
@@ -368,40 +436,7 @@ var barChart = new Chart(barchartCtx, {{
                 lastDateTime = attendances.Max( a => a.StartDateTime );
             }
 
-            var daysCount = ( lastDateTime - firstDateTime ).TotalDays;
-            string groupBy = string.Empty;
-
-            if ( daysCount / 7 > 26 )
-            {
-                // if more than 6 months summarize by month
-                groupBy = "MM";
-            }
-            else if ( daysCount > 30 )
-            {
-                // if more than 1 month summarize by week
-            }
-            else if ( daysCount > 1 )
-            {
-                // if more than 1 day summarize by day
-            }
-            else
-            {
-                // For one day summarize by hour
-                this.BarChartTimeFormat = "h A";
-            }
-
-            var now = DateTime.Now;
-            now = now.Date.AddDays( 1 - now.Day );
-            var months = Enumerable.Range(-6, 12)
-                .Select(x => new
-                { 
-                    year = now.AddMonths(x).Year, 
-                    month = now.AddMonths(x).Month
-                } );
-
-
             barchartdata = attendances
-                //.GroupBy( a => new { roundedTime = a.Min( b => b.StartDateTime ).Round( roundTimeSpan ) } )
                 .GroupBy( a => new { StartYear = a.StartDateTime.Year, StartMonth = a.StartDateTime.Month  } )
                 .Select( a => new SchedulerGroupMember
                 {
@@ -416,36 +451,67 @@ var barChart = new Chart(barchartCtx, {{
                 } )
                 .ToList();
 
-            var changesPerYearAndMonth = months
-                .GroupJoin( barchartdata, m => new
-                {
-                    month = m.month,
-                    year = m.year,
-                },
-                    a => new
-                    {
-                        month = a.StartDateTime.Month,
-                        year = a.StartDateTime.Year,
-                    },
-                    ( p, g ) => new
-                    {
-                        month = p.month,
-                        year = p.year,
-                        scheduled = g.Sum( a => a.Scheduled )
-                    }
-                );
+            var daysCount = ( lastDateTime - firstDateTime ).TotalDays;
 
-            this.BarChartLabelsJSON = "['" + changesPerYearAndMonth.OrderBy(a => a.year).ThenBy( a => a.month).Select( a => a.month + "-" + a.year ).ToList().AsDelimited( "','" ) + "']";
+            if ( daysCount / 7 > 26 )
+            {
+                // if more than 6 months summarize by month
+                var monthsCount = ( ( lastDateTime.Year - firstDateTime.Year ) * 12 ) + ( lastDateTime.Month - firstDateTime.Month ) + 1;
+                var months = Enumerable.Range( 0, monthsCount )
+                    .Select(x => new
+                    { 
+                        year = firstDateTime.AddMonths(x).Year, 
+                        month = firstDateTime.AddMonths(x).Month
+                    } );
 
-            barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
-            nbBarChartMessage.Visible = !barchartdata.Any();
+                var changesPerYearAndMonth = months
+                    .GroupJoin( barchartdata, m => new { m.month, m.year },
+                        a => new { month = a.StartDateTime.Month, year = a.StartDateTime.Year },
+                        ( g, d ) => new
+                        {
+                            Month = g.month,
+                            Year = g.year,
+                            Scheduled = d.Sum( a => a.Scheduled ),
+                            NoResponse = d.Sum( a => a.NoResponse ),
+                            Declines = d.Sum( a => a.Declines ),
+                            Attended = d.Sum( a => a.Attended ),
+                            CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
+                            TentativeNoShow = d.Sum( a => a.TentativeNoShow )
+                        }
+                    );
 
-            BarChartScheduledJSON = changesPerYearAndMonth.OrderBy(a => a.year).ThenBy( a => a.month).Select( d => d.scheduled ).ToJson();
-            //BarChartNoResponseJSON = barchartdata.Select( d => d.NoResponse ).ToJson();
-            //BarChartDeclinesJSON = barchartdata.Select( d => d.Declines ).ToJson();
-            //BarChartAttendedJSON = barchartdata.Select( d => d.Attended ).ToJson();
-            //BarChartCommitedNoShowJSON = barchartdata.Select( d => d.CommitedNoShow ).ToJson();
-            //BarChartTentativeNoShowJSON = barchartdata.Select( d => d.TentativeNoShow ).ToJson();
+                this.BarChartLabelsJSON = "['" + changesPerYearAndMonth
+                    .OrderBy(a => a.Year)
+                    .ThenBy( a => a.Month)
+                    .Select( a => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName( a.Month ) + " " + a.Year )
+                    .ToList()
+                    .AsDelimited( "','" ) + "']";
+
+                barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
+                nbBarChartMessage.Visible = !barchartdata.Any();
+
+                BarChartScheduledJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Scheduled ).ToJson();
+                BarChartNoResponseJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.NoResponse ).ToJson();
+                BarChartDeclinesJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Declines ).ToJson();
+                BarChartAttendedJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Attended ).ToJson();
+                BarChartCommitedNoShowJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.CommitedNoShow ).ToJson();
+                BarChartTentativeNoShowJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.TentativeNoShow ).ToJson();
+            }
+            else if ( daysCount > 30 )
+            {
+                // if more than 1 month summarize by week
+
+
+
+            }
+            else 
+            {
+                // Otherwise summarize by day
+
+            }
+
+            
+
         }
 
         protected void ShowBarGraphForPerson()
@@ -455,9 +521,20 @@ var barChart = new Chart(barchartCtx, {{
 
         protected void ShowDoughnutGraphForGroup()
         {
-            var declineGuid = DefinedTypeCache.Get( Rock.SystemGuid.DefinedType.VOLUNTEER_SCHEDULE_DECLINE_REASON );
+            if ( !attendances.Any() )
+            {
+                return;
+            }
 
+            var declines = attendances.Where( a => a.DeclineReasonValueId != null ).GroupBy( a => a.DeclineReasonValueId ).Select( a => new { Reason = a.Key, Count = a.Count() } );
 
+            DoughnutChartDeclineLabelsJSON = "['" + declines
+                .OrderByDescending( d => d.Count )
+                .Select( d => DefinedValueCache.Get( d.Reason.Value ).Value)
+                .ToList()
+                .AsDelimited("','") + "']";
+
+            DoughnutChartDeclineValuesJSON = declines.OrderByDescending( d => d.Count ).Select( d => d.Count ).ToJson();
 
         }
 
@@ -523,7 +600,7 @@ var barChart = new Chart(barchartCtx, {{
                 ShowDoughnutGraphForPerson();
             }
 
-            //RegisterScript();
+            RegisterChartScripts();
             // maybe put a warning here or make is so they can't click the button if they don't have a valid selection.
         }
 

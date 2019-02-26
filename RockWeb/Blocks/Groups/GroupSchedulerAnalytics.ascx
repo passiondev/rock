@@ -25,8 +25,7 @@
                         <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" OnSelectPerson="ppPerson_SelectPerson" />
                         
                         <%-- Date Picker --%>
-                        <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" AllowPastDateSelection="true" AllowFutureDateSelection="true"
-                            EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" SlidingDateRangeMode="Current" EnabledSlidingDateRangeUnits="Week, Month, Year" />
+                        <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" EnabledSlidingDateRangeUnits="Week, Month, Year" SlidingDateRangeMode="Current"/>
 
                         <%-- Locations CBL --%>
                         <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" OnSelectedIndexChanged="cblLocations_SelectedIndexChanged" AutoPostBack="true" ></Rock:RockCheckBoxList>
@@ -44,14 +43,16 @@
                     <div class="col-lg-10 col-md-9 resource-area">
                         <div class="row">
                             <%-- Bar chart to show the data in the tabular --%>
-                            <div class="chart-container">
-                            <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Info" Text="No Group Scheduler Data To Show" visible="false"/>
-                            <canvas id="barChartCanvas" runat="server" style="height: 450px;" />
-                        </div>
+                            <div class="chart-container col-md-9">
+                                <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Info" Text="No Group Scheduler Data To Show" visible="false"/>
+                                <canvas id="barChartCanvas" runat="server" style="height: 450px;" />
+                            </div>
 
 
                             <%-- Doughnut chart to show the decline reasons--%>
-
+                            <div class="chart-container col-md-3">
+                                <canvas id="doughnutChartCanvas" runat="server"></canvas>
+                            </div>
 
 
                         </div>
@@ -75,42 +76,25 @@
                 </div>
             </div>
             <asp:HiddenField ID="hfBarLabels" runat="server" Value="<%=this.BarChartLabelsJSON%>" />
-            <script>
+            <%--<script type="text/javascript">
                 pageLoad = function () {
 
-                    //var ctx = $('#ctl00_main_ctl23_ctl01_ctl06_barChartCanvas')[0].getContext('2d');
-                    //var chart = new Chart(ctx, {
-                    //    type: 'bar',
-                    //    data: {
-                    //        labels: ['8-2018','9-2018','10-2018','11-2018','12-2018','1-2019','2-2019','3-2019','4-2019','5-2019','6-2019','7-2019'],
-                    //        datasets: [{
-                    //            label: "Scheduled",
-                    //            backgroundColor: 'rgb(255, 99, 132)',
-                    //            borderColor: 'rgb(255, 99, 132)',
-                    //            data: [0,0,0,0,0,16,19,2,0,0,0,0]
-                    //        }]
-                    //    },
+                    var dnutCtx = $('#ctl00_main_ctl23_ctl01_ctl06_doughnutChartCanvas')[0].getContext('2d');
 
-                    //    options: {}
-                    //});
-
-                    var ctx = $('#<%=this.barChartCanvas.ClientID%>')[0].getContext('2d');
-                    var chart = new Chart(ctx, {
-                        type: 'bar',
+                    var dnutChart = new Chart(dnutCtx, {
+                        type: 'doughnut',
                         data: {
-                            labels: $('#<%=this.hfBarLabels.ClientID%>'),
+                            labels: ['On Vacation / Out of Town','Family Emergency','Have to Work','Serving Elsewhere'],
                             datasets: [{
-                                label: "Scheduled",
-                                backgroundColor: 'rgb(255, 99, 132)',
-                                borderColor: 'rgb(255, 99, 132)',
-                                data: <%=this.BarChartScheduledJSON%>,
+                                type: 'doughnut',
+                                data: [1,1,1,1],
+                                backgroundColor: ['#5DA5DA','#60BD68','#FFBF2F','#F36F13','#C83013','#676766']
                             }]
                         },
-
                         options: {}
                     });
                 };
-            </script>
+            </script>--%>
         </asp:Panel>
     </ContentTemplate>
 </asp:UpdatePanel>
