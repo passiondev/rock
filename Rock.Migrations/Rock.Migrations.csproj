@@ -184,6 +184,14 @@
     <Compile Include="Migrations\201901142159294_GroupScheduling.Designer.cs">
       <DependentUpon>201901142159294_GroupScheduling.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201902212142494_AddSchedulingResponseEmailTemplate.cs" />
+    <Compile Include="Migrations\201902212142494_AddSchedulingResponseEmailTemplate.Designer.cs">
+      <DependentUpon>201902212142494_AddSchedulingResponseEmailTemplate.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201902252207026_AddSchedulingUpdateSystemEmail.cs" />
+    <Compile Include="Migrations\201902252207026_AddSchedulingUpdateSystemEmail.Designer.cs">
+      <DependentUpon>201902252207026_AddSchedulingUpdateSystemEmail.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.cs" />
     <Compile Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.Designer.cs">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>
@@ -562,6 +570,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\201901142159294_GroupScheduling.resx">
       <DependentUpon>201901142159294_GroupScheduling.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201902212142494_AddSchedulingResponseEmailTemplate.resx">
+      <DependentUpon>201902212142494_AddSchedulingResponseEmailTemplate.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201902252207026_AddSchedulingUpdateSystemEmail.resx">
+      <DependentUpon>201902252207026_AddSchedulingUpdateSystemEmail.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\CreateDatabase\201311251734059_CreateDatabase.resx">
       <DependentUpon>201311251734059_CreateDatabase.cs</DependentUpon>
