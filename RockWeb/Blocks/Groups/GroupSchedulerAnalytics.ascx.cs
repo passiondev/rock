@@ -40,10 +40,82 @@ namespace RockWeb.Blocks.Groups
     [Category( "Groups" )]
     [Description( "Provides some visibility into scheduling accountability. Shows check-ins, missed confirmations, declines, and decline reasons with ability to filter by group, date range, data view, and person." )]
 
-    [TextField( "Decline Chart Colors", "A comma-delimited list of colors that the decline reason chart will use.", false, "#5DA5DA,#60BD68,#FFBF2F,#F36F13,#C83013,#676766", order: 0, key: "DeclineChartColors" )]
+    [TextField(
+        "Decline Chart Colors",
+        Description = "A comma-delimited list of colors that the decline reason chart will use. You will want as many colors as there are decline reasons.",
+        IsRequired = false,
+        DefaultValue = "#5DA5DA,#60BD68,#FFBF2F,#F36F13,#C83013,#676766",
+        Order = 0,
+        Key = AttributeKeys.DeclineChartColors )]
+
+    [ColorField(
+        "Scheduled",
+        Description = "Choose the color to show the number of scheduled persons.",
+        IsRequired = true,
+        DefaultValue = "66B2FF",
+        Category = "Bar Chart Colors",
+        Order = 1,
+        Key = AttributeKeys.BarChartScheduledColor)]
+
+    [ColorField(
+        "No Response",
+        Description = "Choose the color to show the number of schedule requests where the person did not respond.",
+        IsRequired = true,
+        DefaultValue = "FFFF66",
+        Category = "Bar Chart Colors",
+        Order = 2,
+        Key = AttributeKeys.BarChartNoResponseColor)]
+
+    [ColorField(
+        "Declines",
+        Description = "Choose the color to show the number of schedule requests where the person declined.",
+        IsRequired = true,
+        DefaultValue = "FFB266",
+        Category = "Bar Chart Colors",
+        Order = 3,
+        Key = AttributeKeys.BarChartDeclinesColor)]
+
+    [ColorField(
+        "Attended",
+        Description = "Choose the color to show the number of schedule requests where the person attended.",
+        IsRequired = true,
+        DefaultValue = "66FF66",
+        Category = "Bar Chart Colors",
+        Order = 4,
+        Key = AttributeKeys.BarChartAttendedColor)]
+
+    [ColorField(
+        "Commited No Show",
+        Description = "Choose the color to show the number of schedule requests where the person committed but did not attend.",
+        IsRequired = true,
+        DefaultValue = "FF6666",
+        Category = "Bar Chart Colors",
+        Order = 5,
+        Key = AttributeKeys.BarChartCommitedNoShowColor)]
+
+    [ColorField(
+        "Tentative No Show",
+        Description = "Choose the color to show the number of schedule requests where the person tentatively committed and did not attend.",
+        IsRequired = true,
+        DefaultValue = "B266FF",
+        Category = "Bar Chart Colors",
+        Order = 6,
+        Key = AttributeKeys.BarChartTentativeNoShowColor)]
+
 
     public partial class GroupSchedulerAnalytics : RockBlock
     {
+        protected static class AttributeKeys
+        {
+            public const string DeclineChartColors = "DeclineChartColors";
+            public const string BarChartScheduledColor = "BarChartScheduledColor";
+            public const string BarChartNoResponseColor = "BarChartNoResponseColor";
+            public const string BarChartDeclinesColor = "BarChartDeclinesColor";
+            public const string BarChartAttendedColor = "BarChartAttendedColor";
+            public const string BarChartCommitedNoShowColor = "BarChartCommitedNoShowColor";
+            public const string BarChartTentativeNoShowColor = "BarChartTentativeNoShowColor";
+        }
+
         #region Properties
         protected List<Attendance> attendances = new List<Attendance>();
 
@@ -101,11 +173,6 @@ namespace RockWeb.Blocks.Groups
         {
             int valLength = DoughnutChartDeclineValuesJSON.Split( ',' ).Length;
 
-            //var c1 = this.GetAttributeValue( "DeclineChartColors" );
-            //var c2 = c1.Split( ',' );
-            //var c3 = c2.Take( DoughnutChartDeclineValuesJSON.Length );
-            //var c4 = "['" + string.Join( "','", c3 ) + "']";
-
             string colors = "['" + string.Join("','", this.GetAttributeValue( "DeclineChartColors" ).Split( ',' ).Take( valLength ) ) + "']";
 
             string script = string.Format( @"
@@ -122,14 +189,12 @@ var dnutChart = new Chart(dnutCtx, {{
         }}]
     }},
     options: {{
-
         responsive: true,
         legend: {{
             position: 'right',
             fullWidth: true
         }},
         cutoutPercentage: 75,
-
         animation: {{
 			animateScale: true,
 			animateRotate: true
@@ -157,39 +222,39 @@ var barChart = new Chart(barCtx, {{
         labels: {1},
         datasets: [{{
             label: 'Scheduled',
-            backgroundColor: 'rgb(0,0,255)',
-            borderColor: 'rgb(0,0,0)',
-            data: {2},
-        }},
-        {{
-            label: 'No Response',
-            backgroundColor: 'rgb(255,255,0)',
-            borderColor: 'rgb(0,0,0)',
+            backgroundColor: '{2}',
+            borderColor: '#E0E0E0',
             data: {3},
         }},
         {{
+            label: 'No Response',
+            backgroundColor: '{4}',
+            borderColor: '#E0E0E0',
+            data: {5},
+        }},
+        {{
             label: 'Declines',
-            backgroundColor: 'rgb(139,0,0)',
-            borderColor: 'rgb(0,0,0)',
-            data: {4}
+            backgroundColor: '{6}',
+            borderColor: '#E0E0E0',
+            data: {7}
         }},
         {{
             label: 'Attended',
-            backgroundColor: 'rgb(0,128,0)',
-            borderColor: 'rgb(0,0,0)',
-            data: {5}
+            backgroundColor: '{8}',
+            borderColor: '#E0E0E0',
+            data: {9}
         }},
         {{
             label: 'Committed No Show',
-            backgroundColor: 'rgb(255,0,0)',
-            borderColor: 'rgb(0,0,0)',
-            data: {6}
+            backgroundColor: '{10}',
+            borderColor: '#E0E0E0',
+            data: {11}
         }},
         {{
             label: 'Tentative No Show',
-            backgroundColor: 'rgb(255,165,0)',
-            borderColor: 'rgb(0,0,0)',
-            data: {7}
+            backgroundColor: '{12}',
+            borderColor: '#E0E0E0',
+            data: {13}
         }}]
     }},
 
@@ -206,11 +271,17 @@ var barChart = new Chart(barCtx, {{
 }});",
             barChartCanvas.ClientID,
             BarChartLabelsJSON,
+            GetAttributeValue(AttributeKeys.BarChartScheduledColor),
             BarChartScheduledJSON,
+            GetAttributeValue(AttributeKeys.BarChartNoResponseColor),
             BarChartNoResponseJSON,
+            GetAttributeValue(AttributeKeys.BarChartDeclinesColor),
             BarChartDeclinesJSON,
+            GetAttributeValue(AttributeKeys.BarChartAttendedColor),
             BarChartAttendedJSON,
+            GetAttributeValue(AttributeKeys.BarChartCommitedNoShowColor),
             BarChartCommitedNoShowJSON,
+            GetAttributeValue(AttributeKeys.BarChartTentativeNoShowColor),
             BarChartTentativeNoShowJSON
             );
 
