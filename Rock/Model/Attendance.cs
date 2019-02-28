@@ -850,7 +850,8 @@ namespace Rock.Model
         Yes = 1,
 
         /// <summary>
-        /// Maybe
+        /// Here's my number, call me Maybe.
+        /// Not used by by Group Volunteer Scheduler.
         /// </summary>
         Maybe = 2,
 

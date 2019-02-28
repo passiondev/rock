@@ -54,13 +54,13 @@
 
                             <%-- Doughnut chart to show the decline reasons--%>
                             <div class="chart-container col-md-3">
-                                <Rock:NotificationBox ID="nbDoughnutChartMessage" runat="server" NotificationBoxType="Info" Text="No Decline Reason Data To Show" visible="true"/>
                                 <canvas id="doughnutChartCanvas" runat="server"></canvas>
                             </div>
 
 
                         </div>
                         <div class="row">
+                            <div class="col-md-9">
                             <%-- tabular data --%>
                             <Rock:Grid ID="gData" runat="server" AllowPaging="true" EmptyDataText="No Data Found" ShowActionsInHeader="false">
                                 <Columns>
@@ -70,10 +70,9 @@
                                     <Rock:RockBoundField DataField="Declines" HeaderText="Declines"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="Attended" HeaderText="Attended"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="CommitedNoShow" HeaderText="Commited No Show"></Rock:RockBoundField>
-                                    <Rock:RockBoundField DataField="TentativeNoShow" HeaderText="Tentative No Show"></Rock:RockBoundField>
                                 </Columns>
                             </Rock:Grid>
-
+                                </div>
                         </div>
 
                     </div>

@@ -93,15 +93,6 @@ namespace RockWeb.Blocks.Groups
         Order = 5,
         Key = AttributeKeys.BarChartCommitedNoShowColor)]
 
-    [ColorField(
-        "Tentative No Show",
-        Description = "Choose the color to show the number of schedule requests where the person tentatively committed and did not attend.",
-        IsRequired = true,
-        DefaultValue = "B266FF",
-        Category = "Bar Chart Colors",
-        Order = 6,
-        Key = AttributeKeys.BarChartTentativeNoShowColor)]
-
     public partial class GroupSchedulerAnalytics : RockBlock
     {
         protected static class AttributeKeys
@@ -112,23 +103,22 @@ namespace RockWeb.Blocks.Groups
             public const string BarChartDeclinesColor = "BarChartDeclinesColor";
             public const string BarChartAttendedColor = "BarChartAttendedColor";
             public const string BarChartCommitedNoShowColor = "BarChartCommitedNoShowColor";
-            public const string BarChartTentativeNoShowColor = "BarChartTentativeNoShowColor";
         }
 
         #region Properties
         protected List<Attendance> attendances = new List<Attendance>();
 
-        public string SeriesColorsJSON { get; set; }
-        public string BarChartLabelsJSON { get; set; }
-        public string BarChartScheduledJSON { get; set; }
-        public string BarChartNoResponseJSON { get; set; }
-        public string BarChartDeclinesJSON { get; set; }
-        public string BarChartAttendedJSON { get; set; }
-        public string BarChartCommitedNoShowJSON { get; set; }
-        public string BarChartTentativeNoShowJSON { get; set; }
+        protected string SeriesColorsJSON { get; set; }
+        protected string BarChartLabelsJSON { get; set; }
+        protected string BarChartScheduledJSON { get; set; }
+        protected string BarChartNoResponseJSON { get; set; }
+        protected string BarChartDeclinesJSON { get; set; }
+        protected string BarChartAttendedJSON { get; set; }
+        protected string BarChartCommitedNoShowJSON { get; set; }
+        protected int? BarChartMaxValue { get; set; }
 
-        public string DoughnutChartDeclineLabelsJSON { get; set; }
-        public string DoughnutChartDeclineValuesJSON { get; set; }
+        protected string DoughnutChartDeclineLabelsJSON { get; set; }
+        protected string DoughnutChartDeclineValuesJSON { get; set; }
 
         private List<string> _errorMessages;
 
@@ -189,8 +179,12 @@ namespace RockWeb.Blocks.Groups
             }
 
             int valLength = DoughnutChartDeclineValuesJSON.Split( ',' ).Length;
+            string colors = "['#F3F3F3']";
 
-            string colors = "['" + string.Join("','", this.GetAttributeValue( "DeclineChartColors" ).Split( ',' ).Take( valLength ) ) + "']";
+            if ( DoughnutChartDeclineLabelsJSON != "['No data found']" )
+            {
+                colors = "['" + string.Join( "','", this.GetAttributeValue( "DeclineChartColors" ).Split( ',' ).Take( valLength ) ) + "']";
+            }
 
             string script = string.Format( @"
 var dnutCtx = $('#{0}')[0].getContext('2d');
@@ -233,6 +227,15 @@ var dnutChart = new Chart(dnutCtx, {{
         /// </summary>
         protected void RegisterBarChartScript()
         {
+            string steps = string.Empty;
+
+            // This is to prevent chart.js displaying decimal values in the y-axis for low numbers. Forces the step size to 1.
+            // for larger numbers we'll let chart.js scale as it does not display decimals for large numbers.
+            if (BarChartMaxValue != null && BarChartMaxValue.Value < 9 )
+            {
+                steps = "ticks: { stepSize: 1 },";
+            }
+
             string script = string.Format( @"
 var barCtx = $('#{0}')[0].getContext('2d');
 
@@ -269,12 +272,6 @@ var barChart = new Chart(barCtx, {{
             backgroundColor: '{10}',
             borderColor: '#E0E0E0',
             data: {11}
-        }},
-        {{
-            label: 'Tentative No Show',
-            backgroundColor: '{12}',
-            borderColor: '#E0E0E0',
-            data: {13}
         }}]
     }},
 
@@ -284,6 +281,7 @@ var barChart = new Chart(barCtx, {{
 				stacked: true,
 			}}],
 			yAxes: [{{
+                {12}
 				stacked: true
 			}}]
 		}}
@@ -301,8 +299,7 @@ var barChart = new Chart(barCtx, {{
             BarChartAttendedJSON,
             GetAttributeValue(AttributeKeys.BarChartCommitedNoShowColor),
             BarChartCommitedNoShowJSON,
-            GetAttributeValue(AttributeKeys.BarChartTentativeNoShowColor),
-            BarChartTentativeNoShowJSON
+            steps
             );
 
             ScriptManager.RegisterStartupScript( this.Page, this.GetType(), "groupSchedulerBarChartScript", script, true );
@@ -490,14 +487,12 @@ var barChart = new Chart(barCtx, {{
                 .GroupBy( a => new { StartYear = a.StartDateTime.Year, StartMonth = a.StartDateTime.Month  } )
                 .Select( a => new SchedulerGroupMember
                 {
-                    Name = a.Key.StartMonth.ToString() + "-" + a.Key.StartYear.ToString(),
                     StartDateTime = new DateTime(a.Key.StartYear, a.Key.StartMonth, 1 ),
                     Scheduled = a.Count(),
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
                     Attended = a.Count( aa => aa.DidAttend == true ),
-                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false ),
-                    TentativeNoShow = a.Count( aa => aa.RSVP == RSVP.Maybe && aa.DidAttend == false )
+                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
                 } )
                 .ToList();
 
@@ -521,7 +516,7 @@ var barChart = new Chart(barCtx, {{
                             Declines = d.Sum( a => a.Declines ),
                             Attended = d.Sum( a => a.Attended ),
                             CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
-                            TentativeNoShow = d.Sum( a => a.TentativeNoShow )
+                            Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommitedNoShow )
                         }
                     );
 
@@ -535,12 +530,12 @@ var barChart = new Chart(barCtx, {{
                 barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
                 nbBarChartMessage.Visible = !barchartdata.Any();
 
+                BarChartMaxValue = groupedByMonth.Max( x => x.Total );
                 BarChartScheduledJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Scheduled ).ToJson();
                 BarChartNoResponseJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.NoResponse ).ToJson();
                 BarChartDeclinesJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Declines ).ToJson();
                 BarChartAttendedJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Attended ).ToJson();
                 BarChartCommitedNoShowJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.CommitedNoShow ).ToJson();
-                BarChartTentativeNoShowJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.TentativeNoShow ).ToJson();
         }
 
         /// <summary>
@@ -554,18 +549,16 @@ var barChart = new Chart(barCtx, {{
                 .GroupBy( a => new { StartWeek = a.StartDateTime.StartOfWeek(DayOfWeek.Monday) } )
                 .Select( a => new SchedulerGroupMember
                 {
-                    Name = a.Key.StartWeek.ToShortDateString(),
                     StartDateTime = a.Key.StartWeek,
                     Scheduled = a.Count(),
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
                     Attended = a.Count( aa => aa.DidAttend == true ),
-                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false ),
-                    TentativeNoShow = a.Count( aa => aa.RSVP == RSVP.Maybe && aa.DidAttend == false )
+                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
                 } )
                 .ToList();
 
-            var weeks = Enumerable.Range( 0, ( int ) Math.Ceiling( daysCount / 7.0 ) )
+            var weeks = Enumerable.Range( 0, ( int ) Math.Ceiling( ( daysCount / 7.0 ) + 1 ) )
                 .Select(x => new
                 { 
                     date = firstDateTime.StartOfWeek(DayOfWeek.Monday).AddDays(x * 7)
@@ -582,7 +575,7 @@ var barChart = new Chart(barCtx, {{
                         Declines = d.Sum( a => a.Declines ),
                         Attended = d.Sum( a => a.Attended ),
                         CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
-                        TentativeNoShow = d.Sum( a => a.TentativeNoShow )
+                        Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommitedNoShow )
                     }
                 );
 
@@ -595,12 +588,12 @@ var barChart = new Chart(barCtx, {{
             barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
             nbBarChartMessage.Visible = !barchartdata.Any();
 
+            BarChartMaxValue = groupedByDate.Max( x => x.Total );
             BarChartScheduledJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Scheduled ).ToJson();
             BarChartNoResponseJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.NoResponse ).ToJson();
             BarChartDeclinesJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Declines ).ToJson();
             BarChartAttendedJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Attended ).ToJson();
             BarChartCommitedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommitedNoShow ).ToJson();
-            BarChartTentativeNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.TentativeNoShow ).ToJson();
         }
 
         /// <summary>
@@ -614,18 +607,16 @@ var barChart = new Chart(barCtx, {{
                 .GroupBy( a => new { StartYear = a.StartDateTime.Year, StartMonth = a.StartDateTime.Month, StartDay = a.StartDateTime.Day  } )
                 .Select( a => new SchedulerGroupMember
                 {
-                    Name = new DateTime( a.Key.StartYear, a.Key.StartMonth, a.Key.StartDay ).ToShortDateString(),
                     StartDateTime = new DateTime( a.Key.StartYear, a.Key.StartMonth, a.Key.StartDay ),
                     Scheduled = a.Count(),
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
                     Attended = a.Count( aa => aa.DidAttend == true ),
-                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false ),
-                    TentativeNoShow = a.Count( aa => aa.RSVP == RSVP.Maybe && aa.DidAttend == false )
+                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
                 } )
                 .ToList();
 
-            var days = Enumerable.Range( 0, daysCount )
+            var days = Enumerable.Range( 0, daysCount + 1 )
                 .Select(x => new
                 { 
                     date = firstDateTime.AddDays(x)
@@ -642,7 +633,7 @@ var barChart = new Chart(barCtx, {{
                         Declines = d.Sum( a => a.Declines ),
                         Attended = d.Sum( a => a.Attended ),
                         CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
-                        TentativeNoShow = d.Sum( a => a.TentativeNoShow )
+                        Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommitedNoShow )
                     }
                 );
 
@@ -655,12 +646,12 @@ var barChart = new Chart(barCtx, {{
             barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
             nbBarChartMessage.Visible = !barchartdata.Any();
 
+            BarChartMaxValue = groupedByDate.Max( x => x.Total );
             BarChartScheduledJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Scheduled ).ToJson();
             BarChartNoResponseJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.NoResponse ).ToJson();
             BarChartDeclinesJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Declines ).ToJson();
             BarChartAttendedJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Attended ).ToJson();
             BarChartCommitedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommitedNoShow ).ToJson();
-            BarChartTentativeNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.TentativeNoShow ).ToJson();
         }
 
         /// <summary>
@@ -689,24 +680,26 @@ var barChart = new Chart(barCtx, {{
         {
             if ( !attendances.Any() )
             {
-                doughnutChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
-                nbDoughnutChartMessage.Visible = true;
                 return;
             }
 
             var declines = attendances.Where( a => a.DeclineReasonValueId != null ).GroupBy( a => a.DeclineReasonValueId ).Select( a => new { Reason = a.Key, Count = a.Count() } );
 
-            doughnutChartCanvas.Style[HtmlTextWriterStyle.Display] = declines.Any() ? string.Empty : "none";
-            nbDoughnutChartMessage.Visible = !declines.Any();
-
-            DoughnutChartDeclineLabelsJSON = "['" + declines
+            if ( declines.Any() )
+            {
+                DoughnutChartDeclineLabelsJSON = "['" + declines
                 .OrderByDescending( d => d.Count )
                 .Select( d => DefinedValueCache.Get( d.Reason.Value ).Value)
                 .ToList()
                 .AsDelimited("','") + "']";
 
-            DoughnutChartDeclineValuesJSON = declines.OrderByDescending( d => d.Count ).Select( d => d.Count ).ToJson();
-
+                DoughnutChartDeclineValuesJSON = declines.OrderByDescending( d => d.Count ).Select( d => d.Count ).ToJson();
+            }
+            else
+            {
+                DoughnutChartDeclineLabelsJSON = "['No data found']";
+                DoughnutChartDeclineValuesJSON = "[1]";
+            }
         }
 
         /// <summary>
@@ -730,7 +723,6 @@ var barChart = new Chart(barCtx, {{
                     schedulerGroupMember.Declines = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.No).Count();
                     schedulerGroupMember.Attended = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.DidAttend == true ).Count();
                     schedulerGroupMember.CommitedNoShow = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.Yes && a.DidAttend == false ).Count();
-                    schedulerGroupMember.TentativeNoShow = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.Maybe && a.DidAttend == false ).Count();
 
                     schedulerGroupMembers.Add( schedulerGroupMember );
                 }
@@ -751,8 +743,6 @@ var barChart = new Chart(barCtx, {{
 
             nbBarChartMessage.Visible = true;
             barChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
-            nbDoughnutChartMessage.Visible = true;
-            doughnutChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
             gData.Visible = false;
         }
         
@@ -820,14 +810,12 @@ var barChart = new Chart(barCtx, {{
         protected class SchedulerGroupMember
         {
             public string Name { get; set; }
-            public string Key { get { return Name; } }
             public DateTime StartDateTime { get; set; }
             public int Scheduled { get; set; }
             public int NoResponse { get; set; }
             public int Declines { get; set; }
             public int Attended { get; set; }
             public int CommitedNoShow { get; set; }
-            public int TentativeNoShow { get; set; }
         }
     }
 }
