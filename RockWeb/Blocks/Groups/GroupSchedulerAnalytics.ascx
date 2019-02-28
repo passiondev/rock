@@ -66,11 +66,11 @@
                                 <Columns>
                                     <Rock:RockBoundField DataField="Name" HeaderText="Name"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="Scheduled" HeaderText="Scheduled"></Rock:RockBoundField>
-                                    <Rock:RockBoundField DataField="NoResponse" HeaderText="NoResponse"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="NoResponse" HeaderText="No Response"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="Declines" HeaderText="Declines"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="Attended" HeaderText="Attended"></Rock:RockBoundField>
-                                    <Rock:RockBoundField DataField="CommitedNoShow" HeaderText="CommitedNoShow"></Rock:RockBoundField>
-                                    <Rock:RockBoundField DataField="TentativeNoShow" HeaderText="TentativeNoShow"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="CommitedNoShow" HeaderText="Commited No Show"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="TentativeNoShow" HeaderText="Tentative No Show"></Rock:RockBoundField>
                                 </Columns>
                             </Rock:Grid>
 
