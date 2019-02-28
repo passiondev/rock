@@ -102,7 +102,6 @@ namespace RockWeb.Blocks.Groups
         Order = 6,
         Key = AttributeKeys.BarChartTentativeNoShowColor)]
 
-
     public partial class GroupSchedulerAnalytics : RockBlock
     {
         protected static class AttributeKeys
@@ -131,17 +130,9 @@ namespace RockWeb.Blocks.Groups
         public string DoughnutChartDeclineLabelsJSON { get; set; }
         public string DoughnutChartDeclineValuesJSON { get; set; }
 
-        /// <summary>
-        /// Gets or sets the line chart time format. see http://momentjs.com/docs/#/displaying/format/
-        /// </summary>
-        /// <value>
-        /// The line chart time format.
-        /// </value>
-        public string BarChartTimeFormat { get; set; }
-
+        private List<string> _errorMessages;
 
         #endregion Properties
-
 
         #region Overrides
         /// <summary>
@@ -152,6 +143,7 @@ namespace RockWeb.Blocks.Groups
         {
             base.OnInit( e );
 
+            dvDataViews.EntityTypeId = EntityTypeCache.Get( Rock.SystemGuid.EntityType.PERSON ).Id;
             // NOTE: moment.js needs to be loaded before chartjs
             RockPage.AddScriptLink( "~/Scripts/moment.min.js", true );
             RockPage.AddScriptLink( "~/Scripts/Chartjs/Chart.js", true );
@@ -162,15 +154,40 @@ namespace RockWeb.Blocks.Groups
 
         }
 
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+        protected override void OnLoad( EventArgs e )
+        {
+            base.OnLoad( e );
+            if (!IsPostBack)
+            {
+                hfTabs.Value = "group";
+            }
+        }
+
         #endregion Overrides
+
+        /// <summary>
+        /// Registers the chart scripts.
+        /// </summary>
         protected void RegisterChartScripts()
         {
             RegisterBarChartScript();
             RegisterDoughnutChartScript();
         }
 
+        /// <summary>
+        /// Registers the doughnut chart Chart.js script. This should be called after loading the data into the class vars.
+        /// </summary>
         protected void RegisterDoughnutChartScript()
         {
+            if (DoughnutChartDeclineValuesJSON.IsNullOrWhiteSpace() )
+            {
+                return;
+            }
+
             int valLength = DoughnutChartDeclineValuesJSON.Split( ',' ).Length;
 
             string colors = "['" + string.Join("','", this.GetAttributeValue( "DeclineChartColors" ).Split( ',' ).Take( valLength ) ) + "']";
@@ -211,6 +228,9 @@ var dnutChart = new Chart(dnutCtx, {{
             ScriptManager.RegisterStartupScript( this.Page, this.GetType(), "groupSchedulerDoughnutChartScript", script, true );
         }
 
+        /// <summary>
+        /// Registers the bar chart Chart.js script. This should be called after loading the data into the class vars.
+        /// </summary>
         protected void RegisterBarChartScript()
         {
             string script = string.Format( @"
@@ -302,7 +322,7 @@ var barChart = new Chart(barCtx, {{
         /// Clears the existing data from class var attendances and repopulates it with data for the selected group and filter criteria.
         /// Data is organized by each person in the group.
         /// </summary>
-        private void GetAttendanceDataForGroup()
+        private void GetAttendanceData()
         {
             attendances.Clear();
             // Source data for all tables and graphs
@@ -312,13 +332,33 @@ var barChart = new Chart(barCtx, {{
                 var groupAttendances = attendanceService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( a => a.Occurrence.GroupId == gpGroups.GroupId )
                     .Where( a => a.RequestedToAttend == true );
 
+                switch ( hfTabs.Value )
+                {
+                    case "group":
+                        groupAttendances = groupAttendances.Where( a => a.Occurrence.GroupId == gpGroups.GroupId );
+                        break;
+                    case "person":
+                        groupAttendances = groupAttendances.Where( a => a.PersonAliasId == ppPerson.PersonAliasId );
+                        break;
+                    case "dataview":
+                        // TODO add where for each person in the dv
+                        var dataView = new DataViewService( new RockContext() ).Get( dvDataViews.SelectedValueAsInt().Value );
+
+                        var personsFromDv = dataView.GetQuery( null, rockContext, null, out _errorMessages ) as IQueryable<Person>;
+
+                        
+                        
+                        break;
+                    default:
+                        break;
+                }
+
+                // parse the date range and add to query
                 if ( sdrpDateRange.DelimitedValues.IsNotNullOrWhiteSpace())
                 {
                     var dateRange = SlidingDateRangePicker.CalculateDateRangeFromDelimitedValues( sdrpDateRange.DelimitedValues );
-                    // parse the date range and add to query
                     if ( dateRange.Start.HasValue )
                     {
                         groupAttendances = groupAttendances.Where( a => DbFunctions.TruncateTime( a.StartDateTime ) >= dateRange.Start.Value );
@@ -330,15 +370,15 @@ var barChart = new Chart(barCtx, {{
                     }
                 }
 
+                // add selected locations to the query
                 if ( cblLocations.SelectedValues.Any() )
                 {
-                    // add selected locations to the query
                     groupAttendances = groupAttendances.Where( a => cblLocations.SelectedValuesAsInt.Contains( a.Occurrence.LocationId ?? -1 ) );
                 }
 
+                // add selected schedules to the query
                 if (cblSchedules.SelectedValues.Any() )
                 {
-                    // add selected schedules to the query
                     groupAttendances = groupAttendances.Where( a => cblSchedules.SelectedValuesAsInt.Contains( a.Occurrence.ScheduleId ?? -1 ) );
                 }
 
@@ -347,150 +387,90 @@ var barChart = new Chart(barCtx, {{
         }
 
         /// <summary>
-        /// Clears the existing data from class var attendances and repopulates it with data for the selected person and filter criteria.
+        /// Populates the locations checkbox list for the selected person.
         /// </summary>
-        private void GetAttendanceDataForPerson()
+        protected void LoadLocations()
         {
-            // Source data for all tables and graphs
             using ( var rockContext = new RockContext() )
             {
-                var attendanceService = new AttendanceService( rockContext );
-                var groupAttendances = attendanceService
+                var groupLocationService = new GroupLocationService( rockContext );
+                var locations = groupLocationService
                     .Queryable()
-                    .AsNoTracking()
-                    .Where( a => a.PersonAliasId == ppPerson.PersonAliasId );
+                    .AsNoTracking();
 
-                if ( sdrpDateRange.DelimitedValues.IsNotNullOrWhiteSpace())
+                if ( hfTabs.Value == "group" && gpGroups.GroupId != null )
                 {
-                    // parse the date range and add to query
-                    // groupAttendances = groupAttendances.Where
+                    locations = locations.Where( gl => gl.GroupId == gpGroups.GroupId );
+                }
+                else if ( hfTabs.Value == "person" && ppPerson.PersonAliasId != null )
+                {
+                    locations = locations.Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId );
+                }
+                else if ( hfTabs.Value == "dataview" && dvDataViews.SelectedValue != null )
+                {
+                    //TODO
+                }
+
+                locations = locations
+                    .Where( gl => gl.Location.IsActive == true )
+                    .OrderBy( gl => gl.Order )
+                    .ThenBy( gl => gl.Location.Name );
+
+                cblLocations.DataValueField = "Id";
+                cblLocations.DataTextField = "Name";
+                cblLocations.DataSource = locations.Select( gl => gl.Location ).ToList();
+                cblLocations.DataBind();
+            }
+        }
+
+        /// <summary>
+        /// Populates the schedules checkbox list
+        /// </summary>
+        protected void LoadSchedules()
+        {
+            using ( var rockContext = new RockContext() )
+            {
+                var groupLocationService = new GroupLocationService( rockContext );
+                var schedules = groupLocationService
+                    .Queryable()
+                    .AsNoTracking();
+
+                if ( hfTabs.Value == "group" && gpGroups.GroupId != null )
+                {
+                    schedules = schedules.Where( gl => gl.GroupId == gpGroups.GroupId );
+                }
+                else if ( hfTabs.Value == "person" && ppPerson.PersonAliasId != null )
+                {
+                    schedules = schedules.Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId );
+                }
+                else if ( hfTabs.Value == "dataview" && dvDataViews.SelectedValue != null )
+                {
+                    //TODO
                 }
 
                 if ( cblLocations.SelectedValues.Any() )
                 {
-                    // add selected locations to the query
-                    // groupAttendances = groupAttendances.Where
+                    schedules = schedules.Where( gl => cblLocations.SelectedValuesAsInt.Contains( gl.LocationId ) );
                 }
-
-                if (cblSchedules.SelectedValues.Any() )
-                {
-                    // add selected schedules to the query
-                    // groupAttendances = groupAttendances.Where
-                }
-
-                attendances = groupAttendances.ToList();
-            }
-        }
-
-        /// <summary>
-        /// Populates the locations checkbox list for the selected group
-        /// </summary>
-        protected void LoadLocationsForGroupSelection()
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                var groupLocationService = new GroupLocationService( rockContext );
-                var locations = groupLocationService
-                    .Queryable()
-                    .Where( gl => gl.GroupId == gpGroups.GroupId )
-                    .Where( gl => gl.Location.IsActive == true )
-                    .OrderBy( gl => gl.Order )
-                    .ThenBy( gl => gl.Location.Name )
-                    .Select( gl => gl.Location )
-                    .ToList();
-
-                cblLocations.DataValueField = "Id";
-                cblLocations.DataTextField = "Name";
-                cblLocations.DataSource = locations;
-                cblLocations.DataBind();
-            }
-        }
-
-        /// <summary>
-        /// Populates the locations checkbox list for the selected person.
-        /// </summary>
-        protected void LoadLocationsForPersonSelection()
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                var groupLocationService = new GroupLocationService( rockContext );
-                var locations = groupLocationService
-                    .Queryable()
-                    .AsNoTracking()
-                    .Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId )
-                    .Where( gl => gl.Location.IsActive == true )
-                    .OrderBy( gl => gl.Order )
-                    .ThenBy( gl => gl.Location.Name )
-                    .Select( gl => gl.Location)
-                    .ToList();
-
-                cblLocations.DataValueField = "Id";
-                cblLocations.DataTextField = "Name";
-                cblLocations.DataSource = locations;
-                cblLocations.DataBind();
-            }
-        }
-
-        /// <summary>
-        /// Populates the schedules checkbox list for the selected group and locations
-        /// </summary>
-        protected void LoadSchedulesForGroupSelection()
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                var groupLocationService = new GroupLocationService( rockContext );
-                var schedules = groupLocationService
-                    .Queryable()
-                    .AsNoTracking()
-                    .Where( gl => gl.GroupId == gpGroups.GroupId )
-                    .Where( gl => cblLocations.SelectedValuesAsInt.Contains( gl.Location.Id ) )
-                    .SelectMany( gl => gl.Schedules )
-                    .DistinctBy( s => s.Guid )
-                    .ToList();
 
                 cblSchedules.DataValueField = "Id";
                 cblSchedules.DataTextField = "Name";
-                cblSchedules.DataSource = schedules;
+                cblSchedules.DataSource = schedules.SelectMany( gl => gl.Schedules ).DistinctBy( s => s.Guid ).ToList();
                 cblSchedules.DataBind();
             }
         }
 
         /// <summary>
-        /// Populates the schedules checkbox list for the selected person and locations
+        /// Shows the bar graph.
         /// </summary>
-        protected void LoadSchedulesForPersonSelection()
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                var groupLocationService = new GroupLocationService( rockContext );
-                var schedules = groupLocationService
-                    .Queryable()
-                    .AsNoTracking()
-                    .Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId )
-                    .Where( gl => cblLocations.SelectedValuesAsInt.Contains( gl.LocationId ) )
-                    .SelectMany( gl => gl.Schedules )
-                    .DistinctBy( s => s.Guid )
-                    .ToList();
-
-                cblSchedules.DataValueField = "Id";
-                cblSchedules.DataTextField = "Name";
-                cblSchedules.DataSource = schedules;
-                cblSchedules.DataBind();
-            }
-        }
-
-
-        protected void ShowBarGraphForGroup()
+        protected void ShowBarGraph()
         {
             if ( !attendances.Any() )
             {
+                barChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
+                nbBarChartMessage.Visible = true;
                 return;
             }
-
-            List<SchedulerGroupMember> barchartdata = null;
-
-            this.SeriesColorsJSON = this.GetAttributeValue( "SeriesColors" ).SplitDelimitedValues().ToArray().ToJson();
-            this.BarChartTimeFormat = "LL";
 
             DateTime firstDateTime;
             DateTime lastDateTime;
@@ -498,16 +478,42 @@ var barChart = new Chart(barCtx, {{
             if ( sdrpDateRange.DelimitedValues.IsNotNullOrWhiteSpace() )
             {
                 var dateRange = SlidingDateRangePicker.CalculateDateRangeFromDelimitedValues( sdrpDateRange.DelimitedValues );
-                firstDateTime = dateRange.Start.Value;
-                lastDateTime = dateRange.End.Value;
+                firstDateTime = dateRange.Start.Value.Date;
+                lastDateTime = dateRange.End.Value.Date;
             }
             else
             {
-                firstDateTime = attendances.Min( a => a.StartDateTime );
-                lastDateTime = attendances.Max( a => a.StartDateTime );
+                firstDateTime = attendances.Min( a => a.StartDateTime.Date );
+                lastDateTime = attendances.Max( a => a.StartDateTime.Date );
             }
 
-            barchartdata = attendances
+            int daysCount = ( int ) Math.Ceiling( ( lastDateTime - firstDateTime ).TotalDays );
+
+            if ( daysCount / 7 > 26 )
+            {
+                // if more than 6 months summarize by month
+                CreateBarChartGroupedByMonth( firstDateTime, lastDateTime );
+            }
+            else if ( daysCount > 31 )
+            {
+                //if more than 1 month summarize by week
+                CreateBarChartGroupedByWeek( daysCount, firstDateTime );
+            }
+            else 
+            {
+                // Otherwise summarize by day
+                CreateBarChartGroupedByDay( daysCount, firstDateTime );
+            }
+        }
+
+        /// <summary>
+        /// Creates the bar chart with data grouped by month.
+        /// </summary>
+        /// <param name="firstDateTime">The first date time.</param>
+        /// <param name="lastDateTime">The last date time.</param>
+        protected void CreateBarChartGroupedByMonth( DateTime firstDateTime, DateTime lastDateTime )
+        {
+            List<SchedulerGroupMember> barchartdata = attendances
                 .GroupBy( a => new { StartYear = a.StartDateTime.Year, StartMonth = a.StartDateTime.Month  } )
                 .Select( a => new SchedulerGroupMember
                 {
@@ -522,11 +528,6 @@ var barChart = new Chart(barCtx, {{
                 } )
                 .ToList();
 
-            var daysCount = ( lastDateTime - firstDateTime ).TotalDays;
-
-            if ( daysCount / 7 > 26 )
-            {
-                // if more than 6 months summarize by month
                 var monthsCount = ( ( lastDateTime.Year - firstDateTime.Year ) * 12 ) + ( lastDateTime.Month - firstDateTime.Month ) + 1;
                 var months = Enumerable.Range( 0, monthsCount )
                     .Select(x => new
@@ -535,7 +536,7 @@ var barChart = new Chart(barCtx, {{
                         month = firstDateTime.AddMonths(x).Month
                     } );
 
-                var changesPerYearAndMonth = months
+                var groupedByMonth = months
                     .GroupJoin( barchartdata, m => new { m.month, m.year },
                         a => new { month = a.StartDateTime.Month, year = a.StartDateTime.Year },
                         ( g, d ) => new
@@ -551,7 +552,7 @@ var barChart = new Chart(barCtx, {{
                         }
                     );
 
-                this.BarChartLabelsJSON = "['" + changesPerYearAndMonth
+                this.BarChartLabelsJSON = "['" + groupedByMonth
                     .OrderBy(a => a.Year)
                     .ThenBy( a => a.Month)
                     .Select( a => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName( a.Month ) + " " + a.Year )
@@ -561,43 +562,169 @@ var barChart = new Chart(barCtx, {{
                 barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
                 nbBarChartMessage.Visible = !barchartdata.Any();
 
-                BarChartScheduledJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Scheduled ).ToJson();
-                BarChartNoResponseJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.NoResponse ).ToJson();
-                BarChartDeclinesJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Declines ).ToJson();
-                BarChartAttendedJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Attended ).ToJson();
-                BarChartCommitedNoShowJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.CommitedNoShow ).ToJson();
-                BarChartTentativeNoShowJSON = changesPerYearAndMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.TentativeNoShow ).ToJson();
-            }
-            else if ( daysCount > 30 )
-            {
-                // if more than 1 month summarize by week
-
-
-
-            }
-            else 
-            {
-                // Otherwise summarize by day
-
-            }
-
-            
-
+                BarChartScheduledJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Scheduled ).ToJson();
+                BarChartNoResponseJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.NoResponse ).ToJson();
+                BarChartDeclinesJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Declines ).ToJson();
+                BarChartAttendedJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Attended ).ToJson();
+                BarChartCommitedNoShowJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.CommitedNoShow ).ToJson();
+                BarChartTentativeNoShowJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.TentativeNoShow ).ToJson();
         }
 
-        protected void ShowBarGraphForPerson()
+        /// <summary>
+        /// Creates the bar chart with data grouped by week.
+        /// </summary>
+        /// <param name="daysCount">The days count.</param>
+        /// <param name="firstDateTime">The first date time.</param>
+        protected void CreateBarChartGroupedByWeek( int daysCount, DateTime firstDateTime )
         {
+            List<SchedulerGroupMember> barchartdata = attendances
+                .GroupBy( a => new { StartWeek = a.StartDateTime.StartOfWeek(DayOfWeek.Monday) } )
+                .Select( a => new SchedulerGroupMember
+                {
+                    Name = a.Key.StartWeek.ToShortDateString(),
+                    StartDateTime = a.Key.StartWeek,
+                    Scheduled = a.Count(),
+                    NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
+                    Declines = a.Count( aa => aa.RSVP == RSVP.No ),
+                    Attended = a.Count( aa => aa.DidAttend == true ),
+                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false ),
+                    TentativeNoShow = a.Count( aa => aa.RSVP == RSVP.Maybe && aa.DidAttend == false )
+                } )
+                .ToList();
 
+            var weeks = Enumerable.Range( 0, ( int ) Math.Ceiling( daysCount / 7.0 ) )
+                .Select(x => new
+                { 
+                    date = firstDateTime.StartOfWeek(DayOfWeek.Monday).AddDays(x * 7)
+                } );
+
+            var groupedByDate = weeks
+                .GroupJoin( barchartdata, m => new { m.date },
+                    a => new { date = a.StartDateTime.Date },
+                    ( g, d ) => new
+                    {
+                        Date = g.date,
+                        Scheduled = d.Sum( a => a.Scheduled ),
+                        NoResponse = d.Sum( a => a.NoResponse ),
+                        Declines = d.Sum( a => a.Declines ),
+                        Attended = d.Sum( a => a.Attended ),
+                        CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
+                        TentativeNoShow = d.Sum( a => a.TentativeNoShow )
+                    }
+                );
+
+            this.BarChartLabelsJSON = "['" + groupedByDate
+                .OrderBy(a => a.Date)
+                .Select( a => a.Date.ToShortDateString() )
+                .ToList()
+                .AsDelimited( "','" ) + "']";
+
+            barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
+            nbBarChartMessage.Visible = !barchartdata.Any();
+
+            BarChartScheduledJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Scheduled ).ToJson();
+            BarChartNoResponseJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.NoResponse ).ToJson();
+            BarChartDeclinesJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Declines ).ToJson();
+            BarChartAttendedJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Attended ).ToJson();
+            BarChartCommitedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommitedNoShow ).ToJson();
+            BarChartTentativeNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.TentativeNoShow ).ToJson();
         }
 
-        protected void ShowDoughnutGraphForGroup()
+        /// <summary>
+        /// Creates the bar chart with data grouped by day.
+        /// </summary>
+        /// <param name="daysCount">The days count.</param>
+        /// <param name="firstDateTime">The first date time.</param>
+        protected void CreateBarChartGroupedByDay( int daysCount, DateTime firstDateTime )
+        {
+            List<SchedulerGroupMember> barchartdata = attendances
+                .GroupBy( a => new { StartYear = a.StartDateTime.Year, StartMonth = a.StartDateTime.Month, StartDay = a.StartDateTime.Day  } )
+                .Select( a => new SchedulerGroupMember
+                {
+                    Name = new DateTime( a.Key.StartYear, a.Key.StartMonth, a.Key.StartDay ).ToShortDateString(),
+                    StartDateTime = new DateTime( a.Key.StartYear, a.Key.StartMonth, a.Key.StartDay ),
+                    Scheduled = a.Count(),
+                    NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
+                    Declines = a.Count( aa => aa.RSVP == RSVP.No ),
+                    Attended = a.Count( aa => aa.DidAttend == true ),
+                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false ),
+                    TentativeNoShow = a.Count( aa => aa.RSVP == RSVP.Maybe && aa.DidAttend == false )
+                } )
+                .ToList();
+
+            var days = Enumerable.Range( 0, daysCount )
+                .Select(x => new
+                { 
+                    date = firstDateTime.AddDays(x)
+                } );
+
+            var groupedByDate = days
+                .GroupJoin( barchartdata, m => new { m.date },
+                    a => new { date = a.StartDateTime.Date },
+                    ( g, d ) => new
+                    {
+                        Date = g.date,
+                        Scheduled = d.Sum( a => a.Scheduled ),
+                        NoResponse = d.Sum( a => a.NoResponse ),
+                        Declines = d.Sum( a => a.Declines ),
+                        Attended = d.Sum( a => a.Attended ),
+                        CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
+                        TentativeNoShow = d.Sum( a => a.TentativeNoShow )
+                    }
+                );
+
+            this.BarChartLabelsJSON = "['" + groupedByDate
+                .OrderBy(a => a.Date)
+                .Select( a => a.Date.ToShortDateString() )
+                .ToList()
+                .AsDelimited( "','" ) + "']";
+
+            barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
+            nbBarChartMessage.Visible = !barchartdata.Any();
+
+            BarChartScheduledJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Scheduled ).ToJson();
+            BarChartNoResponseJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.NoResponse ).ToJson();
+            BarChartDeclinesJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Declines ).ToJson();
+            BarChartAttendedJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Attended ).ToJson();
+            BarChartCommitedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommitedNoShow ).ToJson();
+            BarChartTentativeNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.TentativeNoShow ).ToJson();
+        }
+
+        /// <summary>
+        /// Validates the minimum data has been selected current tab in order to get data.
+        /// </summary>
+        /// <returns></returns>
+        protected bool ValidateFilter()
+        {
+            switch ( hfTabs.Value )
+            {
+                case "group":
+                    return gpGroups.GroupId != null;
+                case "person":
+                    return ppPerson.PersonAliasId != null;
+                case "dataview":
+                    return dvDataViews.SelectedValue != null;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Shows the doughnut graph.
+        /// </summary>
+        protected void ShowDoughnutGraph()
         {
             if ( !attendances.Any() )
             {
+                doughnutChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
+                nbDoughnutChartMessage.Visible = true;
                 return;
             }
 
             var declines = attendances.Where( a => a.DeclineReasonValueId != null ).GroupBy( a => a.DeclineReasonValueId ).Select( a => new { Reason = a.Key, Count = a.Count() } );
+
+            doughnutChartCanvas.Style[HtmlTextWriterStyle.Display] = declines.Any() ? string.Empty : "none";
+            nbDoughnutChartMessage.Visible = !declines.Any();
 
             DoughnutChartDeclineLabelsJSON = "['" + declines
                 .OrderByDescending( d => d.Count )
@@ -609,13 +736,12 @@ var barChart = new Chart(barCtx, {{
 
         }
 
-        protected void ShowDoughnutGraphForPerson()
-        {
-
-        }
-
+        /// <summary>
+        /// Shows the grid.
+        /// </summary>
         protected void ShowGrid()
         {
+            gData.Visible = true;
             var schedulerGroupMembers = new List<SchedulerGroupMember>();
 
             using ( var rockContext = new RockContext() )
@@ -640,44 +766,88 @@ var barChart = new Chart(barCtx, {{
             gData.DataSource = schedulerGroupMembers;
             gData.DataBind();
         }
+
+        /// <summary>
+        /// Resets values for common controls. Should be called when selecting a group, person, or dataview.
+        /// </summary>
+        protected void ResetCommonControls()
+        {
+            // sdrpDateRange we'll leave the date alone since it is not derived from any other data.
+            cblLocations.Items.Clear();
+            cblSchedules.Items.Clear();
+
+            nbBarChartMessage.Visible = true;
+            barChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
+            nbDoughnutChartMessage.Visible = true;
+            doughnutChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
+            gData.Visible = false;
+        }
         
         #region Control Events
 
         protected void gpGroups_SelectItem( object sender, EventArgs e )
         {
-            LoadLocationsForGroupSelection();
+            ppPerson.SetValue( null );
+            dvDataViews.SetValue( null);
+            ResetCommonControls();
+            LoadLocations();
+            LoadSchedules();
         }
 
         protected void ppPerson_SelectPerson( object sender, EventArgs e )
         {
-            LoadLocationsForPersonSelection();
-            LoadSchedulesForPersonSelection();
+            gpGroups.SetValue( null );
+            dvDataViews.SetValue( null );
+            ResetCommonControls();
+            LoadLocations();
+            LoadSchedules();
+        }
+
+        protected void dvDataViews_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            gpGroups.SetValue( null );
+            ppPerson.SetValue( null );
+            ResetCommonControls();
+            LoadLocations();
+            LoadSchedules();
         }
 
         protected void btnUpdate_Click( object sender, EventArgs e )
         {
-            if ( gpGroups.GroupId != null )
+            if ( !ValidateFilter() )                
             {
-                GetAttendanceDataForGroup();
-                ShowGrid();
-                ShowBarGraphForGroup();
-                ShowDoughnutGraphForGroup();
-            }
-            else if ( ppPerson.PersonAliasId != null )
-            {
-                GetAttendanceDataForPerson();
-                ShowGrid();
-                ShowBarGraphForPerson();
-                ShowDoughnutGraphForPerson();
+                return;
             }
 
+            //if ( hfTabs.Value == "group" && gpGroups.GroupId != null )
+            //{
+            //    GetAttendanceData();
+            //    ShowGrid();
+            //    ShowBarGraph();
+            //    ShowDoughnutGraph();
+            //}
+            //else if ( hfTabs.Value == "person" && ppPerson.PersonAliasId != null )
+            //{
+            //    GetAttendanceData();
+            //    ShowGrid();
+            //    ShowBarGraph();
+            //    ShowDoughnutGraph();
+            //}
+            //else if (hfTabs.Value == "dataview" && dvDataViews.SelectedItem.Value != null )
+            //{
+            //    // TODO
+            //}
+
+            GetAttendanceData();
+            ShowGrid();
+            ShowBarGraph();
+            ShowDoughnutGraph();
             RegisterChartScripts();
-            // maybe put a warning here or make is so they can't click the button if they don't have a valid selection.
         }
 
         protected void cblLocations_SelectedIndexChanged( object sender, EventArgs e )
         {
-            LoadSchedulesForGroupSelection();
+            LoadSchedules();
         }
 
         #endregion Control Events
@@ -693,8 +863,6 @@ var barChart = new Chart(barCtx, {{
             public int Attended { get; set; }
             public int CommitedNoShow { get; set; }
             public int TentativeNoShow { get; set; }
-
         }
-
     }
 }

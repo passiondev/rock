@@ -13,16 +13,27 @@
 
             <div class="panel-body">
                 <div class="row">
-                    <div class="col-lg-2 col-md-3 filter-options">
+                    <div class="col-lg-2 col-md-3 filter-options" role="tabpanel">
                         <Rock:NotificationBox ID="nbFilterNotification" runat="server" NotificationBoxType="Warning" visible="false"></Rock:NotificationBox>
-
+                        <asp:HiddenField ID="hfTabs" runat="server" />
                         <label>Please select a Group, Person, or Data View</label>
-                            
-                        <%-- Group picker --%>
-                        <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem"  />
+                        <ul class="nav nav-pills" role="tablist" id="tablist">
+                            <li><a href="#group" aria-controls="group" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "group");'>Group</a></li>
+                            <li><a href="#person" aria-controls="person" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "person");'>Person</a></li>
+                            <li><a href="#dataview" aria-controls="dataview" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "dataview");'>Dataview</a></li>
+                        </ul>
 
-                        <%-- Person Picker --%>
-                        <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" OnSelectPerson="ppPerson_SelectPerson" />
+                        <div class="tab-content" style="padding-bottom:20px">
+                            <div role="tabpanel" class="tab-pane fade in active" id="group">
+                                <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem"  />
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade" id="person">
+                                <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" OnSelectPerson="ppPerson_SelectPerson" />
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade" id="dataview">
+                                <Rock:DataViewItemPicker ID="dvDataViews" runat="server" Label="Data View" OnSelectedIndexChanged="dvDataViews_SelectedIndexChanged" ></Rock:DataViewItemPicker>
+                            </div>
+                        </div>
                         
                         <%-- Date Picker --%>
                         <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" EnabledSlidingDateRangeUnits="Week, Month, Year" SlidingDateRangeMode="Current"/>
@@ -32,10 +43,7 @@
 
                         <%-- Schedules CBL --%>
                         <Rock:RockCheckBoxList ID="cblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" ></Rock:RockCheckBoxList>
-
-                        <%-- Dataview Picker --%>
-                        <Rock:DataViewPicker ID="dvDataViews" runat="server" Label="Data View"></Rock:DataViewPicker>
-
+                        
                         <asp:LinkButton ID="btnUpdate" runat="server" CssClass="btn btn-default btn-block" OnClick="btnUpdate_Click"><i class="fa fa-sync"></i>&nbsp;Refresh</asp:LinkButton>
 
                     </div>
@@ -44,13 +52,14 @@
                         <div class="row">
                             <%-- Bar chart to show the data in the tabular --%>
                             <div class="chart-container col-md-9">
-                                <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Info" Text="No Group Scheduler Data To Show" visible="false"/>
+                                <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Info" Text="No Group Scheduler Data To Show" visible="true"/>
                                 <canvas id="barChartCanvas" runat="server" style="height: 450px;" />
                             </div>
 
 
                             <%-- Doughnut chart to show the decline reasons--%>
                             <div class="chart-container col-md-3">
+                                <Rock:NotificationBox ID="nbDoughnutChartMessage" runat="server" NotificationBoxType="Info" Text="No Decline Reason Data To Show" visible="true"/>
                                 <canvas id="doughnutChartCanvas" runat="server"></canvas>
                             </div>
 
@@ -75,26 +84,18 @@
                     </div>
                 </div>
             </div>
-            <asp:HiddenField ID="hfBarLabels" runat="server" Value="<%=this.BarChartLabelsJSON%>" />
-            <%--<script type="text/javascript">
-                pageLoad = function () {
+            <script type="text/javascript">
+                $(document).ready(function () {
+                    showTab();
+                });
 
-                    var dnutCtx = $('#ctl00_main_ctl23_ctl01_ctl06_doughnutChartCanvas')[0].getContext('2d');
+                function showTab() {
+                    var tab = document.getElementById('<%= hfTabs.ClientID%>').value;
+                    $('#tablist a[href="#' + tab + '"]').tab('show');
+                }
 
-                    var dnutChart = new Chart(dnutCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['On Vacation / Out of Town','Family Emergency','Have to Work','Serving Elsewhere'],
-                            datasets: [{
-                                type: 'doughnut',
-                                data: [1,1,1,1],
-                                backgroundColor: ['#5DA5DA','#60BD68','#FFBF2F','#F36F13','#C83013','#676766']
-                            }]
-                        },
-                        options: {}
-                    });
-                };
-            </script>--%>
+                Sys.WebForms.PageRequestManager.getInstance().add_endRequest(showTab);
+            </script>
         </asp:Panel>
     </ContentTemplate>
 </asp:UpdatePanel>
