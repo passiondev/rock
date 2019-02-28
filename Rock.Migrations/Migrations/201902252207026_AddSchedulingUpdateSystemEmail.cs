@@ -29,37 +29,35 @@ namespace Rock.Migrations
         /// </summary>
         public override void Up()
         {
-            RockMigrationHelper.UpdateSystemEmail( "Groups", "Scheduling Update Email", "", "", "", "", "", "{%- assign rsvp = ScheduledItem.RSVP | AsBoolean -%} {% if rsvp %}Accepted{% else %}Declined{% endif %}",
-    @"{{ 'Global' | Attribute:'EmailHeader' }}
-    <h1>Scheduling Update</h1>
-    <p>Hi {{ Scheduler.NickName }}!</p>
-    <br/>
-    <p>You have been added to the schedule for the following dates and times. Please let us know if you'll be attending as soon as possible.</p>
-    <br/>
-    <p>Thanks!</p>
-    {{ Attendance.ScheduledByPersonAlias.Person.FullName  }}
-    {{ ScheduledItem.Location.Name }} {{ScheduledItem.Schedule.Name}}
-    <br/>
-    <br/>
-    {{Group.FullName}}
-    <h2>{{Attendance.Occurence.OccurenceDate | Date: 'dddd, MMMM, d, yyyy'}}</h2>
-    {{ Attendance.Location.Name }} {{Attendance.Schedule.Name}}
-    <p>&nbsp;</p>
-    <a href=""{{ 'Global' | Attribute:'PublicApplicationRoot' }}ScheduleConfirmation?attendanceId{{attendance.Id}}&isConfirmed=true"">Accept</a></td><td><a href=""{{ 'Global' | Attribute:'PublicApplicationRoot' }}ScheduleConfirmation?attendanceId{{attendance.Id}}&isConfirmed=false"">Decline</a>
-    <table>
-    {% for attendance in Attendances %}
-    {%- if forloop.first -%}
-        <tr><td>{{ attendance.Location.Name }}</td><td>{{ attendance.Schedule.Name }}</td><td></td></tr>
-        <tr><td><a href=""{{ 'Global' | Attribute:'PublicApplicationRoot' }}ScheduleConfirmation?attendanceId{{attendance.Id}}&isConfirmed=true"">Accept</a><a href=""{{ 'Global' | Attribute:'PublicApplicationRoot' }}ScheduleConfirmation?attendanceId{{attendance.Id}}&isConfirmed=false"">Decline</a></td></tr>
-     {% break %}
-    {%- endif -%}
-    <tr><td>{{ attendance.Location.Name }}</td><td>{{ attendance.Schedule.Name }}</td><td></td></tr>
-    {% endfor %}
-    </table>
-    {{ 'Global' | Attribute:'OrganizationName' }}
-    <br/>
-    {{ ScheduledDate | Date: 'dddd, MMMM, d, yyyy' }}
-    ", "F8E4CE07-68F5-4169-A865-ECE915CF421C" );
+            RockMigrationHelper.UpdateSystemEmail( "Groups", "Scheduling Update Email", "", "", "", "", "", "Scheduling Update", @"{{ 'Global' | Attribute:'EmailHeader' }}
+<h1>Scheduling Update</h1>
+<p>Hi {{  Attendance.PersonAlias.Person.NickName  }}!</p>
+<br/>
+<p>You have been added to the schedule for the following dates and times. Please let us know if you'll be attending as soon as possible.</p>
+<br/>
+<p>Thanks!</p>
+{{ Attendance.ScheduledByPersonAlias.Person.FullName  }}
+</br>
+{{ 'Global' | 'Attribute:OrganizationName' }}
+<br/>
+<br/>
+<table>
+{% for attendance in Attendances %}
+    <tr><td>&nbsp;</td></tr>
+    <tr><td><h5>{{attendance.Occurrence.OccurrenceDate | Date:'dddd, MMMM, d, yyyy'}}</h5></td></tr>
+    <tr><td>{{ attendance.Occurrence.Group.Name }}</td></tr>
+    <tr><td>{{ attendance.Location.Name }}&nbsp;{{ attendance.Schedule.Name }}</td></tr>
+    {% if forloop.first  %}
+    <tr><td><a href=""{{ 'Global' | Attribute:'PublicApplicationRoot' }}ScheduleConfirmation?attendanceId{{attendance.Id}}&isConfirmed=true"">Accept</a>&nbsp;<a href=""{{ 'Global' | Attribute:'PublicApplicationRoot' }}ScheduleConfirmation?attendanceId{{attendance.Id}}&isConfirmed=false"">Decline</a></td>
+    </tr>
+    <tr><td>&nbsp;</td></tr>
+{% endif %}
+{% endfor %}
+</table>
+<br/>
+{{ 'Global' | Attribute:'OrganizationName' }}
+<br/>
+{{ ScheduledDate | Date: 'dddd, MMMM, d, yyyy' }}", "F8E4CE07-68F5-4169-A865-ECE915CF421C" );
         }
         
         /// <summary>

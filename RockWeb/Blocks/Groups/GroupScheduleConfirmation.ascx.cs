@@ -241,7 +241,7 @@ namespace RockWeb.Blocks.Groups
             nbError.Text = string.Format( "Thanks for letting us know.  We’ll try to schedule another volunteer for: {0}", attendance.Occurrence.Group.Name );
             nbError.Visible = true;
 
-            DetermineRecipientAndSendConfirmationEmail( attendance );
+            DetermineRecipientAndSendResponseEmail( attendance );
         }
 
         /// <summary>
@@ -380,7 +380,7 @@ namespace RockWeb.Blocks.Groups
                         //Only send Confirm if the status has changed and change is to Yes
                         if ( attendance.RSVP == RSVP.Yes )
                         {
-                            DetermineRecipientAndSendConfirmationEmail( attendance );
+                            DetermineRecipientAndSendResponseEmail( attendance );
                         }
                     }
 
@@ -480,7 +480,7 @@ namespace RockWeb.Blocks.Groups
         private void UpdateRSPVOnAttendance( Attendance attendance, RSVP rsvp )
         {
             attendance.RSVP = rsvp;
-            attendance.RSVPDateTime = DateTime.Now;
+            attendance.RSVPDateTime = RockDateTime.Now;
         }
 
         /// <summary>
@@ -542,7 +542,7 @@ namespace RockWeb.Blocks.Groups
         /// Determines the recipient and send confirmation email.
         /// </summary>
         /// <param name="attendance">The attendance.</param>
-        private void DetermineRecipientAndSendConfirmationEmail( Attendance attendance )
+        private void DetermineRecipientAndSendResponseEmail( Attendance attendance )
         {
             List<string> recipientEmailAddresses = new List<string>();
             //if scheduler recieves  email add as a recipient
