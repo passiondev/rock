@@ -343,12 +343,11 @@ var barChart = new Chart(barCtx, {{
                         groupAttendances = groupAttendances.Where( a => a.PersonAliasId == ppPerson.PersonAliasId );
                         break;
                     case "dataview":
-                        // TODO add where for each person in the dv
-                        var dataView = new DataViewService( new RockContext() ).Get( dvDataViews.SelectedValueAsInt().Value );
-
+                        var dataView = new DataViewService( rockContext ).Get( dvDataViews.SelectedValueAsInt().Value );
                         var personsFromDv = dataView.GetQuery( null, rockContext, null, out _errorMessages ) as IQueryable<Person>;
-
+                        var personAliasIds = personsFromDv.Select( d => d.Aliases.Where( a => a.AliasPersonId == d.Id ).Select( a => a.Id ).FirstOrDefault() ).ToList();
                         
+                        groupAttendances = groupAttendances.Where( a => personAliasIds.Contains( a.PersonAliasId.Value ) );
                         
                         break;
                     default:
@@ -387,7 +386,7 @@ var barChart = new Chart(barCtx, {{
         }
 
         /// <summary>
-        /// Populates the locations checkbox list for the selected person.
+        /// Populates the locations checkbox list for the selected group.
         /// </summary>
         protected void LoadLocations()
         {
@@ -396,23 +395,9 @@ var barChart = new Chart(barCtx, {{
                 var groupLocationService = new GroupLocationService( rockContext );
                 var locations = groupLocationService
                     .Queryable()
-                    .AsNoTracking();
-
-                if ( hfTabs.Value == "group" && gpGroups.GroupId != null )
-                {
-                    locations = locations.Where( gl => gl.GroupId == gpGroups.GroupId );
-                }
-                else if ( hfTabs.Value == "person" && ppPerson.PersonAliasId != null )
-                {
-                    locations = locations.Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId );
-                }
-                else if ( hfTabs.Value == "dataview" && dvDataViews.SelectedValue != null )
-                {
-                    //TODO
-                }
-
-                locations = locations
+                    .AsNoTracking()
                     .Where( gl => gl.Location.IsActive == true )
+                    .Where( gl => gl.GroupId == gpGroups.GroupId )
                     .OrderBy( gl => gl.Order )
                     .ThenBy( gl => gl.Location.Name );
 
@@ -424,7 +409,7 @@ var barChart = new Chart(barCtx, {{
         }
 
         /// <summary>
-        /// Populates the schedules checkbox list
+        /// Populates the schedules checkbox list for the group
         /// </summary>
         protected void LoadSchedules()
         {
@@ -433,20 +418,8 @@ var barChart = new Chart(barCtx, {{
                 var groupLocationService = new GroupLocationService( rockContext );
                 var schedules = groupLocationService
                     .Queryable()
-                    .AsNoTracking();
-
-                if ( hfTabs.Value == "group" && gpGroups.GroupId != null )
-                {
-                    schedules = schedules.Where( gl => gl.GroupId == gpGroups.GroupId );
-                }
-                else if ( hfTabs.Value == "person" && ppPerson.PersonAliasId != null )
-                {
-                    schedules = schedules.Where( gl => gl.GroupMemberPersonAliasId == ppPerson.PersonAliasId );
-                }
-                else if ( hfTabs.Value == "dataview" && dvDataViews.SelectedValue != null )
-                {
-                    //TODO
-                }
+                    .AsNoTracking()
+                    .Where( gl => gl.GroupId == gpGroups.GroupId );
 
                 if ( cblLocations.SelectedValues.Any() )
                 {
@@ -703,7 +676,7 @@ var barChart = new Chart(barCtx, {{
                 case "person":
                     return ppPerson.PersonAliasId != null;
                 case "dataview":
-                    return dvDataViews.SelectedValue != null;
+                    return ( dvDataViews.SelectedValue != null && dvDataViews.SelectedValue != "0");
             }
 
             return false;
@@ -787,6 +760,11 @@ var barChart = new Chart(barCtx, {{
 
         protected void gpGroups_SelectItem( object sender, EventArgs e )
         {
+            if ( !ValidateFilter() )                
+            {
+                return;
+            }
+
             ppPerson.SetValue( null );
             dvDataViews.SetValue( null);
             ResetCommonControls();
@@ -796,20 +774,26 @@ var barChart = new Chart(barCtx, {{
 
         protected void ppPerson_SelectPerson( object sender, EventArgs e )
         {
+            if ( !ValidateFilter() )                
+            {
+                return;
+            }
+
             gpGroups.SetValue( null );
             dvDataViews.SetValue( null );
             ResetCommonControls();
-            LoadLocations();
-            LoadSchedules();
         }
 
-        protected void dvDataViews_SelectedIndexChanged( object sender, EventArgs e )
+        protected void dvDataViews_SelectItem( object sender, EventArgs e )
         {
+            if ( !ValidateFilter() )                
+            {
+                return;
+            }
+
             gpGroups.SetValue( null );
             ppPerson.SetValue( null );
             ResetCommonControls();
-            LoadLocations();
-            LoadSchedules();
         }
 
         protected void btnUpdate_Click( object sender, EventArgs e )
@@ -818,25 +802,6 @@ var barChart = new Chart(barCtx, {{
             {
                 return;
             }
-
-            //if ( hfTabs.Value == "group" && gpGroups.GroupId != null )
-            //{
-            //    GetAttendanceData();
-            //    ShowGrid();
-            //    ShowBarGraph();
-            //    ShowDoughnutGraph();
-            //}
-            //else if ( hfTabs.Value == "person" && ppPerson.PersonAliasId != null )
-            //{
-            //    GetAttendanceData();
-            //    ShowGrid();
-            //    ShowBarGraph();
-            //    ShowDoughnutGraph();
-            //}
-            //else if (hfTabs.Value == "dataview" && dvDataViews.SelectedItem.Value != null )
-            //{
-            //    // TODO
-            //}
 
             GetAttendanceData();
             ShowGrid();

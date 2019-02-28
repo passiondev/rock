@@ -23,26 +23,21 @@
                             <li><a href="#dataview" aria-controls="dataview" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "dataview");'>Dataview</a></li>
                         </ul>
 
+                        <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" EnabledSlidingDateRangeUnits="Week, Month, Year" SlidingDateRangeMode="Current"/>
+                        
                         <div class="tab-content" style="padding-bottom:20px">
                             <div role="tabpanel" class="tab-pane fade in active" id="group">
                                 <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem"  />
+                                <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" OnSelectedIndexChanged="cblLocations_SelectedIndexChanged" AutoPostBack="true" ></Rock:RockCheckBoxList>
+                                <Rock:RockCheckBoxList ID="cblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" ></Rock:RockCheckBoxList>
                             </div>
                             <div role="tabpanel" class="tab-pane fade" id="person">
                                 <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" OnSelectPerson="ppPerson_SelectPerson" />
                             </div>
                             <div role="tabpanel" class="tab-pane fade" id="dataview">
-                                <Rock:DataViewItemPicker ID="dvDataViews" runat="server" Label="Data View" OnSelectedIndexChanged="dvDataViews_SelectedIndexChanged" ></Rock:DataViewItemPicker>
+                                <Rock:DataViewItemPicker ID="dvDataViews" runat="server" Label="Data View" OnSelectItem="dvDataViews_SelectItem" ></Rock:DataViewItemPicker>
                             </div>
                         </div>
-                        
-                        <%-- Date Picker --%>
-                        <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" EnabledSlidingDateRangeUnits="Week, Month, Year" SlidingDateRangeMode="Current"/>
-
-                        <%-- Locations CBL --%>
-                        <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" OnSelectedIndexChanged="cblLocations_SelectedIndexChanged" AutoPostBack="true" ></Rock:RockCheckBoxList>
-
-                        <%-- Schedules CBL --%>
-                        <Rock:RockCheckBoxList ID="cblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" ></Rock:RockCheckBoxList>
                         
                         <asp:LinkButton ID="btnUpdate" runat="server" CssClass="btn btn-default btn-block" OnClick="btnUpdate_Click"><i class="fa fa-sync"></i>&nbsp;Refresh</asp:LinkButton>
 
