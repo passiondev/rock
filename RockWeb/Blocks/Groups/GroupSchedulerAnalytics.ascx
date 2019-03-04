@@ -9,14 +9,32 @@
                     <i class="fa fa-line-chart"></i>
                     Group Scheduler Analytics
                 </h1>
+
+                <div class="panel-labels">
+                    <a href="#" onclick="$('.js-slidingdaterange-help').toggle()">
+                        <i class='fa fa-question-circle'></i>
+                    </a>
+                    <button id="btnCopyToClipboard" runat="server" disabled="disabled"
+                        data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copy Report Link to Clipboard"
+                        class="btn btn-link padding-all-none btn-copy-to-clipboard"
+                        onclick="$(this).attr('data-original-title', 'Copied').tooltip('show').attr('data-original-title', 'Copy Link to Clipboard');return false;">
+                        <i class='fa fa-clipboard'></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-info">
+                <div class="alert alert-info js-slidingdaterange-help margin-b-none" style="display: none">
+                    <%-- <asp:Literal ID="lSlidingDateRangeHelp" runat="server" /> --%>
+                </div>
             </div>
 
             <div class="panel-body">
-                <div class="row">
-                    <div class="col-lg-2 col-md-3 filter-options" role="tabpanel">
+                <div class="row row-eq-height-md">
+                    <div class="col-md-3 filter-options" role="tabpanel">
                         <Rock:NotificationBox ID="nbFilterNotification" runat="server" NotificationBoxType="Warning" visible="false"></Rock:NotificationBox>
                         <asp:HiddenField ID="hfTabs" runat="server" />
-                        <label>Please select a Group, Person, or Data View</label>
+                        <label>View By</label>
                         <ul class="nav nav-pills" role="tablist" id="tablist">
                             <li><a href="#group" aria-controls="group" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "group");'>Group</a></li>
                             <li><a href="#person" aria-controls="person" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "person");'>Person</a></li>
@@ -24,7 +42,7 @@
                         </ul>
 
                         <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" EnabledSlidingDateRangeUnits="Week, Month, Year" SlidingDateRangeMode="Current"/>
-                        
+
                         <div class="tab-content" style="padding-bottom:20px">
                             <div role="tabpanel" class="tab-pane fade in active" id="group">
                                 <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem"  />
@@ -38,29 +56,37 @@
                                 <Rock:DataViewItemPicker ID="dvDataViews" runat="server" Label="Data View" OnSelectItem="dvDataViews_SelectItem" ></Rock:DataViewItemPicker>
                             </div>
                         </div>
-                        
-                        <asp:LinkButton ID="btnUpdate" runat="server" CssClass="btn btn-default btn-block" OnClick="btnUpdate_Click"><i class="fa fa-sync"></i>&nbsp;Refresh</asp:LinkButton>
+
 
                     </div>
 
-                    <div class="col-lg-10 col-md-9 resource-area">
+                    <div class="col-md-9 resource-area">
+                        <div class="row analysis-types">
+
+                            <div class="col-md-12">
+                                <div class="actions text-right">
+                                    <asp:LinkButton ID="btnUpdate" runat="server" OnClick="btnUpdate_Click" CssClass="btn btn-primary" ToolTip="Update the chart"><i class="fa fa-refresh"></i> Update</asp:LinkButton>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Default" CssClass="text-center padding-all-lg" Heading="Confirm Settings"
+                                    Text="<p>Confirm your settings and select the Update button to display your results.</p>" visible="true" />
+
                         <div class="row">
                             <%-- Bar chart to show the data in the tabular --%>
                             <div class="chart-container col-md-9">
-                                <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Info" Text="No Group Scheduler Data To Show" visible="true"/>
                                 <canvas id="barChartCanvas" runat="server" style="height: 450px;" />
                             </div>
-
 
                             <%-- Doughnut chart to show the decline reasons--%>
                             <div class="chart-container col-md-3">
                                 <canvas id="doughnutChartCanvas" runat="server"></canvas>
                             </div>
 
-
                         </div>
                         <div class="row">
-                            <div class="col-md-9">
+                            <div class="col-md-12">
                             <%-- tabular data --%>
                             <Rock:Grid ID="gData" runat="server" AllowPaging="true" EmptyDataText="No Data Found" ShowActionsInHeader="false">
                                 <Columns>
