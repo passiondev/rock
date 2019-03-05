@@ -449,8 +449,7 @@ var barChart = new Chart(barCtx, {{
         {
             if ( !attendances.Any() )
             {
-                barChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
-                nbBarChartMessage.Visible = true;
+                nbNoData.Visible = true;
                 return;
             }
 
@@ -539,8 +538,7 @@ var barChart = new Chart(barCtx, {{
                     .ToList()
                     .AsDelimited( "','" ) + "']";
 
-                barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
-                nbBarChartMessage.Visible = !barchartdata.Any();
+                nbNoData.Visible = !barchartdata.Any();
 
                 BarChartMaxValue = groupedByMonth.Max( x => x.Total );
                 BarChartScheduledJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Scheduled ).ToJson();
@@ -597,8 +595,7 @@ var barChart = new Chart(barCtx, {{
                 .ToList()
                 .AsDelimited( "','" ) + "']";
 
-            barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
-            nbBarChartMessage.Visible = !barchartdata.Any();
+            nbNoData.Visible = !barchartdata.Any();
 
             BarChartMaxValue = groupedByDate.Max( x => x.Total );
             BarChartScheduledJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Scheduled ).ToJson();
@@ -655,8 +652,7 @@ var barChart = new Chart(barCtx, {{
                 .ToList()
                 .AsDelimited( "','" ) + "']";
 
-            barChartCanvas.Style[HtmlTextWriterStyle.Display] = barchartdata.Any() ? string.Empty : "none";
-            nbBarChartMessage.Visible = !barchartdata.Any();
+            nbNoData.Visible = !barchartdata.Any();
 
             BarChartMaxValue = groupedByDate.Max( x => x.Total );
             BarChartScheduledJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Scheduled ).ToJson();
@@ -756,8 +752,6 @@ var barChart = new Chart(barCtx, {{
             cblSchedules.Items.Clear();
             cblSchedules.Visible = false;
 
-            nbBarChartMessage.Visible = true;
-            barChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
             gData.Visible = false;
         }
         
@@ -804,7 +798,9 @@ var barChart = new Chart(barCtx, {{
 
         protected void btnUpdate_Click( object sender, EventArgs e )
         {
-            if ( !ValidateFilter() )                
+            nbBarChartMessage.Visible = false;
+
+            if ( !ValidateFilter() )
             {
                 return;
             }
@@ -832,11 +828,6 @@ var barChart = new Chart(barCtx, {{
             public int Declines { get; set; }
             public int Attended { get; set; }
             public int CommitedNoShow { get; set; }
-        }
-
-        protected void gpGroups_ValueChanged( object sender, EventArgs e )
-        {
-
         }
     }
 }

@@ -45,7 +45,7 @@
 
                         <div class="tab-content" style="padding-bottom:20px">
                             <div role="tabpanel" class="tab-pane fade in active" id="group">
-                                <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem"  />
+                                <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem" />
                                 <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" OnSelectedIndexChanged="cblLocations_SelectedIndexChanged" AutoPostBack="true" Visible="false" ></Rock:RockCheckBoxList>
                                 <Rock:RockCheckBoxList ID="cblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" Visible="false" ></Rock:RockCheckBoxList>
                             </div>
@@ -71,8 +71,8 @@
                         </div>
 
                         <Rock:NotificationBox ID="nbBarChartMessage" runat="server" NotificationBoxType="Default" CssClass="text-center padding-all-lg" Heading="Confirm Settings"
-                                    Text="<p>Confirm your settings and select the Update button to display your results.</p>" visible="true" />
-
+                                    Text="<p>Confirm your settings and select the Update button to display your results.</p>" Visible="true" />
+                        <Rock:NotificationBox ID="nbNoData" runat="server" NotificationBoxType="Default" CssClass="text-center padding-all-lg" Text="No Data Found" Visible="false"></Rock:NotificationBox>
                         <div class="row">
                             <%-- Bar chart to show the data in the tabular --%>
                             <div class="chart-container col-md-9">
