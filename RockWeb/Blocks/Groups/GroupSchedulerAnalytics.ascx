@@ -25,7 +25,7 @@
 
             <div class="panel-info">
                 <div class="alert alert-info js-slidingdaterange-help margin-b-none" style="display: none">
-                     <asp:Literal ID="lSlidingDateRangeHelp" runat="server" /> 
+                     <asp:Literal ID="lSlidingDateRangeHelp" runat="server" />
                 </div>
             </div>
 
@@ -34,12 +34,16 @@
                     <div class="col-md-3 filter-options" role="tabpanel">
                         <Rock:NotificationBox ID="nbFilterNotification" runat="server" NotificationBoxType="Warning" visible="false"></Rock:NotificationBox>
                         <asp:HiddenField ID="hfTabs" runat="server" />
-                        <label>View By</label>
-                        <ul class="nav nav-pills" role="tablist" id="tablist">
-                            <li><a href="#group" aria-controls="group" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "group");'>Group</a></li>
-                            <li><a href="#dataview" aria-controls="dataview" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "dataview");'>Dataview</a></li>
-                            <li><a href="#person" aria-controls="person" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "person");'>Person</a></li>
-                        </ul>
+                        <div class="form-group rock-control-wrapper">
+                            <label class="control-label">View By</label>
+                            <div class="toggle-container">
+                                <div class="btn-group" data-toggle="view-btns" role="tablist" id="tablist">
+                                    <a href="#group" class="btn btn-default active" aria-controls="group" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "group");'>Group</a>
+                                    <a href="#dataview" class="btn btn-default" aria-controls="dataview" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "dataview");'>Dataview</a>
+                                    <a href="#person" class="btn btn-default" aria-controls="person" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "person");'>Person</a>
+                                </div>
+                            </div>
+                        </div>
 
                         <Rock:SlidingDateRangePicker ID="sdrpDateRange" runat="server" Label="Date Range" EnabledSlidingDateRangeTypes="Previous, Last, Current, DateRange" EnabledSlidingDateRangeUnits="Week, Month, Year" SlidingDateRangeMode="Current"/>
 
@@ -107,6 +111,12 @@
             <script type="text/javascript">
                 $(document).ready(function () {
                     showTab();
+
+                    $('[data-toggle="view-btns"] .btn').on('click', function(){
+                        var $this = $(this);
+                        $this.parent().find('.active').removeClass('active');
+                        $this.addClass('active');
+                    });
                 });
 
                 function showTab() {
