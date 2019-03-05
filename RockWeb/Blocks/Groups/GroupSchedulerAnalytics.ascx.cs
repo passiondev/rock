@@ -398,10 +398,16 @@ var barChart = new Chart(barCtx, {{
                     .OrderBy( gl => gl.Order )
                     .ThenBy( gl => gl.Location.Name );
 
-                cblLocations.DataValueField = "Id";
-                cblLocations.DataTextField = "Name";
-                cblLocations.DataSource = locations.Select( gl => gl.Location ).ToList();
-                cblLocations.DataBind();
+                var source = locations.Select( gl => gl.Location ).ToList();
+
+                if ( source.Any() )
+                {
+                    cblLocations.Visible = true;
+                    cblLocations.DataValueField = "Id";
+                    cblLocations.DataTextField = "Name";
+                    cblLocations.DataSource = source;
+                    cblLocations.DataBind();
+                }
             }
         }
 
@@ -423,10 +429,16 @@ var barChart = new Chart(barCtx, {{
                     schedules = schedules.Where( gl => cblLocations.SelectedValuesAsInt.Contains( gl.LocationId ) );
                 }
 
-                cblSchedules.DataValueField = "Id";
-                cblSchedules.DataTextField = "Name";
-                cblSchedules.DataSource = schedules.SelectMany( gl => gl.Schedules ).DistinctBy( s => s.Guid ).ToList();
-                cblSchedules.DataBind();
+                var source = schedules.SelectMany( gl => gl.Schedules ).DistinctBy( s => s.Guid ).ToList();
+
+                if ( source.Any() )
+                {
+                    cblSchedules.Visible = true;
+                    cblSchedules.DataValueField = "Id";
+                    cblSchedules.DataTextField = "Name";
+                    cblSchedules.DataSource = source;
+                    cblSchedules.DataBind();
+                }
             }
         }
 
@@ -739,7 +751,10 @@ var barChart = new Chart(barCtx, {{
         {
             // sdrpDateRange we'll leave the date alone since it is not derived from any other data.
             cblLocations.Items.Clear();
+            cblLocations.Visible = false;
+
             cblSchedules.Items.Clear();
+            cblSchedules.Visible = false;
 
             nbBarChartMessage.Visible = true;
             barChartCanvas.Style[HtmlTextWriterStyle.Display] = "none";
@@ -750,6 +765,8 @@ var barChart = new Chart(barCtx, {{
 
         protected void gpGroups_SelectItem( object sender, EventArgs e )
         {
+            ResetCommonControls();
+            
             if ( !ValidateFilter() )                
             {
                 return;
@@ -757,7 +774,6 @@ var barChart = new Chart(barCtx, {{
 
             ppPerson.SetValue( null );
             dvDataViews.SetValue( null);
-            ResetCommonControls();
             LoadLocations();
             LoadSchedules();
         }
@@ -816,6 +832,11 @@ var barChart = new Chart(barCtx, {{
             public int Declines { get; set; }
             public int Attended { get; set; }
             public int CommitedNoShow { get; set; }
+        }
+
+        protected void gpGroups_ValueChanged( object sender, EventArgs e )
+        {
+
         }
     }
 }
