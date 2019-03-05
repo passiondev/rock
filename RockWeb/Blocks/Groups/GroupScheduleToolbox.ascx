@@ -143,6 +143,9 @@
 
                 <%-- Sign-up --%>
                 <asp:Panel ID="pnlSignup" runat="server">
+                    <div class="row">
+
+                    </div>
                 </asp:Panel>
             </div>
 

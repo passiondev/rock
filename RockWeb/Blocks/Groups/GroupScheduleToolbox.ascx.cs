@@ -395,5 +395,32 @@ namespace RockWeb.Blocks.Groups
         {
 
         }
+
+        #region Signup Tab
+
+        protected void GetSchedules()
+        {
+            if (this.SelectedPersonId == null )
+            {
+                return;
+            }
+
+            var rockContext = new RockContext();
+            var attendenceService = new AttendanceService( rockContext );
+            var attendenceOccurrenceService = new AttendanceOccurrenceService( rockContext );
+
+            var groupMemberService = new GroupMemberService( rockContext );
+            var groupScheduleService = new ScheduleService( rockContext );
+
+            var groupIds = groupMemberService.GetByPersonId( this.SelectedPersonId.Value ).Where( gm => gm.Group.GroupType.IsSchedulingEnabled == true ).Select( gm => gm.GroupId ).ToList();
+            var attendanceIds = attendenceService.Queryable().Where( a => a.PersonAlias.PersonId == this.SelectedPersonId ).Where( a => a.RequestedToAttend == true );
+
+            var scheduleAvailable = attendenceService.Queryable().Where( a => groupIds.Contains( a.Occurrence.GroupId.Value ) );
+
+
+
+        }
+
+        #endregion Signup Tab
     }
 }
