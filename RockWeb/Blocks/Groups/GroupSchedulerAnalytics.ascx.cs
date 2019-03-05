@@ -154,6 +154,7 @@ namespace RockWeb.Blocks.Groups
             if (!IsPostBack)
             {
                 hfTabs.Value = "group";
+                lSlidingDateRangeHelp.Text = SlidingDateRangePicker.GetHelpHtml( RockDateTime.Now );
             }
         }
 

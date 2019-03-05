@@ -25,7 +25,7 @@
 
             <div class="panel-info">
                 <div class="alert alert-info js-slidingdaterange-help margin-b-none" style="display: none">
-                    <%-- <asp:Literal ID="lSlidingDateRangeHelp" runat="server" /> --%>
+                     <asp:Literal ID="lSlidingDateRangeHelp" runat="server" /> 
                 </div>
             </div>
 
