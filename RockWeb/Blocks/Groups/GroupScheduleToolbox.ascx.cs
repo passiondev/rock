@@ -19,7 +19,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+
 using Rock;
+using Rock.Attribute;
 using Rock.Data;
 using Rock.Model;
 using Rock.Web.UI;
@@ -35,8 +37,22 @@ namespace RockWeb.Blocks.Groups
     [Description( "Allows management of group scheduling for a specific person (worker)." )]
 
     [ContextAware( typeof( Rock.Model.Person ) )]
+
+    [IntegerField(
+        "Number of Future Weeks To Show",
+        Description = "The number of weeks into the future to allow users to signup for a schedule.",
+        IsRequired = true,
+        DefaultValue = "6",
+        Order = 0,
+        Key = AttributeKeys.FutureWeeksToShow )]
+
     public partial class GroupScheduleToolbox : RockBlock
     {
+        protected class AttributeKeys
+        {
+            public const string FutureWeeksToShow = "FutureWeeksToShow";
+        }
+
         #region Enum
 
         /// <summary>
@@ -413,12 +429,25 @@ namespace RockWeb.Blocks.Groups
             var groupScheduleService = new ScheduleService( rockContext );
 
             var groupIds = groupMemberService.GetByPersonId( this.SelectedPersonId.Value ).Where( gm => gm.Group.GroupType.IsSchedulingEnabled == true ).Select( gm => gm.GroupId ).ToList();
+
             var attendanceIds = attendenceService.Queryable().Where( a => a.PersonAlias.PersonId == this.SelectedPersonId ).Where( a => a.RequestedToAttend == true );
 
             var scheduleAvailable = attendenceService.Queryable().Where( a => groupIds.Contains( a.Occurrence.GroupId.Value ) );
 
+            var groups = groupMemberService.GetByPersonId( this.SelectedPersonId.Value ).Where( gm => gm.Group.GroupType.IsSchedulingEnabled == true ).Select( gm => gm.Group ).ToList();
 
+            foreach ( Group group in groups )
+            {
+                // TODO: See if the group has anything and if not then continue
 
+                var groupLocations = group.GroupLocations.ToList();
+
+                var groupSchedules = groupLocations.SelectMany( a => a.Schedules ).DistinctBy( a => a.Guid ).ToList();
+
+                //groupSchedules.
+
+            }
+         
         }
 
         #endregion Signup Tab
