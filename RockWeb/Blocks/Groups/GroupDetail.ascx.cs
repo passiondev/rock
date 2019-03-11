@@ -631,6 +631,33 @@ namespace RockWeb.Blocks.Groups
                         groupLocation.Schedules.Add( schedule );
                     }
                 }
+
+                // select group configs with min, desired or max values 
+                var modifiedScheduleConfigs = groupLocationState.GroupLocationScheduleConfigs
+                    .Where( s => groupLocation.GroupLocationScheduleConfigs
+                        .Where( exs => exs.ScheduleId == s.ScheduleId
+                            && exs.GroupLocationId == s.GroupLocationId
+                            && ( exs.MinimumCapacity != s.MinimumCapacity
+                            || exs.DesiredCapacity != s.DesiredCapacity
+                            || exs.MaximumCapacity != s.MaximumCapacity ) ).Any() );
+
+                //update the scheduling configs
+                foreach ( var updatedSchedulingConfig in modifiedScheduleConfigs )
+                {
+                    var currentSchedulingConfig = groupLocation.GroupLocationScheduleConfigs
+                        .Where( curr => curr.ScheduleId == updatedSchedulingConfig.ScheduleId
+                        && curr.GroupLocationId == updatedSchedulingConfig.GroupLocationId ).FirstOrDefault();
+
+                    currentSchedulingConfig.MinimumCapacity = updatedSchedulingConfig.MinimumCapacity;
+                    currentSchedulingConfig.DesiredCapacity = updatedSchedulingConfig.DesiredCapacity;
+                    currentSchedulingConfig.MaximumCapacity = updatedSchedulingConfig.MaximumCapacity;
+                }
+
+                // group location config in viewstate has value and current group Location group location schedule configs does not exist
+                foreach ( var groupLocationConfig in groupLocationState.GroupLocationScheduleConfigs.Where( s => ( s.MinimumCapacity != null || s.DesiredCapacity != null || s.MinimumCapacity != null ) && !groupLocation.GroupLocationScheduleConfigs.Select( gl => gl.GroupLocationId == s.GroupLocationId && gl.ScheduleId == s.ScheduleId ).Any() ).ToList() )
+                {
+                    groupLocation.GroupLocationScheduleConfigs.Add( groupLocationConfig );
+                }
             }
 
             // Add/update GroupSyncs
@@ -2400,12 +2427,14 @@ namespace RockWeb.Blocks.Groups
             }
 
             Literal lScheduleName = e.Item.FindControl( "lScheduleName" ) as Literal;
-            lScheduleName.Text = groupLocationScheduleConfig.Schedule.Name;
+            lScheduleName.Text = groupLocationScheduleConfig.Schedule == null ? string.Empty : groupLocationScheduleConfig.Schedule.Name;
 
+            HiddenField hfScheduleId = e.Item.FindControl( "hfScheduleId" ) as HiddenField;
             NumberBox nbMinimumCapacity = e.Item.FindControl( "nbMinimumCapacity" ) as NumberBox;
             NumberBox nbDesiredCapacity = e.Item.FindControl( "nbDesiredCapacity" ) as NumberBox;
             NumberBox nbMaximumCapacity = e.Item.FindControl( "nbMaximumCapacity" ) as NumberBox;
 
+            hfScheduleId.Value = groupLocationScheduleConfig.ScheduleId.ToString();
             nbMinimumCapacity.Text = groupLocationScheduleConfig.MinimumCapacity.ToString();
             nbDesiredCapacity.Text = groupLocationScheduleConfig.DesiredCapacity.ToString();
             nbMaximumCapacity.Text = groupLocationScheduleConfig.MaximumCapacity.ToString();
@@ -2489,6 +2518,42 @@ namespace RockWeb.Blocks.Groups
                 {
                     groupLocation = new GroupLocation();
                     GroupLocationsState.Add( groupLocation );
+                }
+
+                foreach ( RepeaterItem rItem in rptGroupLocationScheduleCapacities.Items )
+                {
+                    var hfScheduleId = rItem.FindControl( "hfScheduleId" ) as HiddenField;
+                    var nbMinimumCapacity = rItem.FindControl( "nbMinimumCapacity" ) as NumberBox;
+                    var nbDesiredCapacity = rItem.FindControl( "nbDesiredCapacity" ) as NumberBox;
+                    var nbMaximumCapacity = rItem.FindControl( "nbMaximumCapacity" ) as NumberBox;
+
+                    var iScheduleId = hfScheduleId.Value.AsIntegerOrNull();
+                    var iMinCapacity = nbMinimumCapacity.Text.AsIntegerOrNull();
+                    var iDesiredCapacity = nbDesiredCapacity.Text.AsIntegerOrNull();
+                    var iMaxCapacity = nbMaximumCapacity.Text.AsIntegerOrNull();
+
+                    if ( iScheduleId != null )
+                    {
+                        var currentgroupLocationScheduleConfig = groupLocation.GroupLocationScheduleConfigs.Where( i => i.ScheduleId == iScheduleId ).FirstOrDefault();
+                        if ( currentgroupLocationScheduleConfig != null )
+                        {
+                            currentgroupLocationScheduleConfig.MinimumCapacity = iMinCapacity;
+                            currentgroupLocationScheduleConfig.DesiredCapacity = iDesiredCapacity;
+                            currentgroupLocationScheduleConfig.MaximumCapacity = iMaxCapacity;
+                        }
+                        else
+                        {
+                            currentgroupLocationScheduleConfig = new GroupLocationScheduleConfig
+                            {
+                                ScheduleId = ( int ) iScheduleId,
+                                MinimumCapacity = iMinCapacity,
+                                DesiredCapacity = iDesiredCapacity,
+                                MaximumCapacity = iMaxCapacity
+                            };
+                            groupLocation.GroupLocationScheduleConfigs.Add( currentgroupLocationScheduleConfig );
+                        }
+
+                    }
                 }
 
                 groupLocation.GroupMemberPersonAliasId = memberPersonAliasId;

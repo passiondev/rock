@@ -20,7 +20,7 @@ using System.Data;
 using System.Data.Entity;
 using System.Data.Entity.SqlServer;
 using System.Linq;
-
+using System.Linq.Dynamic;
 using Rock.Chart;
 using Rock.Data;
 
@@ -1135,6 +1135,21 @@ namespace Rock.Model
         {
             var occurrenceDate = RockDateTime.Now.Date;
             return this.Queryable().Where( a => a.RequestedToAttend == true && a.ScheduledToAttend != true && a.DeclineReasonValueId == null && a.DidAttend != true && a.Occurrence.OccurrenceDate >= occurrenceDate );
+        }
+
+        /// <summary>
+        /// Gets the attendance schedule status.
+        /// Grouped By Group
+        /// </summary>
+        /// <param name="endDate">The end date.</param>
+        /// <returns></returns>
+        public IQueryable<IGrouping<DateTime,Attendance>> GetAttendanceGroupedByDate(DateRange dateRange)
+        {
+            return Queryable().AsNoTracking()
+                .Where( a => (a.StartDateTime >= dateRange.Start
+                && a.StartDateTime <= dateRange.End )
+                || dateRange.End == null).OrderBy( x =>  x.StartDateTime)
+                .GroupBy( x => x.StartDateTime );
         }
 
         /// <summary>

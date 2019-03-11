@@ -326,6 +326,7 @@
                             <asp:Repeater ID="rptGroupLocationScheduleCapacities" runat="server" OnItemDataBound="rptGroupLocationScheduleCapacities_ItemDataBound">
                                 <HeaderTemplate>
                                     <div class="row">
+                                        <div></div>
                                         <div class="col-xs-3">
                                             <span class="control-label"></span>
                                         </div>
@@ -342,6 +343,9 @@
                                 </HeaderTemplate>
                                 <ItemTemplate>
                                     <div class="row margin-t-sm">
+                                        <div>
+                                         <asp:HiddenField ID="hfScheduleId" runat="server" />
+                                        </div>
                                         <div class="col-xs-3">
                                             <asp:Literal ID="lScheduleName" runat="server" />
                                         </div>
