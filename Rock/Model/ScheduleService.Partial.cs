@@ -21,6 +21,7 @@ using System.Linq;
 
 using Rock.Data;
 using Rock.Web.Cache;
+using System.Data;
 
 namespace Rock.Model
 {
@@ -440,6 +441,51 @@ namespace Rock.Model
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Gets the group location schedules for a person where they have not already been requested to attend.
+        /// The person must be a member of the group and the schedule must be active.
+        /// </summary>
+        /// <param name="PersonId">The person identifier.</param>
+        /// <returns></returns>
+        public DataSet GetAvailableScheduleSignupsForPerson( int PersonId )
+        {
+            var sqlParams = new Dictionary<string, object>
+            {
+                { "@personId", PersonId }
+            };
+
+            string sql = @"
+                SELECT
+	                  g.[Id] AS GroupId
+	                , g.[Name] AS GroupName
+	                , l.[Id] As LocationId
+	                , l.[Name] AS LocationName
+	                , s.[Id] AS ScheduleId
+	                , s.[Name] AS ScheduleName
+	                , s.[iCalendarContent] AS ICalendarContent
+                FROM (
+	                SELECT gl.GroupId, gl.LocationId, gls.ScheduleId
+	                FROM GroupLocation gl
+	                JOIN GroupLocationSchedule gls on gl.Id = gls.GroupLocationId
+	                JOIN Schedule s ON s.id = gls.ScheduleId
+	                WHERE s.IsActive = 1
+	                AND gl.GroupId IN (
+		                SELECT g.Id
+		                FROM [Person] p
+		                JOIN [GroupMember] gm ON p.Id = gm.PersonId
+		                JOIN [Group] g ON g.[Id] = gm.GroupId
+		                JOIN [GroupType] gt ON gt.[Id] = g.[GroupTypeId]
+		                WHERE p.[Id] = @personId
+			                AND gt.IsSchedulingEnabled = 1
+		                )
+	                GROUP BY gl.GroupId, gl.LocationId, gls.ScheduleId) grouplocationschedules
+                JOIN [Group] g ON g.id = grouplocationschedules.GroupId
+                JOIN [Location] l ON l.id = grouplocationschedules.LocationId
+                JOIN [Schedule] s ON s.id = grouplocationschedules.ScheduleId";
+
+            return DbService.GetDataSet( sql, CommandType.Text, sqlParams );
         }
     }
 }

@@ -143,9 +143,8 @@
 
                 <%-- Sign-up --%>
                 <asp:Panel ID="pnlSignup" runat="server">
-                    <div class="row">
-
-                    </div>
+                    <asp:PlaceHolder ID="phSignUpSchedules" runat="server"></asp:PlaceHolder>
+                    <Rock:BootstrapButton ID="btnSaveSignups" runat="server" Text="Save" CssClass="btn btn-primary" OnClick="btnSaveSignups_Click"></Rock:BootstrapButton>
                 </asp:Panel>
             </div>
 
