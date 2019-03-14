@@ -58,6 +58,25 @@ namespace Rock.Model
 
 
         /// <summary>
+        /// Gets the occurrences grouped by groups and date range.
+        /// date range end date is optional
+        /// </summary>
+        /// <param name="groupIds">The group ids.</param>
+        /// <param name="dateRange">The date range.</param>
+        /// <returns></returns>
+        public IQueryable<IGrouping<DateTime, AttendanceOccurrence>> GetOccurrencesGroupedByGroupsAndDateRange( int[] groupIds, DateRange dateRange )
+        {
+            var qry = Queryable()
+                .Where( o => groupIds.Contains( ( int ) o.GroupId ));
+
+            //Filter by date Range
+            qry = qry.Where( o => ( o.OccurrenceDate >= dateRange.Start && o.OccurrenceDate <= dateRange.End ) || dateRange.End == null );
+
+            // group by
+           return qry.GroupBy( g => g.OccurrenceDate );
+        }
+
+        /// <summary>
         /// Gets occurrence data for the selected group
         /// </summary>
         /// <param name="group">The group.</param>
