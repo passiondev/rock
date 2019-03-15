@@ -123,6 +123,69 @@ namespace RockWeb.Blocks.Groups
         protected override void OnLoad( EventArgs e )
         {
             base.OnLoad( e );
+            List<string> errors = new List<string>();
+
+            string postbackArgs = Request.Params["__EVENTARGUMENT"];
+            if ( !string.IsNullOrWhiteSpace( postbackArgs ) )
+            {
+                string previousAssetSelected = string.Empty;
+
+                string[] occurrences = postbackArgs.Split( new char[] { '|' } );
+                foreach ( string occurrence in occurrences )
+                {
+                    int? groupId = null;
+                    int? locationId = null;
+                    int? scheduleId = null;
+                    DateTime? date = null;
+
+                    try
+                    {
+                        string[] props = occurrence.Split( new char[] { ',' } );
+                        groupId = props[0].AsIntegerOrNull();
+                        locationId = props[1].AsIntegerOrNull();
+                        scheduleId = props[2].AsIntegerOrNull();
+                        date = props[3].AsDateTime();
+                        AttendanceOccurrence attendanceOccurrence = null;
+
+                        using ( var rockContext = new RockContext() )
+                        {
+                            var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
+
+                            attendanceOccurrence = attendanceOccurrenceService.Get( date.Value.Date, groupId, locationId, scheduleId );
+
+                            // Create the occurrence if needed
+                            if ( attendanceOccurrence == null )
+                            {
+                                attendanceOccurrence = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( date.Value, scheduleId.Value, locationId.Value, groupId.Value ).FirstOrDefault();
+                                attendanceOccurrenceService.Add( attendanceOccurrence );
+                                rockContext.SaveChanges();
+                            }
+                        }
+
+                        using ( var rockContext = new RockContext() )
+                        {
+
+                            var attendanceService = new AttendanceService( rockContext );
+                            var attendance = attendanceService.ScheduledPersonAssign( this.hfSelectedPersonId.ValueAsInt(), attendanceOccurrence.Id, CurrentPersonAlias );
+                            rockContext.SaveChanges();
+
+                            attendanceService.ScheduledPersonConfirm( attendance.Id );
+                            rockContext.SaveChanges();
+                        }
+                    }
+                    catch ( Exception ex )
+                    {
+                        // If there is a problem then log it and move on to the next schedule
+                        errors.Add( string.Format( "There was a problem signing up for one or more schedules." ) );
+                        ExceptionLogService.LogException( ex );
+                        continue;
+                    }
+                }
+
+                // After the save is complete rebuild the signup controls
+                CreateSignupControls();
+            }
+
 
             if ( !Page.IsPostBack )
             {
@@ -432,30 +495,34 @@ namespace RockWeb.Blocks.Groups
             int currentScheduleId = -1;
 
             availableGroupLocationSchedules = GetScheduleData().OrderBy( s => s.GroupId ).ThenBy( s => s.OccurrenceDate.Date ).ToList();
+            var availableSchedules = availableGroupLocationSchedules
+                .GroupBy( s => new { s.GroupId, s.ScheduleId, s.OccurrenceDate.Date } )
+                .Select( s => s.First() )
+                .ToList();
 
-            foreach( var availableGroupLocationSchedule in availableGroupLocationSchedules )
+            foreach( var availableSchedule in availableSchedules )
             {
-                if ( availableGroupLocationSchedule.GroupId != currentGroupId )
+                if ( availableSchedule.GroupId != currentGroupId )
                 {
-                    currentGroupId = availableGroupLocationSchedule.GroupId;
-                    CreateGroupHeader( availableGroupLocationSchedule.GroupName );
+                    currentGroupId = availableSchedule.GroupId;
+                    CreateGroupHeader( availableSchedule.GroupName );
                 }
 
-                if ( availableGroupLocationSchedule.OccurrenceDate.Date != currentOccurrenceDate.Date )
+                if ( availableSchedule.OccurrenceDate.Date != currentOccurrenceDate.Date )
                 {
                     if (currentScheduleId != -1 )
                     {
                         phSignUpSchedules.Controls.Add( new LiteralControl( "</div>" ) );
                     }
 
-                    currentOccurrenceDate = availableGroupLocationSchedule.OccurrenceDate.Date;
-                    CreateDateHeader( availableGroupLocationSchedule.OccurrenceDate );
+                    currentOccurrenceDate = availableSchedule.OccurrenceDate.Date;
+                    CreateDateHeader( availableSchedule.OccurrenceDate );
                 }
 
-                if( availableGroupLocationSchedule.ScheduleId != currentScheduleId )
+                if( availableSchedule.ScheduleId != currentScheduleId )
                 {
-                    currentScheduleId = availableGroupLocationSchedule.ScheduleId;
-                    CreateScheduleRow( availableGroupLocationSchedule );
+                    currentScheduleId = availableSchedule.ScheduleId;
+                    CreateScheduleRow( availableSchedule );
                 }
             }
         }
@@ -481,6 +548,7 @@ namespace RockWeb.Blocks.Groups
         {
             var container = new HtmlGenericContainer();
             container.Attributes.Add( "class", "row" );
+            container.AddCssClass( "js-person-schedule-signup-row" );
 
             var cbContainer = new HtmlGenericContainer();
             cbContainer.Attributes.Add( "class", "col-md-1" );
@@ -490,13 +558,15 @@ namespace RockWeb.Blocks.Groups
             cb.ToolTip = personScheduleSignup.ScheduleName;
             cb.Width = 200;
             cb.Attributes.Add( "style", "float: left;" );
+            cb.AddCssClass( "js-person-schedule-signup-checkbox" );
+            cb.Checked = false;
             cbContainer.Controls.Add( cb );
             
             var locations = availableGroupLocationSchedules
                 .Where( x => x.GroupId == personScheduleSignup.GroupId )
                 .Where( x => x.ScheduleId == personScheduleSignup.ScheduleId )
                 .Where( x => x.OccurrenceDate.Date == personScheduleSignup.OccurrenceDate.Date )
-                .Select( x => new { Text = x.LocationName, Value = x.LocationId } )
+                .Select( x => new { Text = x.LocationName, Value = x.GroupId + "," + x.LocationId + "," + x.ScheduleId + "," + x.OccurrenceDate + "|" } )
                 .ToList();
 
             var ddl = new DropDownList();
@@ -505,6 +575,7 @@ namespace RockWeb.Blocks.Groups
             ddl.DataTextField = "Text";
             ddl.DataValueField = "Value";
             ddl.DataBind();
+            ddl.AddCssClass( "js-person-schedule-signup-ddl" );
             ddl.Items.Insert( 0, new ListItem( string.Empty, string.Empty ) );
 
             var ddlContainer = new HtmlGenericContainer();
@@ -515,20 +586,13 @@ namespace RockWeb.Blocks.Groups
             container.Controls.Add( cbContainer );
             container.Controls.Add( ddlContainer );
 
-            //string validationFunction = @"";
+            var nb = new NotificationBox();
+            nb.NotificationBoxType = NotificationBoxType.Warning;
+            nb.Visible = false;
+            nb.Text = "The time checkbox must be checked and a location selected in order to signup";
+            nb.CssClass = "js-person-schedule-signup-notification";
+            container.Controls.Add( nb );
 
-            //CustomValidator cv = new CustomValidator
-            //{
-            //    ID = this.ID + "_cfv",
-            //    ClientValidationFunction = validationFunction,
-            //    ErrorMessage = "The time checkbox must be check and a location must be selected.",
-            //    CssClass = "validation-error help-inline",
-            //    Enabled = true,
-            //    Display = ValidatorDisplay.Dynamic
-            //};
-            //container.Controls.Add( cv );
-
-            
             phSignUpSchedules.Controls.Add( container );
         }
 
@@ -548,6 +612,7 @@ namespace RockWeb.Blocks.Groups
             using ( var rockContext = new RockContext() )
             {
                 var scheduleService = new ScheduleService( rockContext );
+                var attendanceService = new AttendanceService( rockContext );
 
                 // Get a list of schedules that a person can sign up for
                 var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( this.SelectedPersonId.Value )
@@ -570,6 +635,12 @@ namespace RockWeb.Blocks.Groups
                 {
                     foreach ( var occurrence in schedule.Occurrences )
                     {
+                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, this.SelectedPersonId.Value ) )
+                        {
+                            // If the person is scheduled for any group/location for this date/schedule then do not include in the sign-up list.
+                            continue;
+                        }
+
                         // Add to master list personScheduleSignups
                         personScheduleSignups.Add( new PersonScheduleSignup
                         {
@@ -608,25 +679,5 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion Signup Tab
-
-        protected void btnSaveSignups_Click( object sender, EventArgs e )
-        {
-            foreach ( Control control in pnlSignup.FindControl( phSignUpSchedules.ClientID ).Controls )
-            {
-
-                if ( control is HtmlGenericContainer )
-                {
-                    if (control is CheckBox)
-                    {
-                        if ( ( ( CheckBox ) control ).Checked )
-                        {
-
-                        }
-                    }
-                }
-
-                
-            }
-        }
     }
 }

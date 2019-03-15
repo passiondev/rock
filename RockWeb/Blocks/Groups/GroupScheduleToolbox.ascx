@@ -144,11 +144,47 @@
                 <%-- Sign-up --%>
                 <asp:Panel ID="pnlSignup" runat="server">
                     <asp:PlaceHolder ID="phSignUpSchedules" runat="server"></asp:PlaceHolder>
-                    <Rock:BootstrapButton ID="btnSaveSignups" runat="server" Text="Save" CssClass="btn btn-primary" OnClick="btnSaveSignups_Click"></Rock:BootstrapButton>
+                    <a id="btnSave" class="btn btn-primary" onclick="SaveSignUps();">Save</a>
                 </asp:Panel>
             </div>
-
+            
         </asp:Panel>
+        <script type="text/javascript">
+            function SaveSignUps() {
+                var postbackArg = '';
+                var $pnlSignup = $('#<%=pnlSignup.ClientID%>');
+                var $occurrences = $pnlSignup.find('.js-person-schedule-signup-row');
+                var isValid = true;
 
+                $occurrences.each(function () {
+                    var isChecked = $(this).find('.js-person-schedule-signup-checkbox').is(":checked");
+                    var selectedValue = $(this).find('.js-person-schedule-signup-ddl').val();
+                    
+                    if (isChecked && selectedValue.length == 0) {
+                        $(this).find('.js-person-schedule-signup-notification').removeClass('aspNetDisabled');
+                        isValid = false;
+                        return false;
+                    }
+
+                    else if (!isChecked && selectedValue.length > 0) {
+                        $(this).find('.js-person-schedule-signup-notification').removeClass('aspNetDisabled');
+                        isValid = false;
+                        return false;
+                    }
+
+                    if (isChecked && selectedValue.length > 0) {
+                        postbackArg += selectedValue;
+                    }
+                });
+
+                postbackArg = postbackArg.replace(/\|+$/, "")
+                debugger
+                if (postbackArg.length > 0 && isValid) {
+                    var jsPostback = "javascript:__doPostBack('" + <%=pnlSignup.ClientID%> + "','" + postbackArg + "');";
+                    window.location = jsPostback;
+                }
+            }
+
+        </script>
     </ContentTemplate>
 </asp:UpdatePanel>

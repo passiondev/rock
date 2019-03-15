@@ -196,6 +196,26 @@ namespace Rock.Model
         }
 
         /// <summary>
+        /// Determines whether the person is scheduled for the specified date and schedule for any group/location
+        /// </summary>
+        /// <param name="date">The date.</param>
+        /// <param name="scheduleId">The schedule identifier.</param>
+        /// <param name="personId">The person identifier.</param>
+        /// <returns>
+        ///   <c>true</c> if the specified date is scheduled; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsScheduled( DateTime date, int scheduleId, int personId )
+        {
+            return Queryable()
+                .Where( a =>
+                     a.Occurrence.OccurrenceDate == date.Date &&
+                     a.Occurrence.ScheduleId == scheduleId &&
+                     a.PersonAlias.PersonId == personId )
+                .ToList()
+                .Any();
+        }
+
+        /// <summary>
         /// Returns a Queryable collection of <see cref="Rock.Model.Attendance"/> for a <see cref="Rock.Model.Location"/> on a specified date.
         /// </summary>
         /// <param name="locationId">A <see cref="System.Int32"/> representing the Id of the <see cref="Rock.Model.Location"/></param>

@@ -234,6 +234,18 @@ namespace Rock.Model
 
         }
 
+        public List<AttendanceOccurrence> CreateMissingAttendanceOccurrences( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
+        {
+            List<int> groupLocationIds = new GroupLocationService( this.Context as RockContext )
+                .Queryable()
+                .Where( gl => gl.GroupId == groupId )
+                .Where( gl => gl.LocationId == locationId )
+                .Select( gl => gl.Id )
+                .ToList();
+
+            return CreateMissingAttendanceOccurrences( occurrenceDate, scheduleId, groupLocationIds );
+        }
+
         /// <summary>
         /// Creates and returns a list of missing attendance occurrences for the specified date, scheduleId and groupLocationIds.
         /// </summary>
