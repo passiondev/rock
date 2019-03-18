@@ -586,7 +586,7 @@ namespace RockWeb.Blocks.Groups
             var notificationLabel = new Label();
             notificationLabel.Style.Add("display", "none");
             notificationLabel.Style.Add("padding-left", "10px");
-            notificationLabel.AddCssClass( "label label-warning" );
+            notificationLabel.AddCssClass( "label label-warning" );// Needs styling here
             notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
             notificationLabel.CssClass = "js-person-schedule-signup-notification";
             ddlContainer.Controls.Add( notificationLabel );
