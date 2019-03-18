@@ -619,8 +619,6 @@ namespace Rock.Model
 
         #region GroupScheduling Related
 
-
-
         /// <summary>
         /// Gets a list of available the scheduler resources (people) based on the options specified in schedulerResourceParameters 
         /// </summary>
@@ -1107,6 +1105,7 @@ namespace Rock.Model
                 // ignore if there is no attendance record
             }
         }
+
         /// <summary>
         /// Updates attendance record to indicate person canceled a confirmed attendance
         /// </summary>
@@ -1154,7 +1153,12 @@ namespace Rock.Model
         public IQueryable<Attendance> GetPendingScheduledConfirmations()
         {
             var occurrenceDate = RockDateTime.Now.Date;
-            return this.Queryable().Where( a => a.RequestedToAttend == true && a.ScheduledToAttend != true && a.DeclineReasonValueId == null && a.DidAttend != true && a.Occurrence.OccurrenceDate >= occurrenceDate );
+            return Queryable()
+                .Where( a => a.RequestedToAttend == true )
+                .Where( a => a.ScheduledToAttend != true )
+                .Where( a => a.DeclineReasonValueId == null )
+                .Where( a => a.DidAttend != true )
+                .Where( a => a.Occurrence.OccurrenceDate >= occurrenceDate );
         }
 
         /// <summary>
