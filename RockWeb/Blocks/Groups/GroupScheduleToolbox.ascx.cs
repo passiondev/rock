@@ -582,17 +582,17 @@ namespace RockWeb.Blocks.Groups
             ddlContainer.Attributes.Add( "class", "col-md-11" );
             ddlContainer.Attributes.Add( "style", "padding-top: 7px;" );
             ddlContainer.Controls.Add( ddl );
-
+            
+            var notificationLabel = new Label();
+            notificationLabel.Style.Add("display", "none");
+            notificationLabel.Style.Add("padding-left", "10px");
+            notificationLabel.AddCssClass( "label label-warning" );
+            notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
+            notificationLabel.CssClass = "js-person-schedule-signup-notification";
+            ddlContainer.Controls.Add( notificationLabel );
+            
             container.Controls.Add( cbContainer );
             container.Controls.Add( ddlContainer );
-
-            var nb = new NotificationBox();
-            nb.NotificationBoxType = NotificationBoxType.Warning;
-            nb.Visible = false;
-            nb.Text = "The time checkbox must be checked and a location selected in order to signup";
-            nb.CssClass = "js-person-schedule-signup-notification";
-            container.Controls.Add( nb );
-
             phSignUpSchedules.Controls.Add( container );
         }
 

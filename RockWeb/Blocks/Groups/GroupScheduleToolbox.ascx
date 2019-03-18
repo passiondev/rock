@@ -160,19 +160,20 @@
                     var isChecked = $(this).find('.js-person-schedule-signup-checkbox').is(":checked");
                     var selectedValue = $(this).find('.js-person-schedule-signup-ddl').val();
                     
-                    if (isChecked && selectedValue.length == 0) {
-                        $(this).find('.js-person-schedule-signup-notification').removeClass('aspNetDisabled');
+                    if (isChecked && selectedValue.length === 0) {
+                        $(this).find('.js-person-schedule-signup-notification').css({"display": "inline"});
                         isValid = false;
-                        return false;
                     }
-
                     else if (!isChecked && selectedValue.length > 0) {
-                        $(this).find('.js-person-schedule-signup-notification').removeClass('aspNetDisabled');
+                        $(this).find('.js-person-schedule-signup-notification').css({"display": "inline"});
                         isValid = false;
-                        return false;
                     }
-
-                    if (isChecked && selectedValue.length > 0) {
+                    else if (!isChecked && selectedValue.length === 0) {
+                        $(this).find('.js-person-schedule-signup-notification').css({"display": "none"});
+                        isValid = false;
+                    }
+                    else if (isChecked && selectedValue.length > 0) {
+                        $(this).find('.js-person-schedule-signup-notification').css({"display": "none"});
                         postbackArg += selectedValue;
                     }
                 });
