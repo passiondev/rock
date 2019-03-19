@@ -1158,7 +1158,9 @@ namespace Rock.Model
                 .Where( a => a.ScheduledToAttend != true )
                 .Where( a => a.DeclineReasonValueId == null )
                 .Where( a => a.DidAttend != true )
-                .Where( a => a.Occurrence.OccurrenceDate >= occurrenceDate );
+                .Where( a => a.Occurrence.OccurrenceDate >= occurrenceDate )
+                // RSVP.Maybe is not used by the Group Scheduler. In that context it means that the person has not responded.
+                .Where( a => a.RSVP == RSVP.Maybe || a.RSVP == RSVP.Unknown );
         }
 
         /// <summary>
