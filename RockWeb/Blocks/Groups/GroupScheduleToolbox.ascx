@@ -2,7 +2,6 @@
 
 <asp:UpdatePanel ID="upnlContent" runat="server">
     <ContentTemplate>
-        <asp:HiddenField ID="hfSelectedPersonId" runat="server" />
         <asp:Panel ID="pnlView" runat="server" CssClass="panel panel-block">
 
             <div class="panel-heading">
@@ -15,8 +14,6 @@
                 </div>
             </div>
             <div class="panel-body">
-
-                <Rock:PersonPicker ID="ppSelectedPerson" runat="server" OnSelectPerson="ppSelectedPerson_SelectPerson" Label="DEBUG SelectPerson" EnableSelfSelection="true" />
 
                 <div class="margin-b-md">
                     <Rock:ButtonGroup ID="bgTabs" runat="server" SelectedItemClass="btn btn-primary active" UnselectedItemClass="btn btn-default" AutoPostBack="true" OnSelectedIndexChanged="bgTabs_SelectedIndexChanged" />
@@ -55,7 +52,13 @@
                     <%-- Upcoming Schedules Grid --%>
                     <div class="margin-t-md">
                         <span class="control-label">
-                            <asp:Literal runat="server" ID="lUpcomingSchedules" Text="Upcoming Schedules" />
+                            <asp:Literal runat="server" ID="lUpcomingSchedules" Text="Upcoming Schedules" />&nbsp;&nbsp;
+                            <button id="btnCopyToClipboard" runat="server" disabled="disabled"
+                                data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copies the link to syncronize your volunteer schedule with a calendar such as Microsoft Outlook or Google Calendar"
+                                class="btn btn-info btn-xs btn-copy-to-clipboard"
+                                onclick="$(this).attr('data-original-title', 'Copied').tooltip('show').attr('data-original-title', 'Copy Link to Clipboard');return false;">
+                                <i class="fa fa-calendar-alt"></i> Copy Calendar Link
+                            </button>
                         </span>
                         <hr class="margin-t-sm margin-b-sm" />
                         <asp:Repeater ID="rptUpcomingSchedules" runat="server" OnItemDataBound="rptUpcomingSchedules_ItemDataBound">
@@ -170,7 +173,6 @@
                     }
                     else if (!isChecked && selectedValue.length === 0) {
                         $(this).find('.js-person-schedule-signup-notification').css({"display": "none"});
-                        isValid = false;
                     }
                     else if (isChecked && selectedValue.length > 0) {
                         $(this).find('.js-person-schedule-signup-notification').css({"display": "none"});
@@ -179,7 +181,6 @@
                 });
 
                 postbackArg = postbackArg.replace(/\|+$/, "")
-                debugger
                 if (postbackArg.length > 0 && isValid) {
                     var jsPostback = "javascript:__doPostBack('" + <%=pnlSignup.ClientID%> + "','" + postbackArg + "');";
                     window.location = jsPostback;

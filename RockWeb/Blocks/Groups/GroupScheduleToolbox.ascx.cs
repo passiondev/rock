@@ -61,22 +61,21 @@ namespace RockWeb.Blocks.Groups
 
         List<PersonScheduleSignup> availableGroupLocationSchedules;
 
-        /// <summary>
-        /// Gets or sets the selected person identifier.
-        /// </summary>
-        /// <value>
-        /// The selected person identifier.
-        /// </value>
-        public int? SelectedPersonId
+        // Delete this and replace with CurrentPerson when done testing. Sets the person to Cindy Decker.
+        public Person GroupScheduleToolboxCurrentPerson
         {
             get
             {
-                return hfSelectedPersonId.Value.AsIntegerOrNull();
+                return new PersonService( new RockContext() ).GetNoTracking( 58 );
             }
+        }
 
-            set
+        // Delete this and replace with CurrentPersonAlias when done testing. Sets the person alias to Cindy Decker.
+        public PersonAlias GroupScheduleToolboxCurrentPersonAlias
+        {
+            get
             {
-                hfSelectedPersonId.Value = value.ToString();
+                return new PersonAliasService( new RockContext() ).GetNoTracking(GroupScheduleToolboxCurrentPerson.PrimaryAliasId.Value);
             }
         }
 
@@ -114,6 +113,16 @@ namespace RockWeb.Blocks.Groups
             // this event gets fired after block settings are updated. it's nice to repaint the screen if these settings would alter it
             this.BlockUpdated += Block_BlockUpdated;
             this.AddConfigurationUpdateTrigger( upnlContent );
+
+            // Setup for being able to copy text to clipboard
+            RockPage.AddScriptLink( this.Page, "~/Scripts/clipboard.js/clipboard.min.js" );
+
+            string script = string.Format( @"
+    new ClipboardJS('#{0}');
+    $('#{0}').tooltip();
+", btnCopyToClipboard.ClientID );
+
+            ScriptManager.RegisterStartupScript( btnCopyToClipboard, btnCopyToClipboard.GetType(), "share-copy", script, true );
         }
 
         /// <summary>
@@ -166,7 +175,7 @@ namespace RockWeb.Blocks.Groups
                         {
 
                             var attendanceService = new AttendanceService( rockContext );
-                            var attendance = attendanceService.ScheduledPersonAssign( this.hfSelectedPersonId.ValueAsInt(), attendanceOccurrence.Id, CurrentPersonAlias );
+                            var attendance = attendanceService.ScheduledPersonAssign( GroupScheduleToolboxCurrentPerson.Id, attendanceOccurrence.Id, CurrentPersonAlias );
                             rockContext.SaveChanges();
 
                             attendanceService.ScheduledPersonConfirm( attendance.Id );
@@ -186,23 +195,8 @@ namespace RockWeb.Blocks.Groups
                 CreateSignupControls();
             }
 
-
             if ( !Page.IsPostBack )
             {
-                var targetPerson = this.ContextEntity<Person>();
-                if ( targetPerson != null )
-                {
-                    this.SelectedPersonId = targetPerson.Id;
-                }
-                else
-                {
-                    this.SelectedPersonId = this.CurrentPersonId;
-
-                    // DEBUG Cindy Decker
-                    this.SelectedPersonId = 58;
-                    ppSelectedPerson.SetValue( new PersonService( new RockContext() ).GetNoTracking( 58 ) );
-                }
-
                 LoadDropDowns();
                 ShowDetails();
             }
@@ -230,17 +224,6 @@ namespace RockWeb.Blocks.Groups
         protected void bgTabs_SelectedIndexChanged( object sender, EventArgs e )
         {
             ShowSelectedTab();
-        }
-
-        /// <summary>
-        /// Handles the SelectPerson event of the ppSelectedPerson control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void ppSelectedPerson_SelectPerson( object sender, EventArgs e )
-        {
-            this.SelectedPersonId = ppSelectedPerson.PersonId;
-            ShowPersonDetails();
         }
 
         /// <summary>
@@ -396,14 +379,9 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindPendingConfirmations()
         {
-            if ( !this.SelectedPersonId.HasValue )
-            {
-                return;
-            }
-
             var rockContext = new RockContext();
             var qryPendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
-                .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId.Value )
+                .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
             rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
@@ -415,21 +393,28 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindUpcomingSchedules()
         {
-            if ( !this.SelectedPersonId.HasValue )
-            {
-                return;
-            }
-
             var currentDateTime = RockDateTime.Now;
-
             var rockContext = new RockContext();
+            
             var qryPendingConfirmations = new AttendanceService( rockContext ).GetConfirmedScheduled()
-                .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId.Value )
+                .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
                 .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
             rptUpcomingSchedules.DataSource = qryPendingConfirmations.ToList();
             rptUpcomingSchedules.DataBind();
+
+            var personAliasService = new PersonAliasService( rockContext );
+            var paguid = CurrentPersonAlias.Guid;
+
+            // Set URL in feed button
+            var globalAttributes = Rock.Web.Cache.GlobalAttributesCache.Get();
+            btnCopyToClipboard.Attributes["data-clipboard-text"] = string.Format(
+                "{0}GetPersonGroupScheduleFeed.ashx?paguid={1}",
+                globalAttributes.GetValue( "PublicApplicationRoot" ).EnsureTrailingForwardslash(),
+                GroupScheduleToolboxCurrentPersonAlias.Guid );
+            btnCopyToClipboard.Disabled = false;
+
         }
 
 
@@ -488,6 +473,9 @@ namespace RockWeb.Blocks.Groups
 
         #region Signup Tab
 
+        /// <summary>
+        /// Creates the dynamic controls for the sign-up tab.
+        /// </summary>
         protected void CreateSignupControls()
         {
             int currentGroupId = -1;
@@ -527,13 +515,20 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Creates the group section header for the sign-up tab controls
+        /// </summary>
+        /// <param name="groupName">Name of the group.</param>
         private void CreateGroupHeader( string groupName )
         {
             LiteralControl lc = new LiteralControl( string.Format("<h3>{0} Schedules</h3>", groupName) );
             phSignUpSchedules.Controls.Add( lc );
         }
 
-
+        /// <summary>
+        /// Creates the date section header for the sign-up tab controls
+        /// </summary>
+        /// <param name="dateTime">The date time.</param>
         private void CreateDateHeader( DateTime dateTime )
         {
             string date = dateTime.ToShortDateString();
@@ -544,6 +539,10 @@ namespace RockWeb.Blocks.Groups
             phSignUpSchedules.Controls.Add( new LiteralControl( sb.ToStringSafe() ) );
         }
 
+        /// <summary>
+        /// Creates a row for a schedule with a checkbox for the time and a dll to select a location.
+        /// </summary>
+        /// <param name="personScheduleSignup">The person schedule signup.</param>
         private void CreateScheduleRow( PersonScheduleSignup personScheduleSignup )
         {
             var container = new HtmlGenericContainer();
@@ -590,20 +589,18 @@ namespace RockWeb.Blocks.Groups
             notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
             notificationLabel.CssClass = "js-person-schedule-signup-notification";
             ddlContainer.Controls.Add( notificationLabel );
-            
+
             container.Controls.Add( cbContainer );
             container.Controls.Add( ddlContainer );
             phSignUpSchedules.Controls.Add( container );
         }
 
-
+        /// <summary>
+        /// Gets a list of available schedules for the group the current person belongs to.
+        /// </summary>
+        /// <returns></returns>
         protected List<PersonScheduleSignup> GetScheduleData()
         {
-            if (this.SelectedPersonId == null )
-            {
-                return null;
-            }
-
             List<PersonScheduleSignup> personScheduleSignups = new List<PersonScheduleSignup>();
             int numOfWeeks = GetAttributeValue( AttributeKeys.FutureWeeksToShow ).AsIntegerOrNull() ?? 6;
             var startDate = DateTime.Now.AddDays( 1 );
@@ -615,7 +612,7 @@ namespace RockWeb.Blocks.Groups
                 var attendanceService = new AttendanceService( rockContext );
 
                 // Get a list of schedules that a person can sign up for
-                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( this.SelectedPersonId.Value )
+                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( GroupScheduleToolboxCurrentPerson.Id )
                     .Tables[0]
                     .AsEnumerable()
                     .Select( s => new PersonScheduleSignup
@@ -635,7 +632,7 @@ namespace RockWeb.Blocks.Groups
                 {
                     foreach ( var occurrence in schedule.Occurrences )
                     {
-                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, this.SelectedPersonId.Value ) )
+                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, GroupScheduleToolboxCurrentPerson.Id ) )
                         {
                             // If the person is scheduled for any group/location for this date/schedule then do not include in the sign-up list.
                             continue;
@@ -663,18 +660,80 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// POCO class to hold data created from the iCal object in the schedule table and group by date, group
+        /// POCO class to hold data created from the iCal object in the schedule table and group by date
         /// </summary>
         protected class PersonScheduleSignup
         {
+            /// <summary>
+            /// Gets or sets the group identifier.
+            /// </summary>
+            /// <value>
+            /// The group identifier.
+            /// </value>
             public int GroupId { get; set; }
-	        public string GroupName { get; set; }
-	        public int LocationId { get; set; }
-	        public string LocationName { get; set; }
-	        public int ScheduleId { get; set; }
-	        public string ScheduleName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the name of the group.
+            /// </summary>
+            /// <value>
+            /// The name of the group.
+            /// </value>
+            public string GroupName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the location identifier.
+            /// </summary>
+            /// <value>
+            /// The location identifier.
+            /// </value>
+            public int LocationId { get; set; }
+
+            /// <summary>
+            /// Gets or sets the name of the location.
+            /// </summary>
+            /// <value>
+            /// The name of the location.
+            /// </value>
+            public string LocationName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the schedule identifier.
+            /// </summary>
+            /// <value>
+            /// The schedule identifier.
+            /// </value>
+            public int ScheduleId { get; set; }
+
+            /// <summary>
+            /// Gets or sets the name of the schedule.
+            /// </summary>
+            /// <value>
+            /// The name of the schedule.
+            /// </value>
+            public string ScheduleName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the string representation of iCal object
+            /// </summary>
+            /// <value>
+            /// The content of the i calendar.
+            /// </value>
             public string ICalendarContent { get; set; }
+
+            /// <summary>
+            /// Gets or sets the occurrence date.
+            /// </summary>
+            /// <value>
+            /// The occurrence date.
+            /// </value>
             public DateTime OccurrenceDate { get; set; }
+
+            /// <summary>
+            /// Gets or sets the let of Occurrences calculated from the iCal object.
+            /// </summary>
+            /// <value>
+            /// The occurrences.
+            /// </value>
             public IList<Occurrence> Occurrences { get; set; }
         }
 
