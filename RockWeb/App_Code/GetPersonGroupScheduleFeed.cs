@@ -34,7 +34,7 @@ using System.Data.Entity;
 namespace RockWeb
 {
     /// <summary>
-    /// Summary description for GetEventCalendarFeed
+    /// Http Handler to get the volunteer Group Scheduler calendar feed for a person.
     /// </summary>
     public class GetPersonGroupScheduleFeed : IHttpHandler
     {
@@ -322,7 +322,7 @@ namespace RockWeb
             public int PersonId { get; set; }
 
             /// <summary>
-            /// Gets or sets the start date. if not explicitly set returns current date
+            /// Gets or sets the start date. if not explicitly set returns a date minus 1 year
             /// </summary>
             /// <value>
             /// The start date.
@@ -331,7 +331,7 @@ namespace RockWeb
             {
                 get
                 {
-                    return _startDate != null ? (DateTime) _startDate : DateTime.Now.Date;
+                    return _startDate != null ? ( DateTime ) _startDate : DateTime.Now.AddYears( -1 ).Date;
                 }
 
                 set
@@ -341,7 +341,7 @@ namespace RockWeb
             }
 
             /// <summary>
-            /// Gets or sets the end date. If not explicitly set returns two months from current date.
+            /// Gets or sets the end date. If not explicitly set returns max value
             /// </summary>
             /// <value>
             /// The end date.
@@ -350,7 +350,7 @@ namespace RockWeb
             {
                 get
                 {
-                    return _endDate != null ? (DateTime) _endDate : DateTime.Now.AddMonths( 2 ).Date;
+                    return _endDate != null ? (DateTime) _endDate : DateTime.MaxValue;
                 }
 
                 set
