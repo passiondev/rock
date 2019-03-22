@@ -56,24 +56,28 @@ namespace Rock.Model
             return qry.FirstOrDefault();
         }
 
-
         /// <summary>
         /// Gets the occurrences grouped by groups and date range.
         /// date range end date is optional
         /// </summary>
         /// <param name="groupIds">The group ids.</param>
         /// <param name="dateRange">The date range.</param>
-        /// <returns></returns>
+        /// <returns>IQuerable Attendance occurrence grouped by date range, returns null if number of persons exceeds 50000</returns>
         public IQueryable<IGrouping<DateTime, AttendanceOccurrence>> GetOccurrencesGroupedByGroupsAndDateRange( int[] groupIds, DateRange dateRange )
         {
-            var qry = Queryable()
-                .Where( o => groupIds.Contains( ( int ) o.GroupId ));
+            var qry = Queryable().Where( o => groupIds.Contains( ( int ) o.GroupId ));
 
-            //Filter by date Range
+            // Filter by date Range
             qry = qry.Where( o => ( o.OccurrenceDate >= dateRange.Start && o.OccurrenceDate <= dateRange.End ) || dateRange.End == null );
 
+            var countPersons = qry.SelectMany( p => p.Attendees.Select( pa => pa.PersonAliasId ) ).Count();
+            if ( countPersons > 50000 )
+            {
+                return null;
+            }
+
             // group by
-           return qry.GroupBy( g => g.OccurrenceDate );
+            return qry.GroupBy( g => g.OccurrenceDate );
         }
 
         /// <summary>
@@ -125,7 +129,9 @@ namespace Rock.Model
             }
 
             if ( groupSchedule == null )
+            {
                 return occurrences;
+            }
 
             var newOccurrences = new List<AttendanceOccurrence>();
 
@@ -153,7 +159,9 @@ namespace Rock.Model
                     };
 
                     if ( existingDates.Contains( newOccurrence.OccurrenceDate.Date ) )
+                    {
                         continue;
+                    }
 
                     newOccurrences.Add( newOccurrence );
                     existingDates.Add( newOccurrence.OccurrenceDate.Date );
@@ -164,7 +172,6 @@ namespace Rock.Model
                 // if schedule does not have an iCal, then check for weekly schedule and calculate occurrences starting with first attendance or current week
                 if ( groupSchedule.WeeklyDayOfWeek.HasValue )
                 {
-
                     // default to start with date 2 months earlier
                     startDate = fromDateTime ?? RockDateTime.Today.AddMonths( -2 );
                     if ( existingDates.Any( d => d < startDate ) )
@@ -212,7 +219,9 @@ namespace Rock.Model
                 foreach ( var exclusion in groupType.GroupScheduleExclusions )
                 {
                     if ( !exclusion.Start.HasValue || !exclusion.End.HasValue )
+                    {
                         continue;
+                    }
 
                     foreach ( var occurrence in newOccurrences.ToList() )
                     {
@@ -231,9 +240,16 @@ namespace Rock.Model
             }
 
             return occurrences;
-
         }
 
+        /// <summary>
+        /// Creates the missing attendance occurrences.
+        /// </summary>
+        /// <param name="occurrenceDate">The occurrence date.</param>
+        /// <param name="scheduleId">The schedule identifier.</param>
+        /// <param name="locationId">The location identifier.</param>
+        /// <param name="groupId">The group identifier.</param>
+        /// <returns></returns>
         public List<AttendanceOccurrence> CreateMissingAttendanceOccurrences( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
         {
             List<int> groupLocationIds = new GroupLocationService( this.Context as RockContext )
@@ -263,7 +279,6 @@ namespace Rock.Model
                         && groupLocationQuery.Any( gl => gl.GroupId == a.GroupId && gl.LocationId == gl.LocationId )
                         && a.ScheduleId == scheduleId
                         && a.OccurrenceDate == occurrenceDate );
-
 
             var missingAttendanceOccurrences = groupLocationQuery.Where( gl => !attendanceOccurrencesQuery.Any( ao => ao.LocationId == gl.LocationId && ao.GroupId == gl.GroupId ) )
                             .ToList()
