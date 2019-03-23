@@ -84,22 +84,34 @@
                 <asp:Panel ID="pnlPreferences" runat="server">
                     <div class="row">
                         <div class="col-md-6">
-                            <%-- Reminder Preferences --%>
-                            <span class="control-label">
-                                <asp:Literal runat="server" ID="lReminderPreferences" Text="Reminder Preferences" />
-                            </span>
-                            <hr class="margin-t-sm margin-b-sm" />
-                            <Rock:RockDropDownList ID="ddlSendRemindersDaysOffset" runat="server" Label="Send Reminders" />
 
                             <%-- Per Group Preferences --%>
                             <asp:Repeater ID="rptGroupPreferences" runat="server" OnItemDataBound="rptGroupPreferences_ItemDataBound">
                                 <ItemTemplate>
-                                    <span class="control-label">
-                                        <asp:Literal runat="server" ID="lGroupPreferencesGroupName" Text="##GROUPNAME##" />
-                                    </span>
+                                    <asp:HiddenField ID="hfPreferencesGroupId" runat="server" />
+
+                                    <h2><asp:Literal runat="server" ID="lGroupPreferencesGroupName" Text='<%# Eval("Name") %>' /></h2>
                                     <hr class="margin-t-sm margin-b-sm" />
 
-                                    <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" />
+                                    <Rock:RockDropDownList ID="ddlSendRemindersDaysOffset" runat="server" Label="Send Reminders" OnSelectedIndexChanged="ddlSendRemindersDaysOffset_SelectedIndexChanged" AutoPostBack="true">
+                                        <asp:ListItem Value="" Text="Do not send a reminder"></asp:ListItem>
+                                        <asp:ListItem Value="1" Text="1 day before"></asp:ListItem>
+                                        <asp:ListItem Value="2" Text="2 days before"></asp:ListItem>
+                                        <asp:ListItem Value="3" Text="3 days before"></asp:ListItem>
+                                        <asp:ListItem Value="4" Text="4 days before"></asp:ListItem>
+                                        <asp:ListItem Value="5" Text="5 days before"></asp:ListItem>
+                                        <asp:ListItem Value="6" Text="6 days before"></asp:ListItem>
+                                        <asp:ListItem Value="7" Text="7 days before"></asp:ListItem>
+                                        <asp:ListItem Value="8" Text="8 days before"></asp:ListItem>
+                                        <asp:ListItem Value="9" Text="9 days before"></asp:ListItem>
+                                        <asp:ListItem Value="10" Text="10 days before"></asp:ListItem>
+                                        <asp:ListItem Value="11" Text="11 days before"></asp:ListItem>
+                                        <asp:ListItem Value="12" Text="12 days before"></asp:ListItem>
+                                        <asp:ListItem Value="13" Text="13 days before"></asp:ListItem>
+                                        <asp:ListItem Value="14" Text="14 days before"></asp:ListItem>
+                                    </Rock:RockDropDownList>
+
+                                    <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" AutoPostBack="true" />
 
                                     <span class="control-label">
                                         <asp:Literal runat="server" ID="lGroupPreferenceAssignmentLabel" Text="Assignment" />
@@ -120,13 +132,13 @@
                                             </div>
                                         </ItemTemplate>
                                     </asp:Repeater>
-
+                                    <br />
                                 </ItemTemplate>
                             </asp:Repeater>
                         </div>
 
+                        <%-- Blackout Dates --%>
                         <div class="col-md-6">
-                            <%-- Blackout Dates --%>
                             <span class="control-label">
                                 <asp:Literal runat="server" ID="lBlackoutDates" Text="Blackout Dates" />
                             </span>
@@ -135,9 +147,18 @@
                                 <asp:Literal runat="server" ID="lBlackoutDatesHelp" Text="Please provide any dates you will not be able to make." />
                             </span>
 
-                            <Rock:Grid ID="gBlackoutDates" runat="server" DisplayType="Light" ShowHeader="false" >
+                            <Rock:Grid ID="gBlackoutDates" runat="server" EmptyDataText="No black out dates have been set." DataKeyNames="ExclusionId" ShowHeader="false" DisplayType="Light" >
                                 <Columns>
-
+                                    <Rock:RockBoundField DataField="ExclusionId" Visible="false"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="PersonAliasId" Visible="false"></Rock:RockBoundField>
+                                    <Rock:RockTemplateField>
+                                        <ItemTemplate>
+                                            <asp:Literal ID="litExclusionDateRange" runat="server" Text='<%# Eval("DateRange")%>'></asp:Literal><span> - </span>
+                                            <asp:Literal ID="litExclusionFullName" runat="server" Text='<%# Eval("FullName") %>'></asp:Literal><span> - </span>
+                                            <asp:Literal ID="litExclusionGroupName" runat="server" Text='<%# Eval("GroupName") %>'></asp:Literal>
+                                        </ItemTemplate>
+                                    </Rock:RockTemplateField>
+                                    <Rock:DeleteField ID="gBlackoutDatesDelete" runat="server" OnClick="gBlackoutDatesDelete_Click" ></Rock:DeleteField>
                                 </Columns>
                             </Rock:Grid>
                         </div>
@@ -187,6 +208,26 @@
                 }
             }
 
+        </script>
+
+        <asp:HiddenField ID="hfActiveDialog" runat="server" />
+
+        <Rock:ModalDialog ID="mdAddBlackoutDates" runat="server" Title="Add Blackout Dates" OnSaveClick="mdAddBlackoutDates_SaveClick" OnCancelScript="clearActiveDialog();" ValidationGroup="AddBlackOutDates" >
+            <Content>
+                <p><label>Choose the dates, group, and people who will be unavailable</label></p>
+                <asp:ValidationSummary ID="valSummaryAddBlackoutDates" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="AddBlackOutDates"/>
+
+                <Rock:DateRangePicker ID="drpBlackoutDateRange" runat="server" Label="Date Range" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="Date Range is required" />
+                <Rock:RockDropDownList ID="ddlBlackoutGroups" runat="server" Label="Groups"></Rock:RockDropDownList>
+                <Rock:RockCheckBoxList ID="cblBlackoutPersons" runat="server" RepeatDirection="Vertical" RepeatColumns="1" Label="Individual" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="At least one person must be selected" ></Rock:RockCheckBoxList>
+
+            </Content>
+        </Rock:ModalDialog>
+
+        <script type="text/javascript">
+            function clearActiveDialog() {
+                $('#<%=hfActiveDialog.ClientID %>').val('');
+            }
         </script>
     </ContentTemplate>
 </asp:UpdatePanel>

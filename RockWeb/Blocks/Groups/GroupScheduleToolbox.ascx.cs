@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.Entity;
+using System.Data.Entity.Core.Objects;
 using System.Linq;
 using System.Text;
 using System.Web.UI;
@@ -59,6 +60,8 @@ namespace RockWeb.Blocks.Groups
             public const string FutureWeeksToShow = "FutureWeeksToShow";
         }
 
+        protected const string ALL_GROUPS_STRING = "All Groups";
+
         List<PersonScheduleSignup> availableGroupLocationSchedules;
 
         // Delete this and replace with CurrentPerson when done testing. Sets the person to Cindy Decker.
@@ -80,7 +83,7 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// 
+        /// Tab menu options
         /// </summary>
         public enum GroupScheduleToolboxTab
         {
@@ -109,6 +112,15 @@ namespace RockWeb.Blocks.Groups
         protected override void OnInit( EventArgs e )
         {
             base.OnInit( e );
+
+            gBlackoutDates.GridRebind += gBlackoutDates_GridRebind;
+            gBlackoutDates.Actions.AddClick += gBlackoutDates_AddClick;
+            gBlackoutDates.IsDeleteEnabled = true;
+            gBlackoutDates.AllowPaging = false;
+            gBlackoutDates.AllowSorting = false;
+            gBlackoutDates.Actions.ShowAdd = true;
+            gBlackoutDates.Actions.ShowExcelExport = false;
+            gBlackoutDates.Actions.ShowMergeTemplate = false;
 
             // this event gets fired after block settings are updated. it's nice to repaint the screen if these settings would alter it
             this.BlockUpdated += Block_BlockUpdated;
@@ -202,9 +214,9 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
-        #endregion
+        #endregion Base Control Methods
 
-        #region Events
+        #region Block Events and Methods
 
         /// <summary>
         /// Handles the BlockUpdated event of the control.
@@ -227,6 +239,74 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
+        /// Shows the detail.
+        /// </summary>
+        private void ShowDetails()
+        {
+            ShowSelectedTab();
+
+            // My Schedule
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
+
+            // Preferences
+            BindBlackoutDates();
+            BindGroupPreferences();
+
+            // Signup
+            CreateSignupControls();
+        }
+
+        /// <summary>
+        /// Shows selected person details.
+        /// </summary>
+        private void ShowPersonDetails()
+        {
+            // My Schedule
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
+
+            // Preferences
+            BindBlackoutDates();
+            BindGroupPreferences();
+
+            // Signup
+            CreateSignupControls();
+        }
+
+        
+        /// <summary>
+        /// Shows the selected tab.
+        /// </summary>
+        private void ShowSelectedTab()
+        {
+            var selectedTab = bgTabs.SelectedValueAsEnum<GroupScheduleToolboxTab>();
+            pnlMySchedule.Visible = selectedTab == GroupScheduleToolboxTab.MySchedule;
+            pnlPreferences.Visible = selectedTab == GroupScheduleToolboxTab.Preferences;
+            pnlSignup.Visible = selectedTab == GroupScheduleToolboxTab.SignUp;
+
+            if ( selectedTab == GroupScheduleToolboxTab.SignUp )
+            {
+                CreateSignupControls();
+            }
+        }
+
+        /// <summary>
+        /// Loads the drop downs.
+        /// </summary>
+        private void LoadDropDowns()
+        {
+            bgTabs.Items.Clear();
+            bgTabs.Items.Add( new ListItem( "My Schedule", GroupScheduleToolboxTab.MySchedule.ConvertToInt().ToString() ) { Selected = true } );
+            bgTabs.Items.Add( new ListItem( "Preferences", GroupScheduleToolboxTab.Preferences.ConvertToInt().ToString() ) );
+            bgTabs.Items.Add( new ListItem( "Sign-up", GroupScheduleToolboxTab.SignUp.ConvertToInt().ToString() ) );
+        }
+
+        #endregion Block Events and Methods
+
+        #region My Schedule Tab
+
+        /// <summary>
         /// Gets the occurrence details (Date, Group Name, Location)
         /// </summary>
         /// <param name="attendance">The attendance.</param>
@@ -246,7 +326,7 @@ namespace RockWeb.Blocks.Groups
             return attendance.Occurrence.Schedule.GetCalenderEvent().DTStart.Value.TimeOfDay.ToTimeString();
         }
 
-        /// <summary>
+         /// <summary>
         /// Handles the ItemDataBound event of the rptUpcomingSchedules control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
@@ -348,46 +428,6 @@ namespace RockWeb.Blocks.Groups
             ShowPersonDetails();
         }
 
-        #endregion
-
-        #region Methods
-
-        /// <summary>
-        /// Shows the detail.
-        /// </summary>
-        private void ShowDetails()
-        {
-            ShowSelectedTab();
-
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
-            CreateSignupControls();
-        }
-
-        /// <summary>
-        /// Shows selected person details.
-        /// </summary>
-        private void ShowPersonDetails()
-        {
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
-            CreateSignupControls();
-        }
-
-        /// <summary>
-        /// Binds the Pending Confirmations grid.
-        /// </summary>
-        private void BindPendingConfirmations()
-        {
-            var rockContext = new RockContext();
-            var qryPendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
-                .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
-                .OrderBy( a => a.Occurrence.OccurrenceDate );
-
-            rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
-            rptPendingConfirmations.DataBind();
-        }
-
         /// <summary>
         /// Binds the Upcoming Schedules grid.
         /// </summary>
@@ -414,51 +454,100 @@ namespace RockWeb.Blocks.Groups
                 globalAttributes.GetValue( "PublicApplicationRoot" ).EnsureTrailingForwardslash(),
                 GroupScheduleToolboxCurrentPersonAlias.Guid );
             btnCopyToClipboard.Disabled = false;
+        }
 
+        /// <summary>
+        /// Binds the Pending Confirmations grid.
+        /// </summary>
+        private void BindPendingConfirmations()
+        {
+            var rockContext = new RockContext();
+            var qryPendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
+                .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                .OrderBy( a => a.Occurrence.OccurrenceDate );
+
+            rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
+            rptPendingConfirmations.DataBind();
         }
 
 
 
-        /// <summary>
-        /// Shows the selected tab.
-        /// </summary>
-        private void ShowSelectedTab()
-        {
-            var selectedTab = bgTabs.SelectedValueAsEnum<GroupScheduleToolboxTab>();
-            pnlMySchedule.Visible = selectedTab == GroupScheduleToolboxTab.MySchedule;
-            pnlPreferences.Visible = selectedTab == GroupScheduleToolboxTab.Preferences;
-            pnlSignup.Visible = selectedTab == GroupScheduleToolboxTab.SignUp;
+        #endregion My Schedule Tab
 
-            if ( selectedTab == GroupScheduleToolboxTab.SignUp )
+        #region Preferences Tab
+
+        protected void BindGroupPreferences()
+        {
+            using ( var rockContext = new RockContext() )
             {
-                CreateSignupControls();
+                var groupMemberService = new GroupMemberService( rockContext );
+                var groups = groupMemberService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( x => x.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                    .Where( x => x.Group.GroupType.IsSchedulingEnabled == true )
+                    //.Select( x => new { GroupId = x.GroupId, GroupName = x.Group.Name } )
+                    .Select( x => x.Group )
+                    .OrderBy( x => x.Name )
+                    .Distinct() // if they are in the group twice with different roles we only want one record.
+                    .ToList();
+
+                rptGroupPreferences.DataSource = groups;
+                rptGroupPreferences.DataBind();
             }
         }
 
-        /// <summary>
-        /// Loads the drop downs.
-        /// </summary>
-        private void LoadDropDowns()
-        {
-            bgTabs.Items.Clear();
-            bgTabs.Items.Add( new ListItem( "My Schedule", GroupScheduleToolboxTab.MySchedule.ConvertToInt().ToString() ) { Selected = true } );
-            bgTabs.Items.Add( new ListItem( "Preferences", GroupScheduleToolboxTab.Preferences.ConvertToInt().ToString() ) );
-            bgTabs.Items.Add( new ListItem( "Sign-up", GroupScheduleToolboxTab.SignUp.ConvertToInt().ToString() ) );
-        }
 
-        #endregion
+        protected void ddlSendRemindersDaysOffset_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            var repeaterItem = ( ( DropDownList ) sender ).BindingContainer as RepeaterItem;
+            var hfGroupId = repeaterItem.FindControl( "hfPreferencesGroupId" ) as HiddenField;
+            var groupId = hfGroupId.ValueAsInt();
+
+            int? days = ( ( DropDownList ) sender ).SelectedValueAsInt( true );
+
+            using ( var rockContext = new RockContext() )
+            {
+                var groupMemberService = new GroupMemberService( rockContext );
+                var groupMembers = groupMemberService
+                    .Queryable()
+                    .Where( x => x.GroupId == groupId )
+                    .Where( x => x.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                    .ToList();
+
+                // in most cases the will be only one unless the person has multiple roles in the group (e.g. leader and member)
+                foreach( var groupMember in groupMembers )
+                {
+                    groupMember.ScheduleReminderEmailOffsetDays = days;
+                }
+
+                rockContext.SaveChanges();
+            }
+        }
 
         protected void ddlGroupMemberScheduleTemplate_SelectedIndexChanged( object sender, EventArgs e )
         {
             // TODO
+            var repeaterItem = ( ( DropDownList ) sender ).BindingContainer as RepeaterItem;
+
         }
 
         protected void rptGroupPreferences_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
-            var lGroupPreferencesGroupName = e.Item.FindControl( "lGroupPreferencesGroupName" ) as Literal;
-            var ddlGroupMemberScheduleTemplate = e.Item.FindControl( "ddlGroupMemberScheduleTemplate" ) as RockDropDownList;
+            var group = ( Group ) e.Item.DataItem;
+            if (group == null )
+            {
+                return;
+            }
 
-            // TODO
+            var lGroupPreferencesGroupName = e.Item.FindControl( "lGroupPreferencesGroupName" ) as Literal;
+            var hfPreferencesGroupId = e.Item.FindControl( "hfPreferencesGroupId" ) as HiddenField;
+            hfPreferencesGroupId.Value = group.Id.ToString();
+
+            rptGroupPreferencesBindDropDowns( group, e );
+
+            // bind repeater rptGroupPreferenceAssignments
+
         }
 
         protected void rptGroupPreferenceAssignments_ItemDataBound( object sender, RepeaterItemEventArgs e )
@@ -470,6 +559,285 @@ namespace RockWeb.Blocks.Groups
         {
 
         }
+
+
+        protected void rptGroupPreferencesBindDropDowns( Group group, RepeaterItemEventArgs e )
+        {
+            var ddlGroupMemberScheduleTemplate = e.Item.FindControl( "ddlGroupMemberScheduleTemplate" ) as RockDropDownList;
+            var ddlSendRemindersDaysOffset = e.Item.FindControl( "ddlSendRemindersDaysOffset" ) as RockDropDownList;
+
+            using ( var rockContext = new RockContext() )
+            {
+                var groupMemberService = new GroupMemberService( rockContext );
+                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, GroupScheduleToolboxCurrentPerson.Id ).FirstOrDefault();
+
+                // The items for this are hard coded in the markup, so just set the selected value.
+                ddlSendRemindersDaysOffset.SelectedValue = groupMember.ScheduleReminderEmailOffsetDays == null ? string.Empty : groupMember.ScheduleReminderEmailOffsetDays.ToString();
+
+                // Templates for all and this group type.
+                var groupMemberScheduleTemplateService = new GroupMemberScheduleTemplateService( rockContext );
+                var groupMemberScheduleTemplates = groupMemberScheduleTemplateService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( x => x.GroupTypeId == null || x.GroupTypeId == group.GroupTypeId )
+                    .Select( x => new { Value = (int?)x.Id, Text = x.Name } )
+                    .ToList();
+
+                groupMemberScheduleTemplates.Insert( 0, new { Value = (int?)null, Text = "No Schedule" } );
+
+                ddlGroupMemberScheduleTemplate.DataSource = groupMemberScheduleTemplates;
+                ddlGroupMemberScheduleTemplate.DataValueField = "Value";
+                ddlGroupMemberScheduleTemplate.DataTextField = "Text";
+                ddlGroupMemberScheduleTemplate.DataBind();
+                ddlGroupMemberScheduleTemplate.SelectedValue = groupMember.ScheduleTemplateId == null ? string.Empty : groupMember.ScheduleTemplateId.ToString();
+            }
+        }
+
+        #region Preferences Tab Blackout
+        protected void BindBlackoutDates()
+        {
+            gBlackoutDates_BindGrid();
+        }
+
+        protected void gBlackoutDates_AddClick( object sender, EventArgs e )
+        {
+            ShowDialog( "mdAddBlackoutDates" );
+        }
+
+        protected void gBlackoutDatesDelete_Click( object sender, RowEventArgs e )
+        {
+            using ( var rockContext = new RockContext() )
+            {
+                var personScheduleExclusionService = new PersonScheduleExclusionService( rockContext );
+                var personScheduleExclusion = personScheduleExclusionService.Get( e.RowKeyId );
+                if ( personScheduleExclusion != null )
+                {
+                    personScheduleExclusionService.Delete( personScheduleExclusion );
+                    rockContext.SaveChanges();
+                    BindBlackoutDates();
+                }
+            }
+        }
+
+        protected void gBlackoutDates_GridRebind( object sender, GridRebindEventArgs e )
+        {
+            gBlackoutDates_BindGrid();
+        }
+
+        protected void gBlackoutDates_BindGrid()
+        {
+            var currentDate = DateTime.Now.Date;
+
+            using ( var rockContext = new RockContext() )
+            {
+                List<int> familyMemberAliasIds = new PersonService( rockContext )
+                    .GetFamilyMembers( GroupScheduleToolboxCurrentPerson.Id, true )
+                    .Select( m => m.Person.Aliases.FirstOrDefault( a => a.PersonId == m.PersonId ) )
+                    .Select( a => a.Id )
+                    .ToList();
+
+                var personScheduleExclusionService = new PersonScheduleExclusionService( rockContext );
+                var personScheduleExclusions = personScheduleExclusionService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( e => familyMemberAliasIds.Contains( e.PersonAliasId.Value ) )
+                    .Where( e => e.StartDate >= currentDate || e.EndDate >= currentDate )
+                    .OrderBy( e => e.StartDate )
+                    .ThenBy( e => e.EndDate )
+                    .Select( e => new BlackoutDate
+                     {
+                         ExclusionId = e.Id,
+                         PersonAliasId = e.PersonAliasId.Value,
+                         StartDate = DbFunctions.TruncateTime( e.StartDate ).Value,
+                         EndDate = DbFunctions.TruncateTime( e.EndDate ).Value,
+                         FullName = e.PersonAlias.Person.NickName + " " + e.PersonAlias.Person.LastName,
+                         GroupName = e.Group.Name
+                     } );
+
+                gBlackoutDates.DataSource = personScheduleExclusions.ToList();
+                gBlackoutDates.DataBind();
+            }
+        }
+
+        /// <summary>
+        /// POCO to hold blackout dates for the grid.
+        /// </summary>
+        private class BlackoutDate
+        {
+            public int ExclusionId { get; set; }
+
+            public int PersonAliasId { get; set; }
+
+            public DateTime StartDate { get; set; }
+
+            public DateTime EndDate { get; set; }
+
+            public string DateRange
+            {
+                get
+                {
+                    return StartDate.ToString( "M/d/yyyy" ) + " - " + EndDate.ToString( "M/d/yyyy" );
+                }
+            }
+
+            public string FullName { get; set; }
+            
+            public string GroupName
+            {
+                get
+                {
+                    return _groupName.IsNullOrWhiteSpace() ? ALL_GROUPS_STRING : _groupName;
+                }
+                set
+                {
+                    _groupName = value;
+                }
+            }
+
+            private string _groupName;
+
+        }
+
+         #region Blackout Dates Modal
+
+        private void mdAddBlackoutDates_ddlBlackoutGroups_Bind()
+        {
+            using ( var rockContext = new RockContext() )
+            {
+                var groupMemberService = new GroupMemberService( rockContext );
+                var groups = groupMemberService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( g => g.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                    .Where( g => g.Group.GroupType.IsSchedulingEnabled == true )
+                    .Select( g => new { Value = (int?)g.GroupId, Text = g.Group.Name } )
+                    .ToList();
+
+                groups.Insert( 0, new { Value = (int?)null, Text = ALL_GROUPS_STRING } );
+
+                ddlBlackoutGroups.DataSource = groups;
+                ddlBlackoutGroups.DataValueField = "Value";
+                ddlBlackoutGroups.DataTextField = "Text";
+                ddlBlackoutGroups.DataBind();
+            }
+        }
+
+        private void mdAddBlackoutDates_cblBlackoutPersons_Bind()
+        {
+            using ( var rockContext = new RockContext() )
+            {
+                var personService = new PersonService( rockContext );
+
+                var familyMemberAliasIds = new PersonService( rockContext )
+                    .GetFamilyMembers( GroupScheduleToolboxCurrentPerson.Id )
+                    .Select( m => m.Person.Aliases.FirstOrDefault( a => a.PersonId == m.PersonId ) )
+                    .Select( a => new { Value = a.Id, Text = a.Person.NickName + " " + a.Person.LastName } )
+                    .ToList();
+
+                familyMemberAliasIds.Insert( 0, new { Value = GroupScheduleToolboxCurrentPersonAlias.Id, Text = GroupScheduleToolboxCurrentPerson.FullName + " (you)" } );
+
+                cblBlackoutPersons.DataSource = familyMemberAliasIds;
+                cblBlackoutPersons.DataValueField = "Value";
+                cblBlackoutPersons.DataTextField = "Text";
+                cblBlackoutPersons.DataBind();
+                
+            }
+
+            
+        }
+
+        protected void mdAddBlackoutDates_SaveClick( object sender, EventArgs e )
+        {
+            // parse the date range and add to query
+            if ( drpBlackoutDateRange.DelimitedValues.IsNullOrWhiteSpace() )
+            {
+                // show error
+                return;
+            }
+
+            var dateRange = DateRangePicker.CalculateDateRangeFromDelimitedValues( drpBlackoutDateRange.DelimitedValues );
+            if ( !dateRange.Start.HasValue || !dateRange.End.HasValue )
+            {
+                // show error
+                return;
+            }
+
+            int? parentId = null;
+
+            foreach ( ListItem item in cblBlackoutPersons.Items )
+            {
+                if ( !item.Selected )
+                {
+                    continue;
+                }
+
+                var personScheduleExclusion = new PersonScheduleExclusion
+                {
+                    PersonAliasId = item.Value.AsInteger(),
+                    StartDate = dateRange.Start.Value.Date,
+                    EndDate = dateRange.End.Value.Date,
+                    GroupId = ddlBlackoutGroups.SelectedValueAsId(),
+                    ParentPersonScheduleExclusionId = parentId
+                };
+
+                using ( var rockContext = new RockContext() )
+                {
+                    new PersonScheduleExclusionService( rockContext ).Add( personScheduleExclusion );
+                    rockContext.SaveChanges();
+
+                    if ( parentId == null )
+                    {
+                        parentId = personScheduleExclusion.Id;
+                    }
+                }
+            }
+
+            HideDialog();
+            BindBlackoutDates();
+        }
+
+        private void ShowDialog( string dialog, bool setValues = false )
+        {
+            hfActiveDialog.Value = dialog.ToUpper().Trim();
+            ShowDialog( setValues );
+        }
+
+        /// <summary>
+        /// Shows the dialog.
+        /// </summary>
+        /// <param name="setValues">if set to <c>true</c> [set values].</param>
+        private void ShowDialog( bool setValues = false )
+        {
+            switch ( hfActiveDialog.Value )
+            {
+                case "MDADDBLACKOUTDATES":
+                    mdAddBlackoutDates.Show();
+                    mdAddBlackoutDates_ddlBlackoutGroups_Bind();
+                    mdAddBlackoutDates_cblBlackoutPersons_Bind();
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Hides the dialog.
+        /// </summary>
+        private void HideDialog()
+        {
+            switch ( hfActiveDialog.Value )
+            {
+                case "MDADDBLACKOUTDATES":
+                    mdAddBlackoutDates.Hide();
+                    break;
+            }
+
+            hfActiveDialog.Value = string.Empty;
+        }
+
+        #endregion Blackout Dates Modal
+
+        #endregion Preferences Tab Blackout
+
+        #endregion Preferences Tab
 
         #region Signup Tab
 
@@ -738,5 +1106,9 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion Signup Tab
+
+
+
+
     }
 }
