@@ -34,7 +34,7 @@ using Rock.Web.UI.Controls;
 
 [SlidingDateRangeField(
    "Date Range",
-   Description = "How many weeks into the future should bedisplayed.",
+   Description = "How many weeks into the future should be displayed.",
    IsRequired = false,
    DefaultValue = "Next|6|Week||",
    EnabledSlidingDateRangeTypes = "Next,Upcoming,Current",
@@ -168,6 +168,8 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// </summary>
     private void SetSelectedGroup()
     {
+        nbGroupsWarning.Visible = false;
+
         _selectedGroupIds = this.GetUserPreference( UserPreferenceKeys.VolunteerScheduleStatusGroups ).SplitDelimitedValues( false );
         //Set Root Group
         using ( var rockContext = new RockContext() )
@@ -192,7 +194,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     }
 
     /// <summary>
-    /// Call get user prefernce and set the  number of weeks
+    /// Call get user preference and set the  number of weeks
     /// on the date picker
     /// </summary>
     private void SetSelectedNumberOfWeeks()
@@ -206,7 +208,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
         {
             // extract the number of weeks from the default date attribute value
             var defaultWeeks = delimitedDateRange[1].AsInteger();
-            //use user preference if diffrent;
+            //use user preference if different;
             if ( dateRangeNumberOfWeeks != defaultWeeks )
             {
                 dateRangeAttributes = string.Format( "Next|{0}|Week||", dateRangeNumberOfWeeks );
@@ -228,7 +230,6 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     private void GetData()
     {
         this.ltContentPlaceholer.Text = string.Empty;
-        nbGroupsWarning.Visible = false;
         if ( _selectedGroupIds.Length != 0 )
         {
             using ( var rockContext = new RockContext() )
@@ -254,12 +255,17 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
                 BuildDataSourceCells( occurrences );
             }
         }
+        else
+        {
+            nbGroupsWarning.Text = "Please select at least one group.";
+            nbGroupsWarning.Visible = true;
+        }
     }
 
     /// <summary>
     /// Builds the data source cells.
     /// Pass in the Occurrences that are grouped by date
-    /// fill list of datasource Schedule Cells
+    /// fill list of data source Schedule Cells
     /// </summary>
     /// <param name="occurrences">The occurrences.</param>
     private void BuildDataSourceCells( IQueryable<IGrouping<DateTime, AttendanceOccurrence>> occurrences )
@@ -374,7 +380,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     }
 
     /// <summary>
-    /// Builds the list of occurence persons from Attendances.
+    /// Builds the list of occurrence persons from Attendances.
     /// </summary>
     /// <param name="attendances">The attendances.</param>
     /// <returns></returns>
@@ -409,6 +415,11 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
         {
             RenderResults();
         }
+        else
+        {
+            ltContentPlaceholer.Visible = true;
+            ltContentPlaceholer.Text = "<i class='text-muted'>no data for the groups and dates selected</i>";
+        }
     }
 
     /// <summary>
@@ -430,7 +441,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     ///    <th scope = "row" > Bears Room</th>
     ///    <td>
     ///      <ul class="location-list">
-    ///        <li class="person attending">Cras justo odio</li>
+    ///        <li class="person attending">Ted Decker</li>
     ///      </ul>
     ///    </td>
     ///  </tr>
@@ -464,7 +475,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// Builds the header.
     /// </summary>
     /// <param name="columnDateTimes">The column date times.</param>
-    /// <param name="sbTable">The sb head.</param>
+    /// <param name="sbTable">The table.</param>
     private void BuildHeader( List<Tuple<string, DateTime>> columnScheduleDates, StringBuilder sbTable )
     {
         // Head
@@ -522,14 +533,14 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
             // iterate through list of schedule names and associated date
             foreach ( var scheduleDate in columnScheduleDates )
             {
-                // cell by schedule name and occurrance date
+                // cell by schedule name and occurrence date
                 var scheduleOccurrenceCell = cellsByLocation
                      .Where( cel => cel.OccurrenceDate == scheduleDate.Item2 && cel.ScheduleName == scheduleDate.Item1 )
                      .Select( cel => cel ).FirstOrDefault();
                 if ( scheduleOccurrenceCell != null )
                 {
-                    // get the capicities that have been defined for this schedule and date
-                    // if Desired has not been configured then use Minium otherwise use 0 
+                    // get the capacities that have been defined for this schedule and date
+                    // if Desired has not been configured then use Minimum otherwise use 0 
                     var capacityDetail = scheduleOccurrenceCell.CapacityDetail;
                     var capacityRequested = capacityDetail == null ? 0 : capacityDetail.CapacityDesired != null ? capacityDetail.CapacityDesired : capacityDetail.CapcityMinimum;
                     if ( scheduleOccurrenceCell != null && scheduleOccurrenceCell.OccurrencePersons != null && scheduleOccurrenceCell.OccurrencePersons.Count > 0 )
@@ -577,12 +588,12 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
                     }
                     else
                     {
-                        // no pepole scheduled handle capacity  
+                        // no people scheduled handle capacity  
                         if ( capacityRequested > 0 )
                         {
                             sbBody.Append( "<td>" );
                             sbBody.AppendLine( "<ul class='location-list'>" );
-                            sbBody.AppendLine( string.Format( "<li class='unassigned unassigned-meta'>{0} {1} Needed</li>", capacityRequested, "Peopole" ) );
+                            sbBody.AppendLine( string.Format( "<li class='unassigned unassigned-meta'>{0} {1} Needed</li>", capacityRequested, "People" ) );
                             sbBody.AppendLine( "</ul>" );
                             sbBody.AppendLine( "</td>" );
                         }
@@ -600,7 +611,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// <summary>
     /// Builds the group and location row header.
     /// </summary>
-    /// <param name="sbBody">The sb body.</param>
+    /// <param name="sbBody">The table body of the table.</param>
     /// <param name="groupLocation">The group location.</param>
     private void BuildGroupAndLocationRowHeader( StringBuilder sbBody, StatusCell groupLocation )
     {
@@ -657,7 +668,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
         dlgGroups.Hide();
         var groupsSelected = gpGroups.SelectedValues.ToList();
         var delimitedGroups = groupsSelected.AsDelimited( "," );
-        if ( delimitedGroups != null )
+        if ( delimitedGroups != null && delimitedGroups != "0" )
         {
             this.SetUserPreference( UserPreferenceKeys.VolunteerScheduleStatusGroups, delimitedGroups.ToString() );
             nbGroupsWarning.Visible = false;
