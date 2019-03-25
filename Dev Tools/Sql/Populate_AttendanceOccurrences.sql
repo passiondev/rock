@@ -1,17 +1,20 @@
-USE[RockRMS_VS]
-BEGIN TRAN 
+
+BEGIN TRANSACTION
+
 DECLARE 
+	@NumberOfGroups int = 3, -- number of fake groups to create
+	@maxAttendanceCount int = 25, -- max number of fake attendance slots to fill
+
+	@locationTypeValueId int,
 	@campusId int = 1, -- main campus
-	@groupTypeId int = 23, -- service Team Group Type
-	@parentGroupId int = 56, -- Serving Team Group
-	@NumberOfGroups int = 10,
+	@groupTypeId int,
+	@parentGroupId int,
 	@groupCounter int = 0,
 	@locationCounter int = 0,
 	@groupName nvarchar(100),
 	@groupGuid nvarchar(max),
 	@groupDescription nvarchar(max),
 	@groupId int = null,
-	@maxAttendanceCount int = 25, 
 	@attendanceCounter int = 0,
 	@AttendanceCodeId int,
 	@rndLocationNumber int,
@@ -20,13 +23,16 @@ DECLARE
 	@DeviceId int,
 	@lastAttendanceOccurrenceId int
 
+SET @groupTypeId = (SELECT [Id] FROM [GroupType] WHERE [Guid] = '2C42B2D4-1C5F-4AD5-A9AD-08631B872AC4' ) -- Serving Team group type
+SET @parentGroupId = (SELECT [Id] FROM [Group] WHERE [Guid] = '31730962-4C7B-425B-BD73-4185331F37EF' ) -- Serving Teams (parent group)
+SET @locationTypeValueId = (SELECT [Id] FROM [DefinedValue] WHERE [Guid] = '107C6DA1-266D-4E1C-A443-1CD37064601D' ) -- Room type locations
 
 DECLARE @attendanceCodeIds table ( id Int );
 DECLARE @locationId Table(Id int)
 DECLARE @insertedGroupLocations Table(Id int, rowNum int);
 DECLARE @scheduleId Table(Id int,rowNum int)
 DECLARE @allLocationsUsed Table(locationId int,rowNum int);
-DECLARE  @personAliasIds table ( id Int);
+DECLARE @personAliasIds table ( id Int);
 DECLARE
      @attendanceTable TABLE(
 	    [PersonAliasId] [int] NULL,
@@ -68,13 +74,13 @@ INSERT INTO @personAliasIds select top 100 Id from PersonAlias
 	INSERT INTO @allLocationsUsed
 	SELECT Id,ROW_NUMBER() OVER(ORDER BY ID) 
 			FROM [Location]
-		WHERE LocationTypeValueId = 183 
+		WHERE LocationTypeValueId = @locationTypeValueId 
 
 	-- Create N number of Groups
 	PRINT 'INSERTING GROUPS'
 	WHILE @groupCounter < @NumberOfGroups
 	BEGIN
-		-- clear table each itteration
+		-- clear table each iteration
 		DELETE FROM @locationId
 		DELETE FROM @insertedGroupLocations
 
@@ -90,7 +96,7 @@ INSERT INTO @personAliasIds select top 100 Id from PersonAlias
 		
 		PRINT 'UPDATING LOCATION WHERE THE LOCATION TYPE VALUE IS NULL AND NAME IS LIKE ROOM'
 		-- Make sure all the location records with type Room have the locationtypValueId  
-		UPDATE [Location] SET LocationTypeValueId = 183  WHERE [NAME] like '%Room%' AND LocationTypeValueId IS NULL
+		UPDATE [Location] SET LocationTypeValueId = @locationTypeValueId  WHERE [NAME] like '%Room%' AND LocationTypeValueId IS NULL
 		
 		-- returns a random decimal number > 2 and < 4
 		set @rndLocationNumber = FLOOR(RAND()*(4-2+1)+2)
@@ -152,8 +158,8 @@ INSERT INTO @personAliasIds select top 100 Id from PersonAlias
 			 declare @currentScheduleId int = (SELECT Id FROM @scheduleId WHERE rowNum = @grouplocConfigRow + 1 )
 
 			 declare @rndCapacity int;
-			 -- return a random decimai number > 2 and < 10
-			 set @rndCapacity = FLOOR(RAND()*(10-2+1)+2)
+			 -- return a random number > 2 and < 12
+			 set @rndCapacity = FLOOR(RAND()*(12-2+1)+2)
 
 			 -- UPDATE GROUPLOCATION SCHEDULECONFIG WITH CAPACITIES
 			 UPDATE GroupLocationScheduleConfig  
@@ -187,7 +193,7 @@ INSERT INTO @personAliasIds select top 100 Id from PersonAlias
 	END;
 
 
-	-- Itterate through the newly add Attendance Occurances and add Attendies 
+	-- Iterate through the newly add Attendance Occurances and add Attendees 
 	DECLARE @addedOccurrence TABLE(attendanceOccurrencId int,rowNum int);
 	INSERT INTO @addedOccurrence 
 	SELECT Id,ROW_NUMBER() OVER(ORDER BY ID) FROM AttendanceOccurrence WHERE Id > @lastAttendanceOccurrenceId
@@ -224,4 +230,6 @@ INSERT INTO @personAliasIds select top 100 Id from PersonAlias
 	  SET @indexOccurrence +=1;
 	END
 
+--SELECT * FROM AttendanceOccurrence WHERE OccurrenceDate > DateAdd( d, -7, GetDate() )
+--ROLLBACK TRANSACTION
 COMMIT
