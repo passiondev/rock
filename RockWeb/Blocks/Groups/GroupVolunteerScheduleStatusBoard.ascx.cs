@@ -209,7 +209,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
             // extract the number of weeks from the default date attribute value
             var defaultWeeks = delimitedDateRange[1].AsInteger();
             //use user preference if different;
-            if ( dateRangeNumberOfWeeks != defaultWeeks )
+            if ( dateRangeNumberOfWeeks != null && dateRangeNumberOfWeeks != defaultWeeks )
             {
                 dateRangeAttributes = string.Format( "Next|{0}|Week||", dateRangeNumberOfWeeks );
                 rsDateRange.SelectedValue = dateRangeNumberOfWeeks;
@@ -274,7 +274,9 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
         var allDates = occurrences.Select( k => k.Key ).ToList();
 
         List<Attendance> allAttendances = occurrences.SelectMany( a => a.Select( x => x.Attendees ) ).SelectMany( s => s ).ToList();
-        List<KeyValuePair<int, Attendance>> attendanceLookup = allAttendances.Select( k => new KeyValuePair<int, Attendance>( k.OccurrenceId, k ) ).ToList();
+        List<KeyValuePair<int, Attendance>> attendanceLookup = allAttendances
+            .Where( a => a.RequestedToAttend == true || a.ScheduledToAttend == true)
+            .Select( k => new KeyValuePair<int, Attendance>( k.OccurrenceId, k ) ).ToList();
 
         var groupsInfos = occurrences.Select( a => new GroupInfo
         {
@@ -395,6 +397,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
             {
                 NickName = attendance.PersonAlias.Person.NickName,
                 LastName = attendance.PersonAlias.Person.LastName,
+                RSVP = attendance.RSVP,
             } );
         }
         return persons;
