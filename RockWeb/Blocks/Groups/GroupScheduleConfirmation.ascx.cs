@@ -32,11 +32,11 @@ namespace RockWeb.Blocks.Groups
     [DisplayName( "Group Schedule Confirmation" )]
     [Category( "Groups" )]
     [CodeEditorField( "Confirm Heading Template", "Text to display when volunteer confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
-    @"<h2>You’re confirmed to serve</h2><p>Thanks for letting us know.  You’re confirmed for:</p><p>{{ Group.Name }}<br>{{ ScheduledItem.Location.Name }} {{ScheduledItem.Schedule.Name }}<br></p>
+    @"<h2 class='margin-t-none'>You’re confirmed to serve</h2><p>Thanks for letting us know.  You’re confirmed for:</p><p>{{ Group.Name }}<br>{{ ScheduledItem.Location.Name }} {{ScheduledItem.Schedule.Name }}<br></p>
 <p>Thanks again!</p>
 <p>{{ Group.Scheduler.FullName }}<br>{{ 'Global' | Attribute:'OrganizationName' }}</p>", "", 1, "ConfirmHeadingTemplate" )]
     [CodeEditorField( "Decline Heading Template", "Text to display when volunteer confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
-    @"<h2>Can’t make it?</h2><p>Thanks for letting us know.  We’ll try to schedule another volunteer for:</p>
+    @"<h2 class='margin-t-none'>Can’t make it?</h2><p>Thanks for letting us know.  We’ll try to schedule another volunteer for:</p>
 <p>{{ Group.Name }}<br>
 {{ ScheduledItem.Location.Name }} {{ ScheduledItem.Schedule.Name }}<br></p>", "", 2, "DeclineHeadingTemplate" )]
     [BooleanField( "Scheduler Receive Confirmation Emails", "If checked, the scheduler will receive an email response for each confirmation or decline.", false, "", 3 )]
@@ -250,8 +250,8 @@ namespace RockWeb.Blocks.Groups
         /// <param name="attendances">The attendances.</param>
         private void ShowHeadingByIsConfirmed( Attendance attendance )
         {
-            
-            
+
+
             var mergeFields = MergeFields( attendance );
             if ( attendance.Note.IsNotNullOrWhiteSpace() )
             {
@@ -441,7 +441,7 @@ namespace RockWeb.Blocks.Groups
                         {
                             var declineResonId = ddlDeclineReason.SelectedItem.Value.AsInteger();
 
-                            // TODO: verify is required if required and 0 then set validation on Drop Down and Prevent Save 
+                            // TODO: verify is required if required and 0 then set validation on Drop Down and Prevent Save
                             if ( declineResonId == 0 )
                             {
                                 //set to blank and not required
@@ -574,7 +574,7 @@ namespace RockWeb.Blocks.Groups
                 mergeFields.Add( "Scheduler", attendance.ScheduledByPersonAlias.Person );
 
                 // Distinct is used so that if the same email address is for both the Scheduler and ScheduleCancellationPersonAlias
-                // Only one email will be sent 
+                // Only one email will be sent
                 foreach ( var recipient in recipientEmailAddresses.Distinct( StringComparer.CurrentCultureIgnoreCase ) )
                 {
                     var emailMessage = new RockEmailMessage( GetAttributeValue( "SchedulingResponseEmail" ).AsGuid() );
