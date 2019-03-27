@@ -96,7 +96,7 @@
 
                         <Rock:PanelWidget ID="wpMeetingDetails" runat="server" Title="Meeting Details">
                             <div class="grid">
-                                <Rock:Grid ID="gLocations" runat="server" AllowPaging="false" DisplayType="Light" RowItemText="Location">
+                                <Rock:Grid ID="gLocations" runat="server" AllowPaging="false"  DisplayType="Light" RowItemText="Location">
                                     <Columns>
                                         <Rock:RockBoundField DataField="Location" HeaderText="Location" />
                                         <Rock:RockBoundField DataField="Type" HeaderText="Type" />
@@ -287,10 +287,12 @@
         </Rock:ModalDialog>
 
         <!-- Group Location Modal Dialog -->
-        <Rock:ModalDialog ID="dlgLocations" runat="server" Title="Group Location" OnSaveClick="dlgLocations_SaveClick" OnCancelScript="clearActiveDialog();" ValidationGroup="Location">
+        <Rock:ModalDialog ID="dlgLocations" runat="server" Title="Group Location" SaveButtonText="Ok" OnSaveClick="dlgLocations_OkClick" OnCancelScript="clearActiveDialog();" ValidationGroup="Location">
             <Content>
 
                 <asp:HiddenField ID="hfAddLocationGroupGuid" runat="server" />
+                <asp:HiddenField ID="hfAction" runat="server" />
+                <Rock:NotificationBox ID="nbGroupLocationEditMessage" runat="server" NotificationBoxType="Info" />
 
                 <asp:ValidationSummary ID="valLocationSummary" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="Location" />
 
@@ -310,7 +312,7 @@
                         <Rock:RockDropDownList ID="ddlMember" runat="server" Label="Member" ValidationGroup="Location" />
                     </asp:Panel>
                     <asp:Panel ID="pnlLocationSelect" runat="server" Visible="false">
-                        <Rock:LocationPicker ID="locpGroupLocation" runat="server" Label="Location" ValidationGroup="Location" />
+                        <Rock:LocationPicker ID="locpGroupLocation"  runat="server" Label="Location" ValidationGroup="Location"  OnSelectLocation="locpGroupLocation_SelectLocation" />
                     </asp:Panel>
                 </div>
 
@@ -318,7 +320,8 @@
 
                 <div class="row">
                     <div class="col-md-3">
-                        <Rock:SchedulePicker ID="spSchedules" runat="server" Label="Schedule(s)" ValidationGroup="Location" AllowMultiSelect="true" />
+                       <asp:HiddenField ID="hfLocationGuid" runat="server" />
+                       <Rock:SchedulePicker ID="spSchedules" runat="server" Label="Schedule(s)" OnSelectItem="spSchedules_SelectItem" ValidationGroup="Location" AllowMultiSelect="true" />
                     </div>
                     <div class="col-md-9">
                         <%-- Group Location Schedule Capacities (if Group Scheduling Enabled) --%>
