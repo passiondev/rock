@@ -37,7 +37,7 @@ using Rock.Web.UI.Controls;
 namespace RockWeb.Blocks.Groups
 {
     /// <summary>
-    /// 
+    ///
     /// </summary>
     [DisplayName( "Group Schedule Toolbox" )]
     [Category( "Groups" )]
@@ -69,7 +69,7 @@ namespace RockWeb.Blocks.Groups
         {
             get
             {
-                return new PersonService( new RockContext() ).GetNoTracking( 58 );
+                return new PersonService( new RockContext() ).GetNoTracking(4);
             }
         }
 
@@ -102,7 +102,7 @@ namespace RockWeb.Blocks.Groups
             /// </summary>
             SignUp = 2
         }
-        
+
         #region Base Control Methods
 
         /// <summary>
@@ -274,7 +274,7 @@ namespace RockWeb.Blocks.Groups
             CreateSignupControls();
         }
 
-        
+
         /// <summary>
         /// Shows the selected tab.
         /// </summary>
@@ -435,7 +435,7 @@ namespace RockWeb.Blocks.Groups
         {
             var currentDateTime = RockDateTime.Now;
             var rockContext = new RockContext();
-            
+
             var qryPendingConfirmations = new AttendanceService( rockContext ).GetConfirmedScheduled()
                 .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
                 .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
@@ -681,7 +681,7 @@ namespace RockWeb.Blocks.Groups
             }
 
             public string FullName { get; set; }
-            
+
             public string GroupName
             {
                 get
@@ -740,10 +740,10 @@ namespace RockWeb.Blocks.Groups
                 cblBlackoutPersons.DataValueField = "Value";
                 cblBlackoutPersons.DataTextField = "Text";
                 cblBlackoutPersons.DataBind();
-                
+
             }
 
-            
+
         }
 
         protected void mdAddBlackoutDates_SaveClick( object sender, EventArgs e )
@@ -923,12 +923,11 @@ namespace RockWeb.Blocks.Groups
             var cb = new CheckBox();
             cb.Text = personScheduleSignup.OccurrenceDate.ToString("hh:mm tt");
             cb.ToolTip = personScheduleSignup.ScheduleName;
-            cb.Width = 200;
             cb.Attributes.Add( "style", "float: left;" );
             cb.AddCssClass( "js-person-schedule-signup-checkbox" );
             cb.Checked = false;
             cbContainer.Controls.Add( cb );
-            
+
             var locations = availableGroupLocationSchedules
                 .Where( x => x.GroupId == personScheduleSignup.GroupId )
                 .Where( x => x.ScheduleId == personScheduleSignup.ScheduleId )
@@ -949,7 +948,7 @@ namespace RockWeb.Blocks.Groups
             ddlContainer.Attributes.Add( "class", "col-md-11" );
             ddlContainer.Attributes.Add( "style", "padding-top: 7px;" );
             ddlContainer.Controls.Add( ddl );
-            
+
             var notificationLabel = new Label();
             notificationLabel.Style.Add("display", "none");
             notificationLabel.Style.Add("padding-left", "10px");

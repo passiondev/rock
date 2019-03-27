@@ -21,63 +21,65 @@
 
                 <%-- My Schedule --%>
                 <asp:Panel ID="pnlMySchedule" runat="server">
-                    <%-- Pending Confirmations Grid --%>
-                    <div>
-                        <span class="control-label">
-                            <asp:Literal runat="server" ID="lPendingConfirmations" Text="Pending Confirmations" />
-                        </span>
-                        <hr class="margin-t-sm margin-b-sm" />
-                        <asp:Repeater ID="rptPendingConfirmations" runat="server" OnItemDataBound="rptPendingConfirmations_ItemDataBound">
-                            <ItemTemplate>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <asp:Literal ID="lPendingOccurrenceDetails" runat="server" />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <asp:Literal ID="lPendingOccurrenceTime" runat="server" />
+                    <div class="row"><div class="col-md-6">
+                        <%-- Pending Confirmations Grid --%>
+                        <div class="pending-confirmations">
+                            <span class="control-label">
+                                <asp:Literal runat="server" ID="lPendingConfirmations" Text="Pending Confirmations" />
+                            </span>
+                            <table class="table table-borderless"><tbody>
+                            <asp:Repeater ID="rptPendingConfirmations" runat="server" OnItemDataBound="rptPendingConfirmations_ItemDataBound">
+                                <ItemTemplate>
+                                    <tr>
+                                        <td>
+                                            <asp:Literal ID="lPendingOccurrenceDetails" runat="server" />
+                                        </td>
+                                        <td>
+                                            <asp:Literal ID="lPendingOccurrenceTime" runat="server" />
 
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="actions">
-                                            <asp:LinkButton ID="btnConfirmAttending" runat="server" CssClass="btn btn-xs btn-success" Text="Attending" OnClick="btnConfirmAttending_Click" />
-                                            <asp:LinkButton ID="btnDeclineAttending" runat="server" CssClass="btn btn-xs btn-danger" Text="Decline" OnClick="btnDeclineAttending_Click" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </ItemTemplate>
+                                        </td>
+                                        <td>
+                                            <div class="actions">
+                                                <asp:LinkButton ID="btnConfirmAttending" runat="server" CssClass="btn btn-xs btn-success" Text="Attending" OnClick="btnConfirmAttending_Click" />
+                                                <asp:LinkButton ID="btnDeclineAttending" runat="server" CssClass="btn btn-xs btn-danger" Text="Decline" OnClick="btnDeclineAttending_Click" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </ItemTemplate>
+                            </asp:Repeater>
+                            </tbody></table>
+                        </div>
 
-                        </asp:Repeater>
-                    </div>
-
-                    <%-- Upcoming Schedules Grid --%>
-                    <div class="margin-t-md">
-                        <span class="control-label">
-                            <asp:Literal runat="server" ID="lUpcomingSchedules" Text="Upcoming Schedules" />&nbsp;&nbsp;
-                            <button id="btnCopyToClipboard" runat="server" disabled="disabled"
-                                data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copies the link to syncronize your volunteer schedule with a calendar such as Microsoft Outlook or Google Calendar"
-                                class="btn btn-info btn-xs btn-copy-to-clipboard"
-                                onclick="$(this).attr('data-original-title', 'Copied').tooltip('show').attr('data-original-title', 'Copy Link to Clipboard');return false;">
-                                <i class="fa fa-calendar-alt"></i> Copy Calendar Link
-                            </button>
-                        </span>
-                        <hr class="margin-t-sm margin-b-sm" />
-                        <asp:Repeater ID="rptUpcomingSchedules" runat="server" OnItemDataBound="rptUpcomingSchedules_ItemDataBound">
-                            <ItemTemplate>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <asp:Literal ID="lConfirmedOccurrenceDetails" runat="server" />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <asp:Literal ID="lConfirmedOccurrenceTime" runat="server" />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <asp:LinkButton ID="btnCancelConfirmAttending" runat="server" CssClass="btn btn-xs btn-link" Text="Cancel Confirmation" OnClick="btnCancelConfirmAttending_Click" />
-                                    </div>
-                                </div>
-
-                            </ItemTemplate>
-                        </asp:Repeater>
-                    </div>
+                        <%-- Upcoming Schedules Grid --%>
+                        <div class="confirmed margin-t-md">
+                            <span class="control-label">
+                                <asp:Literal runat="server" ID="lUpcomingSchedules" Text="Upcoming Schedules" />&nbsp;&nbsp;
+                                <button id="btnCopyToClipboard" runat="server" disabled="disabled"
+                                    data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copies the link to syncronize your volunteer schedule with a calendar such as Microsoft Outlook or Google Calendar"
+                                    class="btn btn-info btn-xs btn-copy-to-clipboard"
+                                    onclick="$(this).attr('data-original-title', 'Copied').tooltip('show').attr('data-original-title', 'Copy Link to Clipboard');return false;">
+                                    <i class="fa fa-calendar-alt"></i> Copy Calendar Link
+                                </button>
+                            </span>
+                            <table class="table table-borderless"><tbody>
+                            <asp:Repeater ID="rptUpcomingSchedules" runat="server" OnItemDataBound="rptUpcomingSchedules_ItemDataBound">
+                                <ItemTemplate>
+                                    <tr>
+                                        <td>
+                                            <asp:Literal ID="lConfirmedOccurrenceDetails" runat="server" />
+                                        </td>
+                                        <td>
+                                            <asp:Literal ID="lConfirmedOccurrenceTime" runat="server" />
+                                        </td>
+                                        <td>
+                                            <asp:LinkButton ID="btnCancelConfirmAttending" runat="server" CssClass="btn btn-xs btn-link" Text="Cancel Confirmation" OnClick="btnCancelConfirmAttending_Click" />
+                                        </td>
+                                    </tr>
+                                </ItemTemplate>
+                            </asp:Repeater>
+                            </tbody></table>
+                        </div>
+                    </div></div>
                 </asp:Panel>
 
                 <%-- Preferences --%>
@@ -90,7 +92,7 @@
                                 <ItemTemplate>
                                     <asp:HiddenField ID="hfPreferencesGroupId" runat="server" />
 
-                                    <h2><asp:Literal runat="server" ID="lGroupPreferencesGroupName" Text='<%# Eval("Name") %>' /></h2>
+                                    <h4><asp:Literal runat="server" ID="lGroupPreferencesGroupName" Text='<%# Eval("Name") %>' /></h4>
                                     <hr class="margin-t-sm margin-b-sm" />
 
                                     <Rock:RockDropDownList ID="ddlSendRemindersDaysOffset" runat="server" Label="Send Reminders" OnSelectedIndexChanged="ddlSendRemindersDaysOffset_SelectedIndexChanged" AutoPostBack="true">
@@ -116,9 +118,9 @@
                                     <span class="control-label">
                                         <asp:Literal runat="server" ID="lGroupPreferenceAssignmentLabel" Text="Assignment" />
                                     </span>
-                                    <span class="control-label">
+                                    <p>
                                         <asp:Literal runat="server" ID="lGroupPreferenceAssignmentHelp" Text="Please select a time and optional location that you would like to be scheduled for." />
-                                    </span>
+                                    </p>
 
                                     <asp:Repeater ID="rptGroupPreferenceAssignments" runat="server" OnItemDataBound="rptGroupPreferenceAssignments_ItemDataBound">
                                         <ItemTemplate>
@@ -143,9 +145,9 @@
                                 <asp:Literal runat="server" ID="lBlackoutDates" Text="Blackout Dates" />
                             </span>
                             <hr class="margin-t-sm margin-b-sm" />
-                            <span class="control-label">
-                                <asp:Literal runat="server" ID="lBlackoutDatesHelp" Text="Please provide any dates you will not be able to make." />
-                            </span>
+                            <p>
+                                <asp:Literal runat="server" ID="lBlackoutDatesHelp" Text="Please provide any dates you will not be able to attend." />
+                            </p>
 
                             <Rock:Grid ID="gBlackoutDates" runat="server" EmptyDataText="No black out dates have been set." DataKeyNames="ExclusionId" ShowHeader="false" DisplayType="Light" >
                                 <Columns>
@@ -171,7 +173,7 @@
                     <a id="btnSave" class="btn btn-primary" onclick="SaveSignUps();">Save</a>
                 </asp:Panel>
             </div>
-            
+
         </asp:Panel>
         <script type="text/javascript">
             function SaveSignUps() {
@@ -183,7 +185,7 @@
                 $occurrences.each(function () {
                     var isChecked = $(this).find('.js-person-schedule-signup-checkbox').is(":checked");
                     var selectedValue = $(this).find('.js-person-schedule-signup-ddl').val();
-                    
+
                     if (isChecked && selectedValue.length === 0) {
                         $(this).find('.js-person-schedule-signup-notification').css({"display": "inline"});
                         isValid = false;
