@@ -15,7 +15,7 @@
                     <div class="confirmation-message">
                     <asp:Literal ID="lResponse" runat="server" Visible="false" />
                     </div>
-                    <asp:Panel ID="pnlDeclineReason" runat="server" CssClass=""  Visible="false">
+                    <asp:Panel ID="pnlDeclineReason" runat="server" CssClass="decline-reason margin-b-lg"  Visible="false">
                         <div class="row">
                             <div class="col-md-3">
                                 <Rock:RockDropDownList ID="ddlDeclineReason" DataValueField="Id" DataTextField="Value"  runat="server" Label="Decline Reason" Visible="false" />
