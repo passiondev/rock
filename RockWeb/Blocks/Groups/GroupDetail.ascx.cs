@@ -652,7 +652,10 @@ namespace RockWeb.Blocks.Groups
                 groupLocation.CopyPropertiesFrom( groupLocationState );
 
                 var existingSchedules = groupLocation.Schedules.Select( s => s.Guid ).ToList();
+                var existingGroupLocationConfigs = groupLocation.GroupLocationScheduleConfigs.Select( g => g );
+
                 var addedSchedules = new List<int>();
+
                 foreach ( var scheduleState in groupLocationState.Schedules.Where( s => !existingSchedules.Contains( s.Guid ) ).ToList() )
                 {
                     var schedule = scheduleService.Get( scheduleState.Guid );
@@ -672,7 +675,11 @@ namespace RockWeb.Blocks.Groups
                             || exs.DesiredCapacity != s.DesiredCapacity
                             || exs.MaximumCapacity != s.MaximumCapacity ) ).Any() );
 
-                var newGroupLocationScheduleConfigs = groupLocationState.GroupLocationScheduleConfigs.Where( s => addedSchedules.Contains( s.ScheduleId ) ).ToList();
+                // Handles case where group location schedules exisited without group location schedule configs
+                var newGroupLocationScheduleConfigs = existingGroupLocationConfigs.Count() > 0 
+                    ? groupLocationState.GroupLocationScheduleConfigs
+                    .Where( s => addedSchedules.Contains( s.ScheduleId ) ).ToList()
+                    : groupLocationState.GroupLocationScheduleConfigs;
 
                 // Add scheduling configs
                 foreach ( var addedGroupLocationScheduleConfigs in newGroupLocationScheduleConfigs )
@@ -680,7 +687,6 @@ namespace RockWeb.Blocks.Groups
                     groupLocation.GroupLocationScheduleConfigs.Add(
                         new GroupLocationScheduleConfig
                         {
-
                             ScheduleId = addedGroupLocationScheduleConfigs.ScheduleId,
                             MinimumCapacity = addedGroupLocationScheduleConfigs.MinimumCapacity,
                             DesiredCapacity = addedGroupLocationScheduleConfigs.DesiredCapacity,
@@ -706,7 +712,6 @@ namespace RockWeb.Blocks.Groups
                     var associatedConfig = groupLocation.GroupLocationScheduleConfigs.Where( cfg => cfg.Schedule != null && cfg.Schedule.Id == deletedScheduleId ).FirstOrDefault();
                     groupLocation.GroupLocationScheduleConfigs.Remove( associatedConfig );
                 }
-
             }
 
             // Add/update GroupSyncs
@@ -1275,6 +1280,7 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion
+
         #region Internal Methods
 
         /// <summary>
@@ -2288,7 +2294,8 @@ namespace RockWeb.Blocks.Groups
             var groupLocationState = GroupLocationsState.FirstOrDefault( l => l.Guid.Equals( locationGuid ) );
 
             List<GroupLocationScheduleConfig> currentgroupLocationScheduleConfigs;
-            if ( groupLocationState != null )
+         
+            if ( groupLocationState != null  && groupLocationState.GroupLocationScheduleConfigs.Count() > 0)
             {
                 // Schedules from view state
                 var groupLocatinStateSchedules = groupLocationState.Schedules;
@@ -2330,7 +2337,7 @@ namespace RockWeb.Blocks.Groups
                 if ( existingConfigCount < schedules.Count() )
                 {
                     // Added
-                    var addedSchedules = schedules.Where( s => !groupLocationStateScheduleIds.Contains( s.Id ) ).ToList();
+                    var addedSchedules = schedules.Where( s => groupLocationStateScheduleIds.Contains( s.Id ) ).ToList();
                     foreach ( var addedSchedule in addedSchedules )
                     {
                         // check if already exist
@@ -2345,7 +2352,7 @@ namespace RockWeb.Blocks.Groups
             }
             else
             {
-                // No schedules have been saved yet.
+                // Handles case where group location schedules existed without group location schedule configs
                 currentgroupLocationScheduleConfigs = new List<GroupLocationScheduleConfig>();
                 foreach ( var schedule in schedules )
                 {
@@ -2354,6 +2361,7 @@ namespace RockWeb.Blocks.Groups
             }
 
             rptGroupLocationScheduleCapacities.DataSource = currentgroupLocationScheduleConfigs.OrderBy( s => s.ScheduleId );
+            rptGroupLocationScheduleCapacities.Visible = true;
             rptGroupLocationScheduleCapacities.DataBind();
         }
 
@@ -2548,7 +2556,9 @@ namespace RockWeb.Blocks.Groups
             if ( groupType.IsSchedulingEnabled )
             {
                 var schedules = new ScheduleService( rockContext ).GetByIds( spSchedules.SelectedValuesAsInt().ToList() );
-                var groupLocationScheduleConfigList = schedules.ToList().Select( s =>
+
+
+                List<GroupLocationScheduleConfig> groupLocationScheduleConfigList = schedules.ToList().Select( s =>
                 {
                     GroupLocationScheduleConfig groupLocationScheduleConfig = groupLocation == null ? null : groupLocation.GroupLocationScheduleConfigs.FirstOrDefault( a => a.ScheduleId == s.Id );
                     if ( groupLocationScheduleConfig != null )
@@ -2560,6 +2570,17 @@ namespace RockWeb.Blocks.Groups
                         return NewGroupLocationConfig( s );
                     }
                 } ).ToList();
+
+                // Handle case where schedules are created and no group location configuration exists yet
+                if ( groupLocationScheduleConfigList.Count() == 0 && schedules.Count() > 0  )
+                {
+                    // No schedules have been saved yet.
+                    groupLocationScheduleConfigList = new List<GroupLocationScheduleConfig>();
+                    foreach ( var schedule in schedules )
+                    {
+                        groupLocationScheduleConfigList.Add( NewGroupLocationConfig( schedule ) );
+                    }
+                }
 
                 rptGroupLocationScheduleCapacities.DataSource = groupLocationScheduleConfigList.OrderBy( s => s.ScheduleId );
                 rptGroupLocationScheduleCapacities.DataBind();
