@@ -2,6 +2,7 @@
 
 <asp:UpdatePanel ID="upnContent" runat="server">
     <ContentTemplate>
+          <asp:HiddenField ID="hfSelectedPersonId" runat="server" />
         <Rock:NotificationBox ID="nbError" runat="server" Visible="false" Title="Sorry" NotificationBoxType="Warning" Text="You are not authorized to view this confirmation" />
         <asp:Panel ID="pnlView" runat="server" CssClass="panel panel-block">
             <div class="panel-heading">

@@ -31,21 +31,27 @@ namespace RockWeb.Blocks.Groups
 {
     [DisplayName( "Group Schedule Confirmation" )]
     [Category( "Groups" )]
+    [Description("Group Schedule Confirmation allow volunteer to confirm a schedule RSVP and view Pending schedules.")]
+
     [CodeEditorField( "Confirm Heading Template", "Text to display when volunteer confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
     @"<h2 class='margin-t-none'>You’re confirmed to serve</h2><p>Thanks for letting us know.  You’re confirmed for:</p><p>{{ Group.Name }}<br>{{ ScheduledItem.Location.Name }} {{ScheduledItem.Schedule.Name }}<br></p>
 <p>Thanks again!</p>
 <p>{{ Group.Scheduler.FullName }}<br>{{ 'Global' | Attribute:'OrganizationName' }}</p>", "", 1, "ConfirmHeadingTemplate" )]
+
     [CodeEditorField( "Decline Heading Template", "Text to display when volunteer confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
     @"<h2 class='margin-t-none'>Can’t make it?</h2><p>Thanks for letting us know.  We’ll try to schedule another volunteer for:</p>
 <p>{{ Group.Name }}<br>
 {{ ScheduledItem.Location.Name }} {{ ScheduledItem.Schedule.Name }}<br></p>", "", 2, "DeclineHeadingTemplate" )]
+
     [BooleanField( "Scheduler Receive Confirmation Emails", "If checked, the scheduler will receive an email response for each confirmation or decline.", false, "", 3 )]
     [BooleanField( "Require Decline Reasons", "If checked, a volunteer must choose one of the ‘Decline Reasons’ to submit their decline status.", true, "", 4 )]
     [BooleanField( "Enable Decline Note", "If checked, a note will be shown for the volunteer to elaborate on why they cannot attend.", false, "", 5 )]
     [BooleanField( "Require Decline Note", "If checked, a custom note response will be required in order to save their decline status.", false, "", 6 )]
+
     [TextField( "Decline Note Title", "A custom title for the decline elaboration note.", false, "Please elaborate on why you cannot attend.", "", 7 )]
     [SystemEmailField( "Scheduling Response Email", "The system email that will be used for sending responses back to the scheduler.", false, Rock.SystemGuid.SystemEmail.SCHEDULING_RESPONSE, "", 8, "SchedulingResponseEmail" )]
     [ContextAware( typeof( Rock.Model.Person ) )]
+
     public partial class GroupScheduleConfirmation : Rock.Web.UI.RockBlock
     {
         #region Fields
@@ -67,8 +73,6 @@ namespace RockWeb.Blocks.Groups
         protected override void OnLoad( EventArgs e )
         {
             base.OnLoad( e );
-
-            nbError.Visible = false;
 
             if ( !Page.IsPostBack )
             {
@@ -127,6 +131,8 @@ namespace RockWeb.Blocks.Groups
                 new AttendanceService( rockContext ).ScheduledPersonConfirm( attendanceId.Value );
                 rockContext.SaveChanges();
             }
+
+            BindPendingConfirmations();
         }
 
         /// <summary>
@@ -147,6 +153,8 @@ namespace RockWeb.Blocks.Groups
                 new AttendanceService( rockContext ).ScheduledPersonDecline( attendanceId.Value, declineReasonValueId );
                 rockContext.SaveChanges();
             }
+
+            BindPendingConfirmations();
         }
 
         /// <summary>
@@ -191,8 +199,9 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindPendingConfirmations()
         {
-            pnlPendingConfirmation.Visible = true;
-            if ( _selectedPerson == null )
+            var selectedPersonId = hfSelectedPersonId.Value.AsIntegerOrNull();
+
+            if ( selectedPersonId == null )
             {
                 return;
             }
@@ -201,23 +210,20 @@ namespace RockWeb.Blocks.Groups
             var qryPendingConfirmations = new AttendanceService( rockContext )
                 .GetPendingScheduledConfirmations()
                 .AsNoTracking()
-                .Where( a => a.PersonAlias.PersonId == this._selectedPerson.Id )
+                .Where( a => a.PersonAlias.PersonId == selectedPersonId )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
-            if ( qryPendingConfirmations.Count() > 0 )
+            var pendingConfirmations = qryPendingConfirmations.ToList();
+            if ( pendingConfirmations.Count > 0 )
             {
-                nbError.Visible = false;
+                rptPendingConfirmations.DataSource = pendingConfirmations;
+                rptPendingConfirmations.DataBind();
+                pnlPendingConfirmation.Visible = true;
             }
-            rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
-            rptPendingConfirmations.DataBind();
-        }
-
-        /// <summary>
-        /// Shows the pending confirmations.
-        /// </summary>
-        private void ShowPendingConfirmations()
-        {
-            BindPendingConfirmations();
+            else
+            {
+                pnlPendingConfirmation.Visible = false;
+            }
         }
 
         /// <summary>
@@ -359,7 +365,7 @@ namespace RockWeb.Blocks.Groups
                     nbError.Visible = true;
                 }
 
-                ShowPendingConfirmations();
+                BindPendingConfirmations();
 
                 var request = Context.Request;
                 var attendanceId = GetAttendanceIdFromParameters();
@@ -496,6 +502,7 @@ namespace RockWeb.Blocks.Groups
             else
             {
                 _selectedPerson = this.CurrentPerson;
+                hfSelectedPersonId.Value = this.CurrentPerson.Id.ToString();
             }
         }
 
