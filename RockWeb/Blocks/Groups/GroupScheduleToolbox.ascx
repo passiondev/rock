@@ -91,6 +91,7 @@
                             <asp:Repeater ID="rptGroupPreferences" runat="server" OnItemDataBound="rptGroupPreferences_ItemDataBound">
                                 <ItemTemplate>
                                     <asp:HiddenField ID="hfPreferencesGroupId" runat="server" />
+                                    <asp:HiddenField ID="hfPreferencesGroupMemberList" runat="server" />
 
                                     <h4><asp:Literal runat="server" ID="lGroupPreferencesGroupName" Text='<%# Eval("Name") %>' /></h4>
                                     <hr class="margin-t-sm margin-b-sm" />
@@ -141,9 +142,9 @@
 
                         <%-- Blackout Dates --%>
                         <div class="col-md-6">
-                            <span class="control-label">
+                            <h2>
                                 <asp:Literal runat="server" ID="lBlackoutDates" Text="Blackout Dates" />
-                            </span>
+                            </h2>
                             <hr class="margin-t-sm margin-b-sm" />
                             <p>
                                 <asp:Literal runat="server" ID="lBlackoutDatesHelp" Text="Please provide any dates you will not be able to attend." />

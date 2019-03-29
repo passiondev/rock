@@ -251,7 +251,7 @@ namespace RockWeb.Blocks.Groups
 
             // Preferences
             BindBlackoutDates();
-            BindGroupPreferences();
+            BindGroupPreferencesRepeater();
 
             // Signup
             CreateSignupControls();
@@ -268,7 +268,7 @@ namespace RockWeb.Blocks.Groups
 
             // Preferences
             BindBlackoutDates();
-            BindGroupPreferences();
+            BindGroupPreferencesRepeater();
 
             // Signup
             CreateSignupControls();
@@ -476,7 +476,10 @@ namespace RockWeb.Blocks.Groups
 
         #region Preferences Tab
 
-        protected void BindGroupPreferences()
+        /// <summary>
+        /// Binds the group preferences repeater with a list of groups where the GroupType has scheduling enabled.
+        /// </summary>
+        protected void BindGroupPreferencesRepeater()
         {
             using ( var rockContext = new RockContext() )
             {
@@ -486,7 +489,6 @@ namespace RockWeb.Blocks.Groups
                     .AsNoTracking()
                     .Where( x => x.PersonId == GroupScheduleToolboxCurrentPerson.Id )
                     .Where( x => x.Group.GroupType.IsSchedulingEnabled == true )
-                    //.Select( x => new { GroupId = x.GroupId, GroupName = x.Group.Name } )
                     .Select( x => x.Group )
                     .OrderBy( x => x.Name )
                     .Distinct() // if they are in the group twice with different roles we only want one record.
@@ -497,7 +499,14 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
-
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the ddlSendRemindersDaysOffset control.
+        /// Saves the ScheduleReminderEmailOffsetDays for each GroupMember that matches the Group/Person.
+        /// In most cases that will be one GroupMember unless the person has multiple roles in the group
+        /// (e.g. Leader and Member).
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void ddlSendRemindersDaysOffset_SelectedIndexChanged( object sender, EventArgs e )
         {
             var repeaterItem = ( ( DropDownList ) sender ).BindingContainer as RepeaterItem;
@@ -525,11 +534,34 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the ddlGroupMemberScheduleTemplate control.
+        /// Saves the ScheduleTemplateId for each GroupMember that matches the Group/Person.
+        /// In most cases taht will be one GroupMember unless the person has multiple roles in the group
+        /// (e.g. Leader and Member)
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void ddlGroupMemberScheduleTemplate_SelectedIndexChanged( object sender, EventArgs e )
         {
-            // TODO
+            // Save the preference. For now this acts as a note to the scheduler and does not effect the list of assignments presented to the user.
             var repeaterItem = ( ( DropDownList ) sender ).BindingContainer as RepeaterItem;
+            var hfGroupId = repeaterItem.FindControl( "hfPreferencesGroupId" ) as HiddenField;
+            var groupId = hfGroupId.ValueAsInt();
 
+            using ( var rockContext = new RockContext() )
+            {
+                var groupMemberService = new GroupMemberService( rockContext );
+                var groupMembers = groupMemberService.GetByGroupIdAndPersonId( groupId, GroupScheduleToolboxCurrentPerson.Id ).ToList();
+
+                // In most cases there will be only one unless the person has multiple roles in the group (e.g. Leader and Member)
+                foreach ( var groupMember in groupMembers )
+                {
+                    groupMember.ScheduleTemplateId = ( ( DropDownList ) sender ).SelectedValueAsInt( true );
+                }
+
+                rockContext.SaveChanges();
+            }
         }
 
         protected void rptGroupPreferences_ItemDataBound( object sender, RepeaterItemEventArgs e )
@@ -540,27 +572,115 @@ namespace RockWeb.Blocks.Groups
                 return;
             }
 
-            var lGroupPreferencesGroupName = e.Item.FindControl( "lGroupPreferencesGroupName" ) as Literal;
-            var hfPreferencesGroupId = e.Item.FindControl( "hfPreferencesGroupId" ) as HiddenField;
+            var lGroupPreferencesGroupName = ( Literal ) e.Item.FindControl( "lGroupPreferencesGroupName" );
+            var hfPreferencesGroupId = ( HiddenField ) e.Item.FindControl( "hfPreferencesGroupId" );
+            var rptGroupPreferenceAssignments = ( Repeater ) e.Item.FindControl( "rptGroupPreferenceAssignments" );
+
             hfPreferencesGroupId.Value = group.Id.ToString();
 
             rptGroupPreferencesBindDropDowns( group, e );
 
             // bind repeater rptGroupPreferenceAssignments
+            using ( var rockContext = new RockContext() )
+            {
+                var groupLocationService = new GroupLocationService( rockContext );
+                var schedules = groupLocationService
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( g => g.GroupId == group.Id )
+                    .SelectMany( g => g.Schedules )
+                    .Distinct()
+                    .ToList();
+
+                // The time is locked up in the iCal string in the schedule. So use the list of schedules, get the times from them, and create a new list
+                // of ScheduleTime so we can sort by time.
+                var scheduleTime = schedules
+                    .Select( s => new ScheduleTime ( s ) )
+                    .OrderBy( st => st.Time );
+
+                rptGroupPreferenceAssignments.DataSource = scheduleTime;
+                rptGroupPreferenceAssignments.DataBind();
+
+            }
 
         }
 
         protected void rptGroupPreferenceAssignments_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
+            var scheduleTime = ( ScheduleTime ) e.Item.DataItem;
+            if ( scheduleTime == null )
+            {
+                return;
+            }
 
+            var repeaterItemGroup = ( ( Repeater ) sender ).BindingContainer as RepeaterItem;
+            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+            var cbGroupPreferenceAssignmentScheduleTime = ( CheckBox ) e.Item.FindControl( "cbGroupPreferenceAssignmentScheduleTime" );
+
+            var rockContext = new RockContext();
+
+            // TODO: If the person has multiple roles in the Group the same settings will be saved for each of those group members so we only need to get the first one
+            int groupMemberId = new GroupMemberService( rockContext )
+                .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), GroupScheduleToolboxCurrentPerson.Id )
+                .AsNoTracking()
+                .Select( gm => gm.Id )
+                .FirstOrDefault();
+
+            var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
+            var groupmemberAssignment = groupMemberAssignmentService
+                .Queryable()
+                .AsNoTracking()
+                .Where( x => x.GroupMemberId == groupMemberId )
+                .Where( x => x.ScheduleId == scheduleTime.ScheduleForTime.Id )
+                .FirstOrDefault();
+
+            cbGroupPreferenceAssignmentScheduleTime.Text = scheduleTime.Time.ToShortTimeString();
+            cbGroupPreferenceAssignmentScheduleTime.ToolTip = scheduleTime.ScheduleForTime.Name;
+            cbGroupPreferenceAssignmentScheduleTime.Checked = groupmemberAssignment != null;
+
+            var ddlGroupPreferenceAssignmentLocation = ( DropDownList ) e.Item.FindControl( "ddlGroupPreferenceAssignmentLocation" );
+            var locations = new LocationService( rockContext ).GetByGroupSchedule( scheduleTime.ScheduleForTime.Id, hfPreferencesGroupId.ValueAsInt() ).ToList();
+            ddlGroupPreferenceAssignmentLocation.DataSource = locations;
+            ddlGroupPreferenceAssignmentLocation.DataValueField = "Id";
+            ddlGroupPreferenceAssignmentLocation.DataTextField = "Name";
+            ddlGroupPreferenceAssignmentLocation.DataBind();
+            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( string.Empty, "No Preference" ) );
+            ddlGroupPreferenceAssignmentLocation.SelectedValue = groupmemberAssignment.LocationId.ToStringSafe();
         }
 
         protected void cbGroupPreferenceAssignmentScheduleTime_CheckedChanged( object sender, EventArgs e )
         {
+            var repeaterItem = ( ( CheckBox ) sender ).BindingContainer as RepeaterItem;
+            var scheduleTime = ( ScheduleTime ) repeaterItem.DataItem;
 
+            var repeaterItemGroup = repeaterItem.BindingContainer as RepeaterItem;
+            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+
+
+            var rockContext = new RockContext();
+            var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
+            var groupmemberAssignments = groupMemberAssignmentService
+                .Queryable()
+                .AsNoTracking()
+                .Where( x => x.GroupMemberId == hfPreferencesGroupId.ValueAsInt() )
+                .Where( x => x.ScheduleId == scheduleTime.ScheduleForTime.Id )
+                .ToList();
+
+            foreach( var groupMemberAssignment in groupmemberAssignments )
+            {
+                //groupMemberAssignment.ScheduleId = ( ( CheckBox ) sender ).Checked == true ? // Can't do this. Need to create a list from group member, create the preference, then check for it.
+            }
+
+            rockContext.SaveChanges();
         }
 
 
+        /// <summary>
+        /// Populates the DropDownLists ddlGroupMemberScheduleTemplate and ddlSendRemindersDaysOffset and
+        /// sets the value for the current Person/Group
+        /// </summary>
+        /// <param name="group">The group.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
         protected void rptGroupPreferencesBindDropDowns( Group group, RepeaterItemEventArgs e )
         {
             var ddlGroupMemberScheduleTemplate = e.Item.FindControl( "ddlGroupMemberScheduleTemplate" ) as RockDropDownList;
@@ -591,6 +711,43 @@ namespace RockWeb.Blocks.Groups
                 ddlGroupMemberScheduleTemplate.DataBind();
                 ddlGroupMemberScheduleTemplate.SelectedValue = groupMember.ScheduleTemplateId == null ? string.Empty : groupMember.ScheduleTemplateId.ToString();
             }
+        }
+
+        private class ScheduleTime
+        {
+            public ScheduleTime( Schedule schedule )
+            {
+                ScheduleForTime = schedule;
+                var OccurrenceDateTime = schedule.GetOccurrences( DateTime.Now.AddDays( -1 ), DateTime.Now.AddDays( 365 ) ).FirstOrDefault().Period.StartTime.Value;
+
+                // We need to sort by time, so set the dates all the same and just use the time.
+                _time = DateTime.MinValue.Add( OccurrenceDateTime.TimeOfDay );
+
+
+            }
+            /// <summary>
+            /// Gets the time for the Schedule. The date part is the min date, so this is just for the time.
+            /// </summary>
+            /// <value>
+            /// The time.
+            /// </value>
+            public DateTime Time {
+                get
+                {
+                    
+                    return _time;
+                }
+            }
+
+            private DateTime _time;
+
+            /// <summary>
+            /// Gets or sets the schedule.
+            /// </summary>
+            /// <value>
+            /// The schedule for time.
+            /// </value>
+            public Schedule ScheduleForTime { get; set; }
         }
 
         #region Preferences Tab Blackout

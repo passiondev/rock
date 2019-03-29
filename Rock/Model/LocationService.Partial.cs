@@ -623,5 +623,27 @@ namespace Rock.Model
     INNER JOIN [Location] L ON L.[Id] = CTE.[Id]
             ", deviceId, childQuery ) );
         }
+
+        /// <summary>
+        /// Gets the locations for the Group and Schedule
+        /// </summary>
+        /// <param name="scheduleId">The schedule identifier.</param>
+        /// <param name="groupId">The group identifier.</param>
+        /// <returns></returns>
+        public IEnumerable<Location> GetByGroupSchedule( int scheduleId, int groupId )
+        {
+            string sql = $@"
+                SELECT l.*
+                FROM [Location] l
+                WHERE l.[Id] IN (
+	                SELECT gl.[LocationId]
+	                FROM GroupLocation gl
+	                JOIN GroupLocationSchedule gls on gl.Id = gls.GroupLocationId
+	                WHERE gl.GroupId = {groupId}
+	                AND gls.ScheduleId = {scheduleId})";
+
+            return ExecuteQuery( sql );
+        }
+
     }
 }
