@@ -443,15 +443,23 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindPendingConfirmations()
         {
-            var rockContext = new RockContext();
-            var qryPendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
-                .Where( a => a.PersonAlias.PersonId == CurrentPerson.Id )
-                .OrderBy( a => a.Occurrence.OccurrenceDate );
+            lPendingConfirmations.Visible = false;
 
-            rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
-            rptPendingConfirmations.DataBind();
+            using ( var rockContext = new RockContext() )
+            {
+                var pendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
+                    .Where( a => a.PersonAlias.PersonId == CurrentPerson.Id )
+                    .OrderBy( a => a.Occurrence.OccurrenceDate )
+                    .ToList();
+
+                if ( pendingConfirmations.Any() )
+                {
+                    lPendingConfirmations.Visible = true;
+                    rptPendingConfirmations.DataSource = pendingConfirmations;
+                    rptPendingConfirmations.DataBind();
+                }
+            }
         }
-
 
 
         #endregion My Schedule Tab
