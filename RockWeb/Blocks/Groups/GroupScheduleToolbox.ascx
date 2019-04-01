@@ -219,27 +219,6 @@
                     window.location = jsPostback;
                 }
             }
-
-<%--            function onScheduleCheck() {
-                var postbackArg = '';
-                var $pnlPreferences = $('#<%=pnlPreferences.ClientID%>');
-                var $preferences = $pnlPreferences.find('js-person-schedule-preferences-row');
-                var isValid = true;
-
-                $preferences.each(function () {
-                    var isChecked = $(this).find('.js-person-schedule-preferences-checkbox').is(":checked");
-                    var $locationsDdl = $(this).find('.js-person-schedule-preferences-ddl');
-
-                    if (isChecked) {
-                        $locationsDdl.removeClass('aspNetDisabled');
-                        $(this).find('.js-person-schedule-preferences-notification').css({ "display": "inline" });
-                    }
-                    else {
-                        $locationsDdl.addClass('aspNetDisabled');
-                    }
-                });--%>
-            }
-
         </script>
 
         <asp:HiddenField ID="hfActiveDialog" runat="server" />

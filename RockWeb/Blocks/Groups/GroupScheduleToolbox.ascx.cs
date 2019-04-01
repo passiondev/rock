@@ -630,7 +630,7 @@ namespace RockWeb.Blocks.Groups
             ddlGroupPreferenceAssignmentLocation.DataValueField = "Id";
             ddlGroupPreferenceAssignmentLocation.DataTextField = "Name";
             ddlGroupPreferenceAssignmentLocation.DataBind();
-            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( string.Empty, "No Preference" ) );
+            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( "No Preference", string.Empty) );
             ddlGroupPreferenceAssignmentLocation.Enabled = groupmemberAssignment != null;
 
             if ( groupmemberAssignment != null )
