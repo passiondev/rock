@@ -1073,11 +1073,8 @@ namespace RockWeb.Blocks.Groups
                     CreateDateHeader( availableSchedule.OccurrenceDate );
                 }
 
-                if( availableSchedule.ScheduleId != currentScheduleId )
-                {
-                    currentScheduleId = availableSchedule.ScheduleId;
-                    CreateScheduleRow( availableSchedule );
-                }
+                currentScheduleId = availableSchedule.ScheduleId;
+                CreateScheduleRow( availableSchedule );
             }
         }
 
