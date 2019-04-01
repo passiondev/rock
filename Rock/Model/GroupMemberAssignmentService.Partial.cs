@@ -19,7 +19,7 @@ namespace Rock.Model
             // Check to see if a GroupMemberAssignment exists for the GroupMember and Scheudle
             groupMemberAssignment = Queryable()
                 .Where( x => x.GroupMemberId == groupMemberId )
-                .Where( x => x.ScheduleId == x.ScheduleId )
+                .Where( x => x.ScheduleId == scheduleId )
                 .FirstOrDefault();
 
             // If not then create one
