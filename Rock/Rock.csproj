@@ -397,6 +397,7 @@
     <Compile Include="Model\CodeGenerated\PersonScheduleExclusionService.cs" />
     <Compile Include="Model\GroupLocationScheduleConfig.cs" />
     <Compile Include="Model\GroupMemberAssignment.cs" />
+    <Compile Include="Model\GroupMemberAssignmentService.Partial.cs" />
     <Compile Include="Model\GroupMemberScheduleTemplate.cs" />
     <Compile Include="Model\CodeGenerated\RegistrationTemplateFeeItemService.cs" />
     <Compile Include="Model\CommunicationResponse.cs" />

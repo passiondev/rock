@@ -69,7 +69,7 @@ namespace RockWeb.Blocks.Groups
         {
             get
             {
-                return new PersonService( new RockContext() ).GetNoTracking(4);
+                return new PersonService( new RockContext() ).GetNoTracking(58);
             }
         }
 
@@ -613,10 +613,14 @@ namespace RockWeb.Blocks.Groups
                 return;
             }
 
-            var repeaterItemGroup = ( ( Repeater ) sender ).BindingContainer as RepeaterItem;
-            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+            var hfScheduleId = ( HiddenField ) e.Item.FindControl( "hfScheduleId" );
+            hfScheduleId.Value = scheduleTime.ScheduleForTime.Id.ToString();
+
             var cbGroupPreferenceAssignmentScheduleTime = ( CheckBox ) e.Item.FindControl( "cbGroupPreferenceAssignmentScheduleTime" );
 
+            var repeaterItemGroup = ( ( Repeater ) sender ).BindingContainer as RepeaterItem;
+            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+            
             var rockContext = new RockContext();
 
             // TODO: If the person has multiple roles in the Group the same settings will be saved for each of those group members so we only need to get the first one
@@ -645,35 +649,85 @@ namespace RockWeb.Blocks.Groups
             ddlGroupPreferenceAssignmentLocation.DataTextField = "Name";
             ddlGroupPreferenceAssignmentLocation.DataBind();
             ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( string.Empty, "No Preference" ) );
-            ddlGroupPreferenceAssignmentLocation.SelectedValue = groupmemberAssignment.LocationId.ToStringSafe();
+            ddlGroupPreferenceAssignmentLocation.Enabled = groupmemberAssignment != null;
+
+            if ( groupmemberAssignment != null )
+            {
+                ddlGroupPreferenceAssignmentLocation.SelectedValue = groupmemberAssignment.LocationId.ToStringSafe();
+            }
         }
 
         protected void cbGroupPreferenceAssignmentScheduleTime_CheckedChanged( object sender, EventArgs e )
         {
-            var repeaterItem = ( ( CheckBox ) sender ).BindingContainer as RepeaterItem;
-            var scheduleTime = ( ScheduleTime ) repeaterItem.DataItem;
+            var scheduleCheckBox = ( CheckBox ) sender;
+            var repeaterItemSchedule = scheduleCheckBox.BindingContainer as RepeaterItem;
+            var ddlGroupPreferenceAssignmentLocation = ( DropDownList ) repeaterItemSchedule.FindControl( "ddlGroupPreferenceAssignmentLocation" );
+            var hfScheduleId = ( HiddenField ) repeaterItemSchedule.FindControl( "hfScheduleId" );
 
-            var repeaterItemGroup = repeaterItem.BindingContainer as RepeaterItem;
-            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+            ddlGroupPreferenceAssignmentLocation.Enabled = scheduleCheckBox.Checked;
 
-
-            var rockContext = new RockContext();
-            var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
-            var groupmemberAssignments = groupMemberAssignmentService
-                .Queryable()
-                .AsNoTracking()
-                .Where( x => x.GroupMemberId == hfPreferencesGroupId.ValueAsInt() )
-                .Where( x => x.ScheduleId == scheduleTime.ScheduleForTime.Id )
-                .ToList();
-
-            foreach( var groupMemberAssignment in groupmemberAssignments )
+            if( !scheduleCheckBox.Checked )
             {
-                //groupMemberAssignment.ScheduleId = ( ( CheckBox ) sender ).Checked == true ? // Can't do this. Need to create a list from group member, create the preference, then check for it.
+                ddlGroupPreferenceAssignmentLocation.SelectedIndex = 0;
             }
 
-            rockContext.SaveChanges();
+            var repeaterItemGroup = repeaterItemSchedule.Parent.Parent as RepeaterItem;
+            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+
+            using ( var rockContext = new RockContext() )
+            {
+                List<int> groupMemberIds = new GroupMemberService( rockContext )
+                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), GroupScheduleToolboxCurrentPerson.Id )
+                    .AsNoTracking()
+                    .Select( gm => gm.Id )
+                    .ToList();
+
+                var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
+
+                foreach ( var groupMemberId in groupMemberIds )
+                {
+                    if ( scheduleCheckBox.Checked )
+                    {
+                        groupMemberAssignmentService.AddOrUpdate( groupMemberId, hfScheduleId.ValueAsInt() );
+                    }
+                    else
+                    {
+                        groupMemberAssignmentService.DeleteByGroupMemberAndSchedule( groupMemberId, hfScheduleId.ValueAsInt() );
+                    }
+
+                    rockContext.SaveChanges();
+                }
+            }
         }
 
+        
+        protected void ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            var locationDropDownList = ( DropDownList ) sender;
+            var repeaterItemSchedule = locationDropDownList.BindingContainer as RepeaterItem;
+            var hfScheduleId = ( HiddenField ) repeaterItemSchedule.FindControl( "hfScheduleId" );
+
+            var repeaterItemGroup = repeaterItemSchedule.Parent.Parent as RepeaterItem;
+            var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+
+            using ( var rockContext = new RockContext() )
+            {
+                List<int> groupMemberIds = new GroupMemberService( rockContext )
+                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), GroupScheduleToolboxCurrentPerson.Id )
+                    .AsNoTracking()
+                    .Select( gm => gm.Id )
+                    .ToList();
+
+                var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
+
+                foreach ( var groupMemberId in groupMemberIds )
+                {
+                    groupMemberAssignmentService.AddOrUpdate( groupMemberId, hfScheduleId.ValueAsInt(), locationDropDownList.SelectedValueAsInt() );
+                }
+
+                rockContext.SaveChanges();
+            }
+        }
 
         /// <summary>
         /// Populates the DropDownLists ddlGroupMemberScheduleTemplate and ddlSendRemindersDaysOffset and
@@ -1262,6 +1316,7 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion Signup Tab
+
 
 
 

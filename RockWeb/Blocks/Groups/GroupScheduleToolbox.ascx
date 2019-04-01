@@ -96,25 +96,32 @@
                                     <h4><asp:Literal runat="server" ID="lGroupPreferencesGroupName" Text='<%# Eval("Name") %>' /></h4>
                                     <hr class="margin-t-sm margin-b-sm" />
 
-                                    <Rock:RockDropDownList ID="ddlSendRemindersDaysOffset" runat="server" Label="Send Reminders" OnSelectedIndexChanged="ddlSendRemindersDaysOffset_SelectedIndexChanged" AutoPostBack="true">
-                                        <asp:ListItem Value="" Text="Do not send a reminder"></asp:ListItem>
-                                        <asp:ListItem Value="1" Text="1 day before"></asp:ListItem>
-                                        <asp:ListItem Value="2" Text="2 days before"></asp:ListItem>
-                                        <asp:ListItem Value="3" Text="3 days before"></asp:ListItem>
-                                        <asp:ListItem Value="4" Text="4 days before"></asp:ListItem>
-                                        <asp:ListItem Value="5" Text="5 days before"></asp:ListItem>
-                                        <asp:ListItem Value="6" Text="6 days before"></asp:ListItem>
-                                        <asp:ListItem Value="7" Text="7 days before"></asp:ListItem>
-                                        <asp:ListItem Value="8" Text="8 days before"></asp:ListItem>
-                                        <asp:ListItem Value="9" Text="9 days before"></asp:ListItem>
-                                        <asp:ListItem Value="10" Text="10 days before"></asp:ListItem>
-                                        <asp:ListItem Value="11" Text="11 days before"></asp:ListItem>
-                                        <asp:ListItem Value="12" Text="12 days before"></asp:ListItem>
-                                        <asp:ListItem Value="13" Text="13 days before"></asp:ListItem>
-                                        <asp:ListItem Value="14" Text="14 days before"></asp:ListItem>
-                                    </Rock:RockDropDownList>
-
-                                    <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" AutoPostBack="true" />
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <Rock:RockDropDownList ID="ddlSendRemindersDaysOffset" runat="server" Label="Send Reminders" OnSelectedIndexChanged="ddlSendRemindersDaysOffset_SelectedIndexChanged" AutoPostBack="true">
+                                                <asp:ListItem Value="" Text="Do not send a reminder"></asp:ListItem>
+                                                <asp:ListItem Value="1" Text="1 day before"></asp:ListItem>
+                                                <asp:ListItem Value="2" Text="2 days before"></asp:ListItem>
+                                                <asp:ListItem Value="3" Text="3 days before"></asp:ListItem>
+                                                <asp:ListItem Value="4" Text="4 days before"></asp:ListItem>
+                                                <asp:ListItem Value="5" Text="5 days before"></asp:ListItem>
+                                                <asp:ListItem Value="6" Text="6 days before"></asp:ListItem>
+                                                <asp:ListItem Value="7" Text="7 days before"></asp:ListItem>
+                                                <asp:ListItem Value="8" Text="8 days before"></asp:ListItem>
+                                                <asp:ListItem Value="9" Text="9 days before"></asp:ListItem>
+                                                <asp:ListItem Value="10" Text="10 days before"></asp:ListItem>
+                                                <asp:ListItem Value="11" Text="11 days before"></asp:ListItem>
+                                                <asp:ListItem Value="12" Text="12 days before"></asp:ListItem>
+                                                <asp:ListItem Value="13" Text="13 days before"></asp:ListItem>
+                                                <asp:ListItem Value="14" Text="14 days before"></asp:ListItem>
+                                            </Rock:RockDropDownList>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" AutoPostBack="true" />
+                                        </div>
+                                    </div>
+                                    
+                                    
 
                                     <span class="control-label">
                                         <asp:Literal runat="server" ID="lGroupPreferenceAssignmentLabel" Text="Assignment" />
@@ -125,12 +132,14 @@
 
                                     <asp:Repeater ID="rptGroupPreferenceAssignments" runat="server" OnItemDataBound="rptGroupPreferenceAssignments_ItemDataBound">
                                         <ItemTemplate>
-                                            <div class="row">
+                                            <div class="row js-person-schedule-preferences-row">
+                                                <asp:HiddenField ID="hfGroupMemberId" runat="server" />
+                                                <asp:HiddenField ID="hfScheduleId" runat="server" />
                                                 <div class="col-md-4">
-                                                    <asp:CheckBox ID="cbGroupPreferenceAssignmentScheduleTime" runat="server" Text="##TODO## time" AutoPostBack="true" OnCheckedChanged="cbGroupPreferenceAssignmentScheduleTime_CheckedChanged" />
+                                                    <asp:CheckBox ID="cbGroupPreferenceAssignmentScheduleTime" runat="server" AutoPostBack="true" OnCheckedChanged="cbGroupPreferenceAssignmentScheduleTime_CheckedChanged" />
                                                 </div>
                                                 <div class="col-md-8">
-                                                    <asp:DropDownList ID="ddlGroupPreferenceAssignmentLocation" runat="server" />
+                                                    <asp:DropDownList ID="ddlGroupPreferenceAssignmentLocation" runat="server" OnSelectedIndexChanged="ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged" AutoPostBack="true" />
                                                 </div>
                                             </div>
                                         </ItemTemplate>
@@ -209,6 +218,26 @@
                     var jsPostback = "javascript:__doPostBack('" + <%=pnlSignup.ClientID%> + "','" + postbackArg + "');";
                     window.location = jsPostback;
                 }
+            }
+
+<%--            function onScheduleCheck() {
+                var postbackArg = '';
+                var $pnlPreferences = $('#<%=pnlPreferences.ClientID%>');
+                var $preferences = $pnlPreferences.find('js-person-schedule-preferences-row');
+                var isValid = true;
+
+                $preferences.each(function () {
+                    var isChecked = $(this).find('.js-person-schedule-preferences-checkbox').is(":checked");
+                    var $locationsDdl = $(this).find('.js-person-schedule-preferences-ddl');
+
+                    if (isChecked) {
+                        $locationsDdl.removeClass('aspNetDisabled');
+                        $(this).find('.js-person-schedule-preferences-notification').css({ "display": "inline" });
+                    }
+                    else {
+                        $locationsDdl.addClass('aspNetDisabled');
+                    }
+                });--%>
             }
 
         </script>
