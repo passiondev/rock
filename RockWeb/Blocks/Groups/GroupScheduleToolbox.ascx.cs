@@ -64,24 +64,6 @@ namespace RockWeb.Blocks.Groups
 
         List<PersonScheduleSignup> availableGroupLocationSchedules;
 
-        // Delete this and replace with CurrentPerson when done testing. Sets the person to Cindy Decker.
-        public Person GroupScheduleToolboxCurrentPerson
-        {
-            get
-            {
-                return new PersonService( new RockContext() ).GetNoTracking(58);
-            }
-        }
-
-        // Delete this and replace with CurrentPersonAlias when done testing. Sets the person alias to Cindy Decker.
-        public PersonAlias GroupScheduleToolboxCurrentPersonAlias
-        {
-            get
-            {
-                return new PersonAliasService( new RockContext() ).GetNoTracking(GroupScheduleToolboxCurrentPerson.PrimaryAliasId.Value);
-            }
-        }
-
         /// <summary>
         /// Tab menu options
         /// </summary>
@@ -187,7 +169,7 @@ namespace RockWeb.Blocks.Groups
                         {
 
                             var attendanceService = new AttendanceService( rockContext );
-                            var attendance = attendanceService.ScheduledPersonAssign( GroupScheduleToolboxCurrentPerson.Id, attendanceOccurrence.Id, CurrentPersonAlias );
+                            var attendance = attendanceService.ScheduledPersonAssign( CurrentPerson.Id, attendanceOccurrence.Id, CurrentPersonAlias );
                             rockContext.SaveChanges();
 
                             attendanceService.ScheduledPersonConfirm( attendance.Id );
@@ -437,7 +419,7 @@ namespace RockWeb.Blocks.Groups
             var rockContext = new RockContext();
 
             var qryPendingConfirmations = new AttendanceService( rockContext ).GetConfirmedScheduled()
-                .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                .Where( a => a.PersonAlias.PersonId == CurrentPerson.Id )
                 .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
@@ -452,7 +434,7 @@ namespace RockWeb.Blocks.Groups
             btnCopyToClipboard.Attributes["data-clipboard-text"] = string.Format(
                 "{0}GetPersonGroupScheduleFeed.ashx?paguid={1}",
                 globalAttributes.GetValue( "PublicApplicationRoot" ).EnsureTrailingForwardslash(),
-                GroupScheduleToolboxCurrentPersonAlias.Guid );
+                CurrentPersonAlias.Guid );
             btnCopyToClipboard.Disabled = false;
         }
 
@@ -463,7 +445,7 @@ namespace RockWeb.Blocks.Groups
         {
             var rockContext = new RockContext();
             var qryPendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
-                .Where( a => a.PersonAlias.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                .Where( a => a.PersonAlias.PersonId == CurrentPerson.Id )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
             rptPendingConfirmations.DataSource = qryPendingConfirmations.ToList();
@@ -487,7 +469,7 @@ namespace RockWeb.Blocks.Groups
                 var groups = groupMemberService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( x => x.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                    .Where( x => x.PersonId == CurrentPerson.Id )
                     .Where( x => x.Group.GroupType.IsSchedulingEnabled == true )
                     .Select( x => x.Group )
                     .OrderBy( x => x.Name )
@@ -521,7 +503,7 @@ namespace RockWeb.Blocks.Groups
                 var groupMembers = groupMemberService
                     .Queryable()
                     .Where( x => x.GroupId == groupId )
-                    .Where( x => x.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                    .Where( x => x.PersonId == CurrentPerson.Id )
                     .ToList();
 
                 // in most cases the will be only one unless the person has multiple roles in the group (e.g. leader and member)
@@ -552,7 +534,7 @@ namespace RockWeb.Blocks.Groups
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMembers = groupMemberService.GetByGroupIdAndPersonId( groupId, GroupScheduleToolboxCurrentPerson.Id ).ToList();
+                var groupMembers = groupMemberService.GetByGroupIdAndPersonId( groupId, CurrentPerson.Id ).ToList();
 
                 // In most cases there will be only one unless the person has multiple roles in the group (e.g. Leader and Member)
                 foreach ( var groupMember in groupMembers )
@@ -625,7 +607,7 @@ namespace RockWeb.Blocks.Groups
 
             // TODO: If the person has multiple roles in the Group the same settings will be saved for each of those group members so we only need to get the first one
             int groupMemberId = new GroupMemberService( rockContext )
-                .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), GroupScheduleToolboxCurrentPerson.Id )
+                .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), CurrentPerson.Id )
                 .AsNoTracking()
                 .Select( gm => gm.Id )
                 .FirstOrDefault();
@@ -677,7 +659,7 @@ namespace RockWeb.Blocks.Groups
             using ( var rockContext = new RockContext() )
             {
                 List<int> groupMemberIds = new GroupMemberService( rockContext )
-                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), GroupScheduleToolboxCurrentPerson.Id )
+                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), CurrentPerson.Id )
                     .AsNoTracking()
                     .Select( gm => gm.Id )
                     .ToList();
@@ -713,7 +695,7 @@ namespace RockWeb.Blocks.Groups
             using ( var rockContext = new RockContext() )
             {
                 List<int> groupMemberIds = new GroupMemberService( rockContext )
-                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), GroupScheduleToolboxCurrentPerson.Id )
+                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), CurrentPerson.Id )
                     .AsNoTracking()
                     .Select( gm => gm.Id )
                     .ToList();
@@ -743,7 +725,7 @@ namespace RockWeb.Blocks.Groups
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, GroupScheduleToolboxCurrentPerson.Id ).FirstOrDefault();
+                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, CurrentPerson.Id ).FirstOrDefault();
 
                 // The items for this are hard coded in the markup, so just set the selected value.
                 ddlSendRemindersDaysOffset.SelectedValue = groupMember.ScheduleReminderEmailOffsetDays == null ? string.Empty : groupMember.ScheduleReminderEmailOffsetDays.ToString();
@@ -842,7 +824,7 @@ namespace RockWeb.Blocks.Groups
             using ( var rockContext = new RockContext() )
             {
                 List<int> familyMemberAliasIds = new PersonService( rockContext )
-                    .GetFamilyMembers( GroupScheduleToolboxCurrentPerson.Id, true )
+                    .GetFamilyMembers( CurrentPerson.Id, true )
                     .Select( m => m.Person.Aliases.FirstOrDefault( a => a.PersonId == m.PersonId ) )
                     .Select( a => a.Id )
                     .ToList();
@@ -919,7 +901,7 @@ namespace RockWeb.Blocks.Groups
                 var groups = groupMemberService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( g => g.PersonId == GroupScheduleToolboxCurrentPerson.Id )
+                    .Where( g => g.PersonId == CurrentPerson.Id )
                     .Where( g => g.Group.GroupType.IsSchedulingEnabled == true )
                     .Select( g => new { Value = (int?)g.GroupId, Text = g.Group.Name } )
                     .ToList();
@@ -940,12 +922,12 @@ namespace RockWeb.Blocks.Groups
                 var personService = new PersonService( rockContext );
 
                 var familyMemberAliasIds = new PersonService( rockContext )
-                    .GetFamilyMembers( GroupScheduleToolboxCurrentPerson.Id )
+                    .GetFamilyMembers( CurrentPerson.Id )
                     .Select( m => m.Person.Aliases.FirstOrDefault( a => a.PersonId == m.PersonId ) )
                     .Select( a => new { Value = a.Id, Text = a.Person.NickName + " " + a.Person.LastName } )
                     .ToList();
 
-                familyMemberAliasIds.Insert( 0, new { Value = GroupScheduleToolboxCurrentPersonAlias.Id, Text = GroupScheduleToolboxCurrentPerson.FullName + " (you)" } );
+                familyMemberAliasIds.Insert( 0, new { Value = CurrentPersonAlias.Id, Text = CurrentPerson.FullName + " (you)" } );
 
                 cblBlackoutPersons.DataSource = familyMemberAliasIds;
                 cblBlackoutPersons.DataValueField = "Value";
@@ -1190,7 +1172,7 @@ namespace RockWeb.Blocks.Groups
                 var attendanceService = new AttendanceService( rockContext );
 
                 // Get a list of schedules that a person can sign up for
-                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( GroupScheduleToolboxCurrentPerson.Id )
+                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( CurrentPerson.Id )
                     .Tables[0]
                     .AsEnumerable()
                     .Select( s => new PersonScheduleSignup
@@ -1210,7 +1192,7 @@ namespace RockWeb.Blocks.Groups
                 {
                     foreach ( var occurrence in schedule.Occurrences )
                     {
-                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, GroupScheduleToolboxCurrentPerson.Id ) )
+                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, CurrentPerson.Id ) )
                         {
                             // If the person is scheduled for any group/location for this date/schedule then do not include in the sign-up list.
                             continue;
