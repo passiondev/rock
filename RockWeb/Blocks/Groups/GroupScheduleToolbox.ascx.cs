@@ -638,12 +638,13 @@ namespace RockWeb.Blocks.Groups
             ddlGroupPreferenceAssignmentLocation.DataValueField = "Id";
             ddlGroupPreferenceAssignmentLocation.DataTextField = "Name";
             ddlGroupPreferenceAssignmentLocation.DataBind();
-            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( "No Preference", string.Empty) );
+            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( string.Empty, string.Empty) );
             ddlGroupPreferenceAssignmentLocation.Enabled = groupmemberAssignment != null;
 
             if ( groupmemberAssignment != null )
             {
                 ddlGroupPreferenceAssignmentLocation.SelectedValue = groupmemberAssignment.LocationId.ToStringSafe();
+                ddlGroupPreferenceAssignmentLocation.Items[0].Text = "No Preference";
             }
         }
 
@@ -655,11 +656,7 @@ namespace RockWeb.Blocks.Groups
             var hfScheduleId = ( HiddenField ) repeaterItemSchedule.FindControl( "hfScheduleId" );
 
             ddlGroupPreferenceAssignmentLocation.Enabled = scheduleCheckBox.Checked;
-
-            if( !scheduleCheckBox.Checked )
-            {
-                ddlGroupPreferenceAssignmentLocation.SelectedIndex = 0;
-            }
+            ddlGroupPreferenceAssignmentLocation.Items[0].Text = scheduleCheckBox.Checked ? "No Preference" : string.Empty;
 
             var repeaterItemGroup = repeaterItemSchedule.Parent.Parent as RepeaterItem;
             var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
@@ -1121,7 +1118,8 @@ namespace RockWeb.Blocks.Groups
             var cbContainer = new HtmlGenericContainer();
             cbContainer.Attributes.Add( "class", "col-md-1" );
 
-            var cb = new CheckBox();
+            var cb = new RockCheckBox();
+            cb.ID = "dbSignupSchedule";
             cb.Text = personScheduleSignup.OccurrenceDate.ToString("hh:mm tt");
             cb.ToolTip = personScheduleSignup.ScheduleName;
             cb.Attributes.Add( "style", "float: left;" );
@@ -1136,7 +1134,8 @@ namespace RockWeb.Blocks.Groups
                 .Select( x => new { Text = x.LocationName, Value = x.GroupId + "," + x.LocationId + "," + x.ScheduleId + "," + x.OccurrenceDate + "|" } )
                 .ToList();
 
-            var ddl = new DropDownList();
+            var ddl = new RockDropDownList();
+            ddl.ID = "ddlSignupLocations";
             ddl.Attributes.Add( "style", "width:200px" );
             ddl.DataSource = locations;
             ddl.DataTextField = "Text";
@@ -1151,11 +1150,11 @@ namespace RockWeb.Blocks.Groups
             ddlContainer.Controls.Add( ddl );
 
             var notificationLabel = new Label();
-            notificationLabel.Style.Add("display", "none");
-            notificationLabel.Style.Add("padding-left", "10px");
+            notificationLabel.Style.Add( "display", "none" );
+            notificationLabel.Style.Add( "padding-left", "10px" );
             notificationLabel.AddCssClass( "label label-warning" );// Needs styling here
+            notificationLabel.AddCssClass( "js-person-schedule-signup-notification" );
             notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
-            notificationLabel.CssClass = "js-person-schedule-signup-notification";
             ddlContainer.Controls.Add( notificationLabel );
 
             container.Controls.Add( cbContainer );

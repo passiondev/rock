@@ -136,10 +136,10 @@
                                                 <asp:HiddenField ID="hfGroupMemberId" runat="server" />
                                                 <asp:HiddenField ID="hfScheduleId" runat="server" />
                                                 <div class="col-md-4">
-                                                    <asp:CheckBox ID="cbGroupPreferenceAssignmentScheduleTime" runat="server" AutoPostBack="true" OnCheckedChanged="cbGroupPreferenceAssignmentScheduleTime_CheckedChanged" />
+                                                    <Rock:RockCheckBox ID="cbGroupPreferenceAssignmentScheduleTime" runat="server" AutoPostBack="true" OnCheckedChanged="cbGroupPreferenceAssignmentScheduleTime_CheckedChanged" />
                                                 </div>
                                                 <div class="col-md-8">
-                                                    <asp:DropDownList ID="ddlGroupPreferenceAssignmentLocation" runat="server" OnSelectedIndexChanged="ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged" AutoPostBack="true" />
+                                                    <Rock:RockDropDownList ID="ddlGroupPreferenceAssignmentLocation" runat="server" OnSelectedIndexChanged="ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged" AutoPostBack="true" />
                                                 </div>
                                             </div>
                                         </ItemTemplate>
