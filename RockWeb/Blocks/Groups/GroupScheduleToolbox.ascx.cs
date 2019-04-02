@@ -13,13 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // </copyright>
-//
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.Entity;
-using System.Data.Entity.Core.Objects;
 using System.Linq;
 using System.Text;
 using System.Web.UI;
@@ -37,7 +36,7 @@ using Rock.Web.UI.Controls;
 namespace RockWeb.Blocks.Groups
 {
     /// <summary>
-    ///
+    /// A block for a person to use to manage their group volunteer scheduling. View schedule, change preferences, and sign-up for available needs
     /// </summary>
     [DisplayName( "Group Schedule Toolbox" )]
     [Category( "Groups" )]
@@ -52,7 +51,6 @@ namespace RockWeb.Blocks.Groups
         DefaultValue = "6",
         Order = 0,
         Key = AttributeKeys.FutureWeeksToShow )]
-
     public partial class GroupScheduleToolbox : RockBlock
     {
         protected class AttributeKeys
@@ -62,7 +60,9 @@ namespace RockWeb.Blocks.Groups
 
         protected const string ALL_GROUPS_STRING = "All Groups";
 
-        List<PersonScheduleSignup> availableGroupLocationSchedules;
+        private readonly List<GroupScheduleToolboxTab> _tabs = Enum.GetValues( typeof( GroupScheduleToolboxTab ) ).Cast<GroupScheduleToolboxTab>().ToList();
+
+        private List<PersonScheduleSignup> availableGroupLocationSchedules;
 
         /// <summary>
         /// Tab menu options
@@ -83,6 +83,30 @@ namespace RockWeb.Blocks.Groups
             /// Sign-up tab
             /// </summary>
             SignUp = 2
+        }
+
+        /// <summary>
+        /// Gets or sets the current tab in the ViewState
+        /// </summary>
+        /// <value>
+        /// The current tab.
+        /// </value>
+        protected GroupScheduleToolboxTab CurrentTab
+        {
+            get
+            {
+                if ( ViewState["CurrentTab"] != null )
+                {
+                    return ( GroupScheduleToolboxTab )Enum.Parse( typeof( GroupScheduleToolboxTab ), ViewState["CurrentTab"].ToString() );
+                }
+
+                return GroupScheduleToolboxTab.MySchedule;
+            }
+            
+            set
+            {
+                ViewState["CurrentTab"] = value;
+            }
         }
 
         #region Base Control Methods
@@ -111,10 +135,12 @@ namespace RockWeb.Blocks.Groups
             // Setup for being able to copy text to clipboard
             RockPage.AddScriptLink( this.Page, "~/Scripts/clipboard.js/clipboard.min.js" );
 
-            string script = string.Format( @"
-    new ClipboardJS('#{0}');
-    $('#{0}').tooltip();
-", btnCopyToClipboard.ClientID );
+            string script = string.Format(
+                @"
+new ClipboardJS('#{0}');
+$('#{0}').tooltip();
+",
+                btnCopyToClipboard.ClientID );
 
             ScriptManager.RegisterStartupScript( btnCopyToClipboard, btnCopyToClipboard.GetType(), "share-copy", script, true );
         }
@@ -167,7 +193,6 @@ namespace RockWeb.Blocks.Groups
 
                         using ( var rockContext = new RockContext() )
                         {
-
                             var attendanceService = new AttendanceService( rockContext );
                             var attendance = attendanceService.ScheduledPersonAssign( CurrentPerson.Id, attendanceOccurrence.Id, CurrentPersonAlias );
                             rockContext.SaveChanges();
@@ -191,8 +216,8 @@ namespace RockWeb.Blocks.Groups
 
             if ( !Page.IsPostBack )
             {
-                LoadDropDowns();
-                ShowDetails();
+                BindTabs();
+                ShowSelectedTab();
             }
         }
 
@@ -207,26 +232,33 @@ namespace RockWeb.Blocks.Groups
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void Block_BlockUpdated( object sender, EventArgs e )
         {
-
+            ShowSelectedTab();
         }
 
         /// <summary>
-        /// Handles the SelectedIndexChanged event of the bgTabs control.
+        /// Handles the Click event of the lbTab control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void bgTabs_SelectedIndexChanged( object sender, EventArgs e )
+        protected void lbTab_Click( object sender, EventArgs e )
         {
+            LinkButton lb = sender as LinkButton;
+            if ( lb != null )
+            {
+                CurrentTab = (GroupScheduleToolboxTab)Enum.Parse(typeof(GroupScheduleToolboxTab), lb.Text);
+
+                rptTabs.DataSource = _tabs;
+                rptTabs.DataBind();
+            }
+
             ShowSelectedTab();
         }
 
         /// <summary>
-        /// Shows the detail.
+        /// Gets the data for all tabs. May need to use this for page load if the tab switching is too slow.
         /// </summary>
-        private void ShowDetails()
+        private void LoadAllTabs()
         {
-            ShowSelectedTab();
-
             // My Schedule
             BindPendingConfirmations();
             BindUpcomingSchedules();
@@ -240,48 +272,54 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// Shows selected person details.
+        /// Get the class for the tab's selection state. Empty string if not the current tab, "active" if it is the current tab.
         /// </summary>
-        private void ShowPersonDetails()
+        /// <param name="property">The property.</param>
+        /// <returns></returns>
+        protected string GetTabClass( object property )
         {
-            // My Schedule
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
+            if ( ( GroupScheduleToolboxTab ) property == CurrentTab )
+            {
+                return "active";
+            }
 
-            // Preferences
-            BindBlackoutDates();
-            BindGroupPreferencesRepeater();
-
-            // Signup
-            CreateSignupControls();
+            return string.Empty;
         }
 
-
         /// <summary>
-        /// Shows the selected tab.
+        /// Shows the panel for the selected tab.
         /// </summary>
         private void ShowSelectedTab()
         {
-            var selectedTab = bgTabs.SelectedValueAsEnum<GroupScheduleToolboxTab>();
-            pnlMySchedule.Visible = selectedTab == GroupScheduleToolboxTab.MySchedule;
-            pnlPreferences.Visible = selectedTab == GroupScheduleToolboxTab.Preferences;
-            pnlSignup.Visible = selectedTab == GroupScheduleToolboxTab.SignUp;
-
-            if ( selectedTab == GroupScheduleToolboxTab.SignUp )
+            switch ( CurrentTab )
             {
-                CreateSignupControls();
+                case GroupScheduleToolboxTab.MySchedule:
+                    BindPendingConfirmations();
+                    BindUpcomingSchedules();
+                    break;
+                case GroupScheduleToolboxTab.Preferences:
+                    BindBlackoutDates();
+                    BindGroupPreferencesRepeater();
+                    break;
+                case GroupScheduleToolboxTab.SignUp:
+                    CreateSignupControls();
+                    break;
+                default:
+                    break;
             }
+
+            pnlMySchedule.Visible = CurrentTab == GroupScheduleToolboxTab.MySchedule;
+            pnlPreferences.Visible = CurrentTab == GroupScheduleToolboxTab.Preferences;
+            pnlSignup.Visible = CurrentTab == GroupScheduleToolboxTab.SignUp;
         }
 
         /// <summary>
-        /// Loads the drop downs.
+        /// Binds the tab repeater with the values in the GroupScheduleToolboxTab enum
         /// </summary>
-        private void LoadDropDowns()
+        private void BindTabs()
         {
-            bgTabs.Items.Clear();
-            bgTabs.Items.Add( new ListItem( "My Schedule", GroupScheduleToolboxTab.MySchedule.ConvertToInt().ToString() ) { Selected = true } );
-            bgTabs.Items.Add( new ListItem( "Preferences", GroupScheduleToolboxTab.Preferences.ConvertToInt().ToString() ) );
-            bgTabs.Items.Add( new ListItem( "Sign-up", GroupScheduleToolboxTab.SignUp.ConvertToInt().ToString() ) );
+            rptTabs.DataSource = _tabs;
+            rptTabs.DataBind();
         }
 
         #endregion Block Events and Methods
@@ -365,7 +403,8 @@ namespace RockWeb.Blocks.Groups
                 rockContext.SaveChanges();
             }
 
-            ShowPersonDetails();
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
         }
 
         /// <summary>
@@ -384,7 +423,8 @@ namespace RockWeb.Blocks.Groups
                 rockContext.SaveChanges();
             }
 
-            ShowPersonDetails();
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
         }
 
         /// <summary>
@@ -407,7 +447,8 @@ namespace RockWeb.Blocks.Groups
                 rockContext.SaveChanges();
             }
 
-            ShowPersonDetails();
+            BindPendingConfirmations();
+            BindUpcomingSchedules();
         }
 
         /// <summary>
@@ -460,7 +501,6 @@ namespace RockWeb.Blocks.Groups
                 }
             }
         }
-
 
         #endregion My Schedule Tab
 
@@ -515,7 +555,7 @@ namespace RockWeb.Blocks.Groups
                     .ToList();
 
                 // in most cases the will be only one unless the person has multiple roles in the group (e.g. leader and member)
-                foreach( var groupMember in groupMembers )
+                foreach ( var groupMember in groupMembers )
                 {
                     groupMember.ScheduleReminderEmailOffsetDays = days;
                 }
@@ -554,6 +594,11 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptGroupPreferences control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
         protected void rptGroupPreferences_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
             var group = ( Group ) e.Item.DataItem;
@@ -590,11 +635,14 @@ namespace RockWeb.Blocks.Groups
 
                 rptGroupPreferenceAssignments.DataSource = scheduleTime;
                 rptGroupPreferenceAssignments.DataBind();
-
             }
-
         }
 
+        /// <summary>
+        /// Handles the ItemDataBound event of the rptGroupPreferenceAssignments control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
         protected void rptGroupPreferenceAssignments_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
             var scheduleTime = ( ScheduleTime ) e.Item.DataItem;
@@ -648,6 +696,11 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Handles the CheckedChanged event of the cbGroupPreferenceAssignmentScheduleTime control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void cbGroupPreferenceAssignmentScheduleTime_CheckedChanged( object sender, EventArgs e )
         {
             var scheduleCheckBox = ( CheckBox ) sender;
@@ -687,7 +740,11 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
-        
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the ddlGroupPreferenceAssignmentLocation control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged( object sender, EventArgs e )
         {
             var locationDropDownList = ( DropDownList ) sender;
@@ -754,18 +811,24 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Class to allow the block to easily sort schedules by time
+        /// </summary>
         private class ScheduleTime
         {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="ScheduleTime"/> class.
+            /// </summary>
+            /// <param name="schedule">The schedule.</param>
             public ScheduleTime( Schedule schedule )
             {
                 ScheduleForTime = schedule;
-                var OccurrenceDateTime = schedule.GetOccurrences( DateTime.Now.AddDays( -1 ), DateTime.Now.AddDays( 365 ) ).FirstOrDefault().Period.StartTime.Value;
+                var occurrenceDateTime = schedule.GetOccurrences( DateTime.Now.AddDays(-1), DateTime.Now.AddDays( 365 ) ).FirstOrDefault().Period.StartTime.Value;
 
                 // We need to sort by time, so set the dates all the same and just use the time.
-                _time = DateTime.MinValue.Add( OccurrenceDateTime.TimeOfDay );
-
-
+                _time = DateTime.MinValue.Add( occurrenceDateTime.TimeOfDay );
             }
+
             /// <summary>
             /// Gets the time for the Schedule. The date part is the min date, so this is just for the time.
             /// </summary>
@@ -775,7 +838,6 @@ namespace RockWeb.Blocks.Groups
             public DateTime Time {
                 get
                 {
-                    
                     return _time;
                 }
             }
@@ -792,16 +854,30 @@ namespace RockWeb.Blocks.Groups
         }
 
         #region Preferences Tab Blackout
+
+        /// <summary>
+        /// Binds the blackout dates.
+        /// </summary>
         protected void BindBlackoutDates()
         {
             gBlackoutDates_BindGrid();
         }
 
+        /// <summary>
+        /// Handles the AddClick event of the gBlackoutDates control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void gBlackoutDates_AddClick( object sender, EventArgs e )
         {
             ShowDialog( "mdAddBlackoutDates" );
         }
 
+        /// <summary>
+        /// Handles the Click event of the gBlackoutDatesDelete control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="RowEventArgs"/> instance containing the event data.</param>
         protected void gBlackoutDatesDelete_Click( object sender, RowEventArgs e )
         {
             using ( var rockContext = new RockContext() )
@@ -817,11 +893,19 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Handles the GridRebind event of the gBlackoutDates control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="GridRebindEventArgs"/> instance containing the event data.</param>
         protected void gBlackoutDates_GridRebind( object sender, GridRebindEventArgs e )
         {
             gBlackoutDates_BindGrid();
         }
 
+        /// <summary>
+        /// gs the blackout dates bind grid.
+        /// </summary>
         protected void gBlackoutDates_BindGrid()
         {
             var currentDate = DateTime.Now.Date;
@@ -886,6 +970,7 @@ namespace RockWeb.Blocks.Groups
                 {
                     return _groupName.IsNullOrWhiteSpace() ? ALL_GROUPS_STRING : _groupName;
                 }
+
                 set
                 {
                     _groupName = value;
@@ -893,11 +978,13 @@ namespace RockWeb.Blocks.Groups
             }
 
             private string _groupName;
-
         }
 
-         #region Blackout Dates Modal
+        #region Blackout Dates Modal
 
+        /// <summary>
+        /// Loads the group selection ddl for the add blackout dates modal
+        /// </summary>
         private void mdAddBlackoutDates_ddlBlackoutGroups_Bind()
         {
             using ( var rockContext = new RockContext() )
@@ -920,6 +1007,9 @@ namespace RockWeb.Blocks.Groups
             }
         }
 
+        /// <summary>
+        /// Creates the list of family members that can be assigned a blackout date for the current person
+        /// </summary>
         private void mdAddBlackoutDates_cblBlackoutPersons_Bind()
         {
             using ( var rockContext = new RockContext() )
@@ -938,12 +1028,14 @@ namespace RockWeb.Blocks.Groups
                 cblBlackoutPersons.DataValueField = "Value";
                 cblBlackoutPersons.DataTextField = "Text";
                 cblBlackoutPersons.DataBind();
-
             }
-
-
         }
 
+        /// <summary>
+        /// Handles the SaveClick event of the mdAddBlackoutDates control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void mdAddBlackoutDates_SaveClick( object sender, EventArgs e )
         {
             // parse the date range and add to query
@@ -1054,7 +1146,7 @@ namespace RockWeb.Blocks.Groups
                 .Select( s => s.First() )
                 .ToList();
 
-            foreach( var availableSchedule in availableSchedules )
+            foreach ( var availableSchedule in availableSchedules )
             {
                 if ( availableSchedule.GroupId != currentGroupId )
                 {
@@ -1149,7 +1241,7 @@ namespace RockWeb.Blocks.Groups
             var notificationLabel = new Label();
             notificationLabel.Style.Add( "display", "none" );
             notificationLabel.Style.Add( "padding-left", "10px" );
-            notificationLabel.AddCssClass( "label label-warning" );// Needs styling here
+            notificationLabel.AddCssClass( "label label-warning" );
             notificationLabel.AddCssClass( "js-person-schedule-signup-notification" );
             notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
             ddlContainer.Controls.Add( notificationLabel );
@@ -1192,7 +1284,7 @@ namespace RockWeb.Blocks.Groups
                     } )
                     .ToList();
 
-                foreach( PersonScheduleSignup schedule in schedules )
+                foreach ( PersonScheduleSignup schedule in schedules )
                 {
                     foreach ( var occurrence in schedule.Occurrences )
                     {
@@ -1217,7 +1309,7 @@ namespace RockWeb.Blocks.Groups
                     }
                 }
 
-                // TODO: Remove Blackout dates for person/family
+                //// TODO: Remove Blackout dates for person/family
 
                 return personScheduleSignups;
             }
@@ -1302,10 +1394,5 @@ namespace RockWeb.Blocks.Groups
         }
 
         #endregion Signup Tab
-
-
-
-
-
     }
 }

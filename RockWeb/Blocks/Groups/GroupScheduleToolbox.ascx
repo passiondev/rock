@@ -16,7 +16,17 @@
             <div class="panel-body">
 
                 <div class="margin-b-md">
-                    <Rock:ButtonGroup ID="bgTabs" runat="server" SelectedItemClass="btn btn-primary active" UnselectedItemClass="btn btn-default" AutoPostBack="true" OnSelectedIndexChanged="bgTabs_SelectedIndexChanged" />
+                    <%--<Rock:ButtonGroup ID="bgTabs" runat="server" SelectedItemClass="btn btn-primary active" UnselectedItemClass="btn btn-default" AutoPostBack="true" OnSelectedIndexChanged="bgTabs_SelectedIndexChanged" />--%>
+                    <ul class="nav nav-pills margin-b-md">
+                        <asp:Repeater ID="rptTabs" runat="server">
+                            <ItemTemplate>
+                                <li class='<%# GetTabClass(Container.DataItem) %>'>
+                                    <asp:LinkButton ID="lbTab" runat="server" Text='<%# Container.DataItem %>' OnClick="lbTab_Click" CausesValidation="false">
+                                    </asp:LinkButton>
+                                </li>
+                            </ItemTemplate>
+                        </asp:Repeater>
+                    </ul>
                 </div>
 
                 <%-- My Schedule --%>
