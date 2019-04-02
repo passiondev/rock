@@ -403,6 +403,7 @@
     <Compile Include="Model\CommunicationResponse.cs" />
     <Compile Include="Model\CommunicationResponseService.partial.cs" />
     <Compile Include="Model\NoteAttachment.cs" />
+    <Compile Include="Model\PersonScheduleExclusionService.Partial.cs" />
     <Compile Include="Model\PersonScheduleExclusion.cs" />
     <Compile Include="Model\RegistrationTemplateFeeItem.cs" />
     <Compile Include="Model\SpiritualGiftsService.cs" />

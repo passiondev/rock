@@ -440,7 +440,7 @@ $('#{0}').tooltip();
             {
                 var rockContext = new RockContext();
 
-                // TODO
+                // TODO: Need to provide a way to indicate the reason a pending schedule was declined.
                 int? declineReasonValueId = null;
 
                 new AttendanceService( rockContext ).ScheduledPersonDecline( attendanceId.Value, declineReasonValueId );
@@ -1266,6 +1266,7 @@ $('#{0}').tooltip();
             {
                 var scheduleService = new ScheduleService( rockContext );
                 var attendanceService = new AttendanceService( rockContext );
+                var personScheduleExclusionService = new PersonScheduleExclusionService( rockContext );
 
                 // Get a list of schedules that a person can sign up for
                 var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( CurrentPerson.Id )
@@ -1294,6 +1295,12 @@ $('#{0}').tooltip();
                             continue;
                         }
 
+                        if (personScheduleExclusionService.IsExclusionDate( CurrentPersonAliasId.Value, schedule.GroupId, occurrence.Period.StartTime.Value ) )
+                        {
+                            // Don't show dates they have blacked out
+                            continue;
+                        }
+
                         // Add to master list personScheduleSignups
                         personScheduleSignups.Add( new PersonScheduleSignup
                         {
@@ -1308,8 +1315,6 @@ $('#{0}').tooltip();
                         } );
                     }
                 }
-
-                //// TODO: Remove Blackout dates for person/family
 
                 return personScheduleSignups;
             }
