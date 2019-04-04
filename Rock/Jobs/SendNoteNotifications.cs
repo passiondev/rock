@@ -18,15 +18,14 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
+using System.Text;
+using System.Web;
 using Quartz;
-
 using Rock.Attribute;
-using Rock.Web.Cache;
 using Rock.Communication;
 using Rock.Data;
 using Rock.Model;
-using System.Text;
-using System.Web;
+using Rock.Web.Cache;
 
 namespace Rock.Jobs
 {
@@ -163,9 +162,9 @@ namespace Rock.Jobs
             _noteApprovalNotificationEmailGuid = dataMap.GetString( "NoteApprovalNotificationEmail" ).AsGuidOrNull();
             var errors = new List<string>();
 
-            errors.AddRange(SendNoteWatchNotifications( context ));
+            errors.AddRange( SendNoteWatchNotifications( context ) );
             context.UpdateLastStatusMessage( $"{_noteWatchNotificationsSent} note watch notifications sent..." );
-            errors.AddRange(SendNoteApprovalNotifications( context ));
+            errors.AddRange( SendNoteApprovalNotifications( context ) );
             context.UpdateLastStatusMessage( $"{_noteWatchNotificationsSent} note watch notifications sent, and {_noteApprovalNotificationsSent} note approval notifications sent" );
 
             if ( errors.Any() )
@@ -283,7 +282,7 @@ namespace Rock.Jobs
                     {
                         var emailMessage = new RockEmailMessage( _noteApprovalNotificationEmailGuid.Value );
                         emailMessage.SetRecipients( recipients );
-                        emailMessage.Send(out errors);
+                        emailMessage.Send( out errors );
                         _noteApprovalNotificationsSent += recipients.Count();
 
                         using ( var rockUpdateContext = new RockContext() )
@@ -349,12 +348,14 @@ namespace Rock.Jobs
                     this.UpdateNoteWatchNotificationDigest( personNotificationDigestList, rockContext, noteId );
                 }
 
+                var sentToRecipient = new List<RecipientData>();
                 // Send NoteWatch notifications
                 if ( personNotificationDigestList.Any() )
                 {
-                    var recipients = new List<RecipientData>();
+                    
                     foreach ( var personNotificationDigest in personNotificationDigestList )
                     {
+                        var recipients = new List<RecipientData>();
                         Person personToNotify = personNotificationDigest.Value.Person;
                         List<Note> noteList = personNotificationDigest.Value.Select( a => a.Note ).OrderBy( a => a.EditedDateTime ).ToList();
 
@@ -367,13 +368,17 @@ namespace Rock.Jobs
                             mergeFields.Add( "Person", personToNotify );
                             mergeFields.Add( "NoteList", noteList );
                             recipients.Add( new RecipientData( personToNotify.Email, mergeFields ) );
+                            foreach ( var recipient in recipients )
+                            {
+                                sentToRecipient.Add( recipient );
+                            }
                         }
 
                         if ( _noteWatchNotificationEmailGuid.HasValue )
                         {
                             var emailMessage = new RockEmailMessage( _noteWatchNotificationEmailGuid.Value );
                             emailMessage.SetRecipients( recipients );
-                            emailMessage.Send(out errors);
+                            emailMessage.Send( out errors );
                             _noteWatchNotificationsSent += recipients.Count();
                         }
                     }
@@ -459,7 +464,11 @@ namespace Rock.Jobs
                     var watcherPerson = noteWatch.WatcherPersonAlias?.Person;
                     if ( watcherPerson != null )
                     {
-                        noteWatchPersonToNotifyListAll.Add( new NoteWatchPersonToNotify( watcherPerson, note, noteWatch ) );
+                        var exists = noteWatchPersonToNotifyListAll.Where( p => p.Person.Email.Contains( watcherPerson.Email ) ).Any();
+                        if ( !exists )
+                        {
+                            noteWatchPersonToNotifyListAll.Add( new NoteWatchPersonToNotify( watcherPerson, note, noteWatch ) );
+                        }    
                     }
 
                     if ( noteWatch.WatcherGroupId.HasValue )
@@ -470,7 +479,8 @@ namespace Rock.Jobs
 
                         if ( watcherPersonsFromGroup.Any() )
                         {
-                            noteWatchPersonToNotifyListAll.AddRange( watcherPersonsFromGroup.Select( a => new NoteWatchPersonToNotify( a, note, noteWatch ) ) );
+                            var distinctWatchers = watcherPersonsFromGroup.Where( wg => !noteWatchPersonToNotifyListAll.Where( w => w.Person.Email.Contains( wg.Email ) ).Any() );
+                            noteWatchPersonToNotifyListAll.AddRange( distinctWatchers.Select( a => new NoteWatchPersonToNotify( a, note, noteWatch ) ) );
                         }
                     }
                 }
@@ -495,17 +505,20 @@ namespace Rock.Jobs
                     NoteWatchPersonToNotifyList personToNotifyList;
                     if ( personIdNotificationDigestList.ContainsKey( noteWatchPersonToNotify.Person.Id ) )
                     {
+                        // This just create a place holder for the Note 
                         personToNotifyList = personIdNotificationDigestList[noteWatchPersonToNotify.Person.Id] ?? new NoteWatchPersonToNotifyList( noteWatchPersonToNotify.Person );
                     }
                     else
                     {
+                        // This just create a place holder for the Note 
                         personToNotifyList = new NoteWatchPersonToNotifyList( noteWatchPersonToNotify.Person );
                         personIdNotificationDigestList.Add( noteWatchPersonToNotify.Person.Id, personToNotifyList );
                     }
 
-                    // only include the note if the watcher person is authorized to view the note
+                        // Only include the note if the watcher person is authorized to view the note
                     if ( noteWatchPersonToNotify.Note.IsAuthorized( Rock.Security.Authorization.VIEW, noteWatchPersonToNotify.Person ) )
                     {
+                        // This is where the get added
                         personToNotifyList.Add( noteWatchPersonToNotify );
                     }
                 }
