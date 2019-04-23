@@ -323,7 +323,6 @@ namespace RockWeb.Blocks.Groups
             hfResourceAdditionalPersonIds.Value = string.Empty;
         }
 
-
         /// <summary>
         /// Binds the Attendance Occurrences ( Which shows the Location for the Attendance Occurrence for the selected Group + DateTime + Location ).
         /// groupScheduler.js will populate these with the assigned resources
@@ -335,8 +334,11 @@ namespace RockWeb.Blocks.Groups
 
             if ( occurrenceDate == null || scheduleId == null )
             {
+                btnAutoSchedule.Visible = false;
                 return;
             }
+
+            btnAutoSchedule.Visible = true;
 
             var rockContext = new RockContext();
             var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
@@ -518,14 +520,16 @@ namespace RockWeb.Blocks.Groups
             var rockContext = new RockContext();
 
             var groupId = hfGroupId.Value.AsInteger();
-            var occurrenceDate = dpDate.SelectedDate.Value;
+            var selectedDate = dpDate.SelectedDate.Value;
             var scheduleId = rblSchedule.SelectedValue.AsInteger();
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
             var attendanceService = new AttendanceService( rockContext );
 
+            var sundayDate = selectedDate.SundayDate();
+
             // NOTE: Partially functional
-            attendanceService.SchedulePersonsAutomatically( groupId, occurrenceDate, scheduleId, selectedGroupLocationIds, this.CurrentPersonAlias );
+            attendanceService.SchedulePersonsAutomatically( groupId, sundayDate, this.CurrentPersonAlias );
             rockContext.SaveChanges();
 
             // NOTE: If SchedulePersonsAutomatically ended up scheduling anybody, they'll now show up in the UI. (JavaScript+REST takes care of populating it)

@@ -65,7 +65,7 @@ namespace Rock.Model
         /// <returns>IQuerable Attendance occurrence grouped by date range, returns null if number of persons exceeds 50000</returns>
         public IQueryable<IGrouping<DateTime, AttendanceOccurrence>> GetOccurrencesGroupedByGroupsAndDateRange( int[] groupIds, DateRange dateRange )
         {
-            var qry = Queryable().Where( o => groupIds.Contains( ( int ) o.GroupId ));
+            var qry = Queryable().Where( o => groupIds.Contains( ( int ) o.GroupId ) );
 
             // Filter by date Range
             qry = qry.Where( o => ( o.OccurrenceDate >= dateRange.Start && o.OccurrenceDate <= dateRange.End ) || dateRange.End == null );
