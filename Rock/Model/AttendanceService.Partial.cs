@@ -662,10 +662,10 @@ namespace Rock.Model
                 }
             }
 
+            // Get the last time they attended the group (in any location or schedule)
             var lastAttendedDateTimeQuery = attendanceService.Queryable()
                 .Where( a => a.DidAttend == true
                     && a.Occurrence.GroupId == schedulerResourceParameters.AttendanceOccurrenceGroupId
-                    && a.Occurrence.ScheduleId == schedulerResourceParameters.AttendanceOccurrenceScheduleId
                     && a.PersonAliasId.HasValue );
 
             if ( groupMemberQry != null )
@@ -686,10 +686,31 @@ namespace Rock.Model
                 } )
                 .ToDictionary( k => k.PersonId, v => v.LastScheduledDate );
 
+            var occurrenceSchedule = new ScheduleService( rockContext ).GetNoTracking( schedulerResourceParameters.AttendanceOccurrenceScheduleId );
+
+            if ( occurrenceSchedule == null )
+            {
+                // schedule not found, return empty list
+                return schedulerResourceList;
+            }
+
+            var occurrenceSundayDate = schedulerResourceParameters.AttendanceOccurrenceSundayDate;
+            var occurrenceSundayWeekStartDate = occurrenceSundayDate.AddDays( -6 );
+
+            var scheduleOccurrenceDateTime = occurrenceSchedule.GetNextStartDateTime( occurrenceSundayWeekStartDate );
+
+            if ( scheduleOccurrenceDateTime == null )
+            {
+                // no next start date for schedule, return empty list
+                return schedulerResourceList;
+            }
+
+            var scheduleOccurrenceDate = scheduleOccurrenceDateTime.Value.Date;
+
             var scheduledAttendanceGroupIdsLookup = attendanceService.Queryable()
                 .Where( a => ( a.RequestedToAttend == true || a.ScheduledToAttend == true )
                           && a.Occurrence.ScheduleId == schedulerResourceParameters.AttendanceOccurrenceScheduleId
-                          && a.Occurrence.OccurrenceDate == schedulerResourceParameters.AttendanceOccurrenceOccurrenceDate
+                          && a.Occurrence.OccurrenceDate == scheduleOccurrenceDate
                           && a.Occurrence.GroupId.HasValue )
                 .GroupBy( a => a.PersonAlias.PersonId )
                 .Select( a => new
@@ -728,19 +749,19 @@ namespace Rock.Model
                         .AsNoTracking()
                         .ToList().ToDictionary( a => a.Id, k => k );
 
-                    var occurrenceDate = schedulerResourceParameters.AttendanceOccurrenceOccurrenceDate;
-                    var occurrenceSchedule = new ScheduleService( rockContext ).Get( schedulerResourceParameters.AttendanceOccurrenceScheduleId );
-                    TimeSpan? occurrenceScheduledTime = occurrenceSchedule?.GetNextStartDateTime( occurrenceDate )?.TimeOfDay;
-                    var beginDate = occurrenceDate.Date;
-                    var endDate = occurrenceDate.AddDays( 1 );
+                    TimeSpan occurrenceScheduledTime = scheduleOccurrenceDateTime.Value.TimeOfDay;
+
+                    // get first scheduled occurrence for the selected "sunday week", which would be from the start of the preceding Monday to the end of the Sunday
+                    var beginDateTime = occurrenceSundayWeekStartDate;
+                    var endDateTime = occurrenceSundayDate.AddDays(1);
 
                     foreach ( var groupMember in resourceList.Where( a => a.ScheduleTemplateId.HasValue && a.ScheduleStartDate.HasValue ) )
                     {
                         var schedule = scheduleTemplateLookup.GetValueOrNull( groupMember.ScheduleTemplateId.Value )?.Schedule;
                         if ( schedule != null )
                         {
-                            var scheduleStartDateTimeOverride = groupMember.ScheduleStartDate.Value.Add( occurrenceScheduledTime ?? new TimeSpan( 0 ) );
-                            var matches = schedule.GetOccurrences( beginDate, endDate, scheduleStartDateTimeOverride );
+                            var scheduleStartDateTimeOverride = groupMember.ScheduleStartDate.Value.Add( occurrenceScheduledTime );
+                            var matches = schedule.GetOccurrences( beginDateTime, endDateTime, scheduleStartDateTimeOverride );
                             if ( matches.Any() )
                             {
                                 matchingScheduleGroupMemberIdList.Add( groupMember.GroupMemberId );
@@ -848,7 +869,7 @@ namespace Rock.Model
                 .Select( a => new
                 {
                     a.Id,
-                    a.DeclineReasonValueId,
+                    a.RSVP,
                     a.ScheduledToAttend,
                     a.PersonAlias.PersonId,
                     a.PersonAlias.Person.NickName,
@@ -866,7 +887,7 @@ namespace Rock.Model
             var result = scheduledAttendancesQuery.ToList().Select( a =>
             {
                 ScheduledAttendanceItemStatus status = ScheduledAttendanceItemStatus.Pending;
-                if ( a.DeclineReasonValueId.HasValue )
+                if ( a.RSVP == RSVP.No )
                 {
                     status = ScheduledAttendanceItemStatus.Declined;
                 }
@@ -896,7 +917,7 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Add/Updates an attendance record to indicate person is assigned (Requested to Attend) a scheduled attendance
+        /// Add/Updates an attendance record to indicate person is assigned (Requested to Attend) a scheduled attendance and marks them pending
         /// </summary>
         /// <param name="personId">The person identifier.</param>
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
@@ -955,11 +976,12 @@ namespace Rock.Model
         /// <param name="scheduledByPersonAlias">The scheduled by person alias.</param>
         public void SchedulePersonsAutomatically( int groupId, DateTime sundayDate, PersonAlias scheduledByPersonAlias )
         {
+            var rockContext = this.Context as RockContext;
+
             // start on the previous Monday
             var startDate = sundayDate.Date.AddDays( -6 );
             var endDate = sundayDate.Date;
 
-            var rockContext = this.Context as RockContext;
             var groupLocationQry = new GroupLocationService( rockContext ).Queryable().Where( a => a.GroupId == groupId );
             var scheduleList = groupLocationQry.SelectMany( a => a.Schedules ).Distinct().AsNoTracking().ToList();
             var scheduleOccurrenceDateList = scheduleList
@@ -1005,7 +1027,7 @@ namespace Rock.Model
             {
                 AttendanceOccurrenceGroupId = groupId,
                 AttendanceOccurrenceScheduleId = scheduleId,
-                AttendanceOccurrenceOccurrenceDate = occurrenceDate,
+                AttendanceOccurrenceSundayDate = occurrenceDate.SundayDate(),
                 ResourceGroupId = groupId,
                 GroupMemberFilterType = SchedulerResourceGroupMemberFilterType.ShowMatchingPreference
             };
@@ -1135,6 +1157,7 @@ namespace Rock.Model
             {
                 scheduledAttendance.ScheduledToAttend = false;
                 scheduledAttendance.RequestedToAttend = false;
+                scheduledAttendance.RSVP = RSVP.Unknown;
             }
             else
             {
@@ -1152,7 +1175,7 @@ namespace Rock.Model
             if ( scheduledAttendance != null )
             {
                 scheduledAttendance.ScheduledToAttend = true;
-
+                scheduledAttendance.RSVP = RSVP.Yes;
             }
             else
             {
@@ -1170,6 +1193,27 @@ namespace Rock.Model
             if ( scheduledAttendance != null )
             {
                 scheduledAttendance.ScheduledToAttend = null;
+                scheduledAttendance.RSVP = RSVP.Unknown;
+            }
+            else
+            {
+                // ignore if there is no attendance record
+            }
+        }
+
+
+        /// <summary>
+        /// Updates attendance record to indicate person is back to a pending state
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        public void ScheduledPersonPending( int attendanceId )
+        {
+            var scheduledAttendance = this.Get( attendanceId );
+            if ( scheduledAttendance != null )
+            {
+                scheduledAttendance.RequestedToAttend = true;
+                scheduledAttendance.ScheduledToAttend = false;
+                scheduledAttendance.RSVP = RSVP.Maybe;
             }
             else
             {
@@ -1186,10 +1230,8 @@ namespace Rock.Model
             var scheduledAttendance = this.Get( attendanceId );
             if ( scheduledAttendance != null )
             {
-                // TODO is a DeclinedToAttend field needed?
                 scheduledAttendance.DeclineReasonValueId = declineReasonValueId;
 
-                //
                 scheduledAttendance.RSVP = RSVP.No;
             }
             else
@@ -1470,12 +1512,12 @@ namespace Rock.Model
         public int AttendanceOccurrenceScheduleId { get; set; }
 
         /// <summary>
-        /// Gets the attendance occurrence's occurrence date.
+        /// Gets or sets the attendance occurrence sunday date.
         /// </summary>
         /// <value>
-        /// The attendance occurrence's occurrence date.
+        /// The attendance occurrence sunday date.
         /// </value>
-        public DateTime AttendanceOccurrenceOccurrenceDate { get; set; }
+        public DateTime AttendanceOccurrenceSundayDate { get; set; }
 
         /// <summary>
         /// Gets or sets the resource group identifier.

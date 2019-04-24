@@ -178,7 +178,7 @@
                         // add up status numbers
                         if (scheduledAttendanceItem.ConfirmationStatus == 'confirmed') {
                             totalConfirmed++;
-                        } else if (scheduledAttendanceItem.ConfirmationStatus == 'Declined') {
+                        } else if (scheduledAttendanceItem.ConfirmationStatus == 'declined') {
                             totalDeclined++;
                         } else {
                             totalPending++;
@@ -198,18 +198,24 @@
                         $statusLight.attr('data-status', 'below-desired');
                     }
                     else if (desiredCapacity && (totalConfirmed >= desiredCapacity)) {
-                        $statusLight.attr('data-status', 'meets-desired');
+                        $statusLight.attr('data-status', 'meets-desired');``
                     }
                     else {
                         // no capacities defined, so just hide it
                         $statusLight.attr('data-status', 'none');
                     }
 
-                    // set the progressbar max to the max capacity (if known), or just the sum of scheduled
-                    var progressMax = maximumCapacity;
-                    if (!maximumCapacity) {
+                    // set the progressbar max range to desired capacity if known
+                    var progressMax = desiredCapacity;
+                    if (!progressMax) {
+                        // desired capacity isn't known, so just have it act as a stacked bar based on the sum of pending,confirmed,declined
                         progressMax = (totalPending + totalConfirmed + totalDeclined)
                     }
+
+                    var toolTipHtml = '<div>Confirmed: ' + totalConfirmed + '<br/>Pending: ' + totalPending + '<br/>Declined: ' + totalDeclined + '</div>';
+                    
+                    $schedulingStatusContainer.attr('title', toolTipHtml);
+                    $schedulingStatusContainer.tooltip({ 'html': 'true', container: 'body' });
 
                     var confirmedPercent = !progressMax || (totalConfirmed*100 / progressMax);
                     var pendingPercent = !progressMax || (totalPending*100 / progressMax);
@@ -217,11 +223,16 @@
                     var minimumPercent = !progressMax || (minimumCapacity * 100 / progressMax);
 
                     var $progressMinimumIndicator = $schedulingStatusContainer.find('.js-minimum-indicator');
-                    $progressMinimumIndicator
-                        .attr('data-minimum-value', minimumCapacity)
-                        .css({ 'margin-left': minimumCapacity + '%' });
 
-                    $progressMinimumIndicator.toggle(minimumCapacity > 0);
+                    if (desiredCapacity && minimumCapacity && minimumCapacity > 0) {
+                        $progressMinimumIndicator
+                            .attr('data-minimum-value', minimumCapacity)
+                            .css({ 'margin-left': minimumPercent + '%' }).show();
+                    }
+                    else {
+                        // if neither desired capacity or minimum is defined, showing a minimum indicator on progress bar really doesn't make sense.
+                        $progressMinimumIndicator.hide();
+                    }
 
                     var $progressConfirmed = $schedulingStatusContainer.find('.js-scheduling-progress-confirmed');
                     $progressConfirmed.css({ 'width': confirmedPercent + '%' });
@@ -253,7 +264,7 @@
                 var schedulerResourceParameters = {
                     AttendanceOccurrenceGroupId: Number($('.js-occurrence-group-id', $resourceList).val()),
                     AttendanceOccurrenceScheduleId: Number($('.js-occurrence-schedule-id', $resourceList).val()),
-                    AttendanceOccurrenceOccurrenceDate: $('.js-occurrence-occurrence-date', $resourceList).val(),
+                    AttendanceOccurrenceSundayDate: $('.js-occurrence-sunday-date', $resourceList).val(),
                     ResourceGroupId: $('.js-resource-group-id', $resourceList).val(),
                     GroupMemberFilterType: $('.js-resource-groupmemberfiltertype', $resourceList).val(),
                     ResourceDataViewId: $('.js-resource-dataview-id', $resourceList).val(),
@@ -338,18 +349,31 @@
             initializeEventHandlers: function () {
                 var self = this;
 
-                self.$groupScheduler.on('click', '.js-markconfirmed', function () {
-
+                self.$groupScheduler.on('click', '.js-markconfirmed, .js-markdeclined, .js-markpending', function (a,b,c) {
                     var $resource = $(this).closest('.js-resource');
                     var attendanceId = $resource.attr('data-attendance-id');
-                    var scheduledPersonConfirmUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonConfirm';
+                    var scheduledPersonUrl;
+                    if ($(this).hasClass('js-markconfirmed')){
+                        scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonConfirm';
+                    }
+                    else if ($(this).hasClass('js-markdeclined')){
+                        scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonDecline';
+                    }
+                    else if ($(this).hasClass('js-markpending')){
+                        scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonPending';
+                    }
+                    else {
+                       return;
+                    }
+                    //if 
+                    //= Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonConfirm';
 
                     var attendanceId = $resource.attr('data-attendance-id')
                     $.ajax({
                         method: "PUT",
-                        url: scheduledPersonConfirmUrl + '?attendanceId=' + attendanceId
-                    }).done(function (scheduledAttendance) {
-                        // after confirming a resource, repopulate the list of resources for this occurrence
+                        url: scheduledPersonUrl + '?attendanceId=' + attendanceId
+                    }).done(function () {
+                        // after updating a resource, repopulate the list of resources for this occurrence
                         var $occurrence = $resource.closest('.js-scheduled-occurrence');
                         self.populateScheduledOccurrence($occurrence);
                     }).fail(function (a, b, c) {

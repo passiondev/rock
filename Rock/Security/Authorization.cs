@@ -54,7 +54,7 @@ namespace Rock.Security
         public const string EDIT = "Edit";
 
         /// <summary>
-        /// Authorization to delete object (only used in few places where delete needs to be securred differently that EDIT, i.e. Financial Batch )
+        /// Authorization to delete object (only used in few places where delete needs to be secured differently that EDIT, i.e. Financial Batch )
         /// </summary>
         public const string DELETE = "Delete";
 

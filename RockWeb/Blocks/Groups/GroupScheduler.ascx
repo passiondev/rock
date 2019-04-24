@@ -11,7 +11,7 @@
                 </h1>
 
                 <div class="panel-labels">
-                    <asp:LinkButton id="btnAutoSchedule" runat="server" CssClass="js-autoschedule btn btn-default btn-xs" OnClick="btnAutoSchedule_Click">
+                    <asp:LinkButton ID="btnAutoSchedule" runat="server" CssClass="js-autoschedule btn btn-default btn-xs" OnClick="btnAutoSchedule_Click">
                         <i class="fa fa-magic"></i>
                         Auto Schedule
                     </asp:LinkButton>
@@ -20,12 +20,14 @@
 
             <%-- Panel Body --%>
             <div class="panel-body">
+                <Rock:NotificationBox ID="nbNotice" runat="server" />
+
                 <div class="row row-eq-height">
                     <%-- Filter Options --%>
                     <div class="col-lg-2 col-md-3 filter-options">
                         <asp:HiddenField ID="hfGroupId" runat="server" />
                         <Rock:GroupPicker ID="gpGroup" runat="server" Label="Group" LimitToSchedulingEnabledGroups="true" OnValueChanged="gpGroup_ValueChanged" />
-                        <Rock:DatePicker ID="dpDate" runat="server" Label="Date" AllowPastDateSelection="true" AllowFutureDateSelection="true" OnValueChanged="dpDate_ValueChanged" />
+                        <Rock:RockDropDownList ID="ddlWeek" runat="server" Label="Week" AutoPostBack="true" OnSelectedIndexChanged="ddlWeek_SelectedIndexChanged" />
 
                         <Rock:NotificationBox ID="nbGroupWarning" runat="server" NotificationBoxType="Warning" />
                         <asp:Panel ID="pnlGroupScheduleLocations" runat="server">
@@ -59,7 +61,7 @@
                                 <div class="group-scheduler-resourcelist">
 
                                     <Rock:HiddenFieldWithClass ID="hfOccurrenceGroupId" CssClass="js-occurrence-group-id" runat="server" />
-                                    <Rock:HiddenFieldWithClass ID="hfOccurrenceOccurrenceDate" CssClass="js-occurrence-occurrence-date" runat="server" />
+                                    <Rock:HiddenFieldWithClass ID="hfOccurrenceSundayDate" CssClass="js-occurrence-sunday-date" runat="server" />
                                     <Rock:HiddenFieldWithClass ID="hfOccurrenceScheduleId" CssClass="js-occurrence-schedule-id" runat="server" />
                                     <Rock:HiddenFieldWithClass ID="hfResourceGroupId" CssClass="js-resource-group-id" runat="server" />
                                     <Rock:HiddenFieldWithClass ID="hfResourceGroupMemberFilterType" CssClass="js-resource-groupmemberfiltertype" runat="server" />
@@ -92,7 +94,6 @@
                                             </h1>
 
                                             <div class="panel-labels">
-                                                <div class="btn btn-xs btn-default js-select-all">Select All</div>
                                                 <div class="btn btn-xs btn-default btn-square js-add-resource" title="Add Person">
                                                     <i class="fa fa-plus"></i>
                                                 </div>
@@ -101,7 +102,7 @@
 
                                         <div class="panel-body padding-all-none">
 
-                                            <div class="js-add-resource-picker margin-all-sm" style="display:none" >
+                                            <div class="js-add-resource-picker margin-all-sm" style="display: none">
                                                 <Rock:PersonPicker ID="ppAddResource" runat="server" Label="Select Person" OnSelectPerson="ppAddResource_SelectPerson" />
                                             </div>
 
@@ -109,24 +110,24 @@
                                             <Rock:RockTextBox ID="sfResource" runat="server" CssClass="resource-search padding-all-sm js-resource-search" PrependText="<i class='fa fa-search'></i>" Placeholder="Search" />
                                             <!-- <div class="scroll-container scroll-container-resourcelist">
                                                 <div class="scrollbar"> -->
-                                                    <asp:Panel ID="pnlListTrack" runat="server" CssClass="track">
-                                                        <div class="thumb">
-                                                            <div class="end"></div>
-                                                        </div>
+                                            <asp:Panel ID="pnlListTrack" runat="server" CssClass="track">
+                                                <div class="thumb">
+                                                    <div class="end"></div>
+                                                </div>
+                                            </asp:Panel>
+                                            <!-- </div> -->
+                                            <asp:Panel ID="pnlListViewPort" runat="server" CssClass="viewport">
+                                                <div class="overview">
+
+                                                    <%-- loading indicator --%>
+                                                    <i class="fa fa-refresh fa-spin margin-l-md js-loading-notification" style="display: none; opacity: .4;"></i>
+
+                                                    <%-- container for list of resources --%>
+
+                                                    <asp:Panel ID="pnlResourceListContainer" CssClass="js-scheduler-source-container resource-container dropzone" runat="server">
                                                     </asp:Panel>
-                                                <!-- </div> -->
-                                                <asp:Panel ID="pnlListViewPort" runat="server" CssClass="viewport">
-                                                    <div class="overview">
-
-                                                        <%-- loading indicator --%>
-                                                        <i class="fa fa-refresh fa-spin margin-l-md js-loading-notification" style="display: none; opacity: .4;"></i>
-
-                                                        <%-- container for list of resources --%>
-
-                                                        <asp:Panel ID="pnlResourceListContainer" CssClass="js-scheduler-source-container resource-container dropzone" runat="server">
-                                                        </asp:Panel>
-                                                    </div>
-                                                </asp:Panel>
+                                                </div>
+                                            </asp:Panel>
                                             <!-- </div> -->
 
                                         </div>
@@ -157,6 +158,10 @@
                                                     <ul class="dropdown-menu">
                                                         <li>
                                                             <button type="button" class="dropdown-item btn-link js-markconfirmed">Mark Confirmed</button></li>
+                                                        <li>
+                                                            <button type="button" class="dropdown-item btn-link js-markpending">Mark Pending</button></li>
+                                                        <li>
+                                                            <button type="button" class="dropdown-item btn-link js-markdeclined">Mark Declined</button></li>
                                                         <li>
                                                             <button type="button" class="dropdown-item btn-link js-resendconfirmation">Resend Confirmation</button></li>
                                                     </ul>
@@ -197,7 +202,6 @@
                                                                             <span class="sr-only"><span class="js-progress-text-percent"></span>% Complete (declined)</span>
                                                                         </div>
                                                                         <div class="minimum-indicator js-minimum-indicator" data-minimum-value="0" style="margin-left: 0%">
-
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -237,11 +241,11 @@
                             $(this).toggle(true);
                         }
                         else {
-                            
+
                             var resourceName = $(this).find('.js-resource-name').text();
                             var resourceNameSplit = resourceName.split(' ');
                             var anyMatch = false;
-                            
+
                             // if the first or lastname starts with the searchstring, show the person
                             $.each(resourceNameSplit, function (nindex) {
                                 if (resourceNameSplit[nindex].toLowerCase().indexOf(value) == 0) {

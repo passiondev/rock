@@ -22,9 +22,12 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 
 using Rock;
+using Rock.Attribute;
 using Rock.Data;
 using Rock.Model;
+using Rock.Security;
 using Rock.Web.UI;
+using Rock.Web.UI.Controls;
 
 namespace RockWeb.Blocks.Groups
 {
@@ -34,8 +37,28 @@ namespace RockWeb.Blocks.Groups
     [DisplayName( "Group Scheduler" )]
     [Category( "Groups" )]
     [Description( "Allows volunteer schedules for groups and locations to be managed by a scheduler." )]
+
+    [IntegerField(
+        "Number of Weeks To Show",
+        Description = "The number of weeks out that can scheduled.",
+        IsRequired = true,
+        DefaultValue = "6",
+        Order = 0,
+        Key = AttributeKeys.FutureWeeksToShow )]
+
     public partial class GroupScheduler : RockBlock
     {
+        /// <summary>
+        /// 
+        /// </summary>
+        protected class AttributeKeys
+        {
+            /// <summary>
+            /// The future weeks to show
+            /// </summary>
+            public const string FutureWeeksToShow = "FutureWeeksToShow";
+        }
+
         #region UserPreferenceKeys
 
         /// <summary>
@@ -132,6 +155,20 @@ namespace RockWeb.Blocks.Groups
         {
             bgResourceListSource.BindToEnum<SchedulerResourceListSourceType>();
             rblGroupMemberFilter.BindToEnum<SchedulerResourceGroupMemberFilterType>();
+
+            int numOfWeeks = GetAttributeValue( AttributeKeys.FutureWeeksToShow ).AsIntegerOrNull() ?? 6;
+
+            ddlWeek.Items.Clear();
+
+            var sundayDate = RockDateTime.Now.SundayDate();
+            int weekNum = 0;
+            while ( weekNum < numOfWeeks )
+            {
+                string weekTitle = string.Format( "Week of {0} to {1}", sundayDate.AddDays( -6 ).ToShortDateString(), sundayDate.ToShortDateString() );
+                ddlWeek.Items.Add( new ListItem( weekTitle, sundayDate.ToISO8601DateString() ) );
+                weekNum++;
+                sundayDate = sundayDate.AddDays( 7 );
+            }
         }
 
         /// <summary>
@@ -140,6 +177,27 @@ namespace RockWeb.Blocks.Groups
         private void UpdateScheduleList()
         {
             Group group = GetSelectedGroup();
+
+            if ( group == null )
+            {
+                pnlScheduler.Visible = false;
+                return;
+            }
+
+            bool canSchedule = group.IsAuthorized( Authorization.EDIT, this.CurrentPerson ) || group.IsAuthorized( Authorization.SCHEDULE, this.CurrentPerson );
+            if ( !canSchedule )
+            {
+                nbNotice.Heading = "Sorry";
+                nbNotice.Text = "<p>You're not authorized to schedule resources for the selected group.</p>";
+                nbNotice.NotificationBoxType = NotificationBoxType.Warning;
+                nbNotice.Visible = true;
+                pnlScheduler.Visible = false;
+                return;
+            }
+            else
+            {
+                nbNotice.Visible = false;
+            }
 
             nbGroupWarning.Visible = false;
             pnlGroupScheduleLocations.Visible = false;
@@ -200,7 +258,17 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void LoadFilterFromUserPreferences()
         {
-            dpDate.SelectedDate = this.GetBlockUserPreference( UserPreferenceKey.SelectedDate ).AsDateTime();
+            var selectedSundayDate = this.GetBlockUserPreference( UserPreferenceKey.SelectedDate ).AsDateTime();
+            var selectedWeekItem = ddlWeek.Items.FindByValue( selectedSundayDate.ToISO8601DateString() );
+            if ( selectedWeekItem != null )
+            {
+                selectedWeekItem.Selected = true;
+            }
+            else
+            {
+                ddlWeek.SelectedIndex = 0;
+            }
+
             hfGroupId.Value = this.GetBlockUserPreference( UserPreferenceKey.SelectedGroupId );
             gpGroup.SetValue( hfGroupId.Value.AsIntegerOrNull() );
 
@@ -226,7 +294,7 @@ namespace RockWeb.Blocks.Groups
         private void ApplyFilter()
         {
             this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupId, hfGroupId.Value );
-            this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, dpDate.SelectedDate.ToISO8601DateString() );
+            this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, ddlWeek.SelectedValue );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds, cblGroupLocations.SelectedValues.AsDelimited( "," ) );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedScheduleId, rblSchedule.SelectedValue );
 
@@ -254,8 +322,31 @@ namespace RockWeb.Blocks.Groups
         {
             Group group = GetSelectedGroup();
 
+            if ( group == null )
+            {
+                pnlScheduler.Visible = false;
+                return;
+            }
+
             if ( group != null )
             {
+                bool canSchedule = group.IsAuthorized( Authorization.EDIT, this.CurrentPerson ) || group.IsAuthorized( Authorization.SCHEDULE, this.CurrentPerson );
+                if ( !canSchedule )
+                {
+                    nbNotice.Heading = "Sorry";
+                    nbNotice.Text = "<p>You're not authorized to schedule resources for the selected group.</p>";
+                    nbNotice.NotificationBoxType = NotificationBoxType.Warning;
+                    nbNotice.Visible = true;
+                    pnlScheduler.Visible = false;
+                    return;
+                }
+                else
+                {
+                    nbNotice.Visible = false;
+                }
+
+                pnlScheduler.Visible = true;
+
                 var groupLocations = group.GroupLocations.OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
 
                 // get the selected group location ids just in case any of them are the same after repopulated
@@ -305,7 +396,7 @@ namespace RockWeb.Blocks.Groups
 
             hfOccurrenceGroupId.Value = hfGroupId.Value;
             hfOccurrenceScheduleId.Value = rblSchedule.SelectedValue;
-            hfOccurrenceOccurrenceDate.Value = dpDate.SelectedDate.ToISO8601DateString();
+            hfOccurrenceSundayDate.Value = ddlWeek.SelectedValue.AsDateTime().ToISO8601DateString();
 
             hfResourceGroupId.Value = resourceGroupId.ToString();
 
@@ -329,29 +420,45 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindAttendanceOccurrences()
         {
-            var occurrenceDate = dpDate.SelectedDate;
+            var occurrenceSundayDate = hfOccurrenceSundayDate.Value.AsDateTime().Value.Date;
+            var occurrenceSundayWeekStartDate = occurrenceSundayDate.AddDays( -6 );
+
             var scheduleId = rblSchedule.SelectedValueAsId();
 
-            if ( occurrenceDate == null || scheduleId == null )
+
+            var rockContext = new RockContext();
+            var occurrenceSchedule = new ScheduleService( rockContext ).GetNoTracking( scheduleId ?? 0 );
+
+            if ( occurrenceSchedule == null )
             {
                 btnAutoSchedule.Visible = false;
                 return;
             }
 
+            var scheduleOccurrenceDateTime = occurrenceSchedule.GetNextStartDateTime( occurrenceSundayWeekStartDate );
+
+
+            if ( scheduleOccurrenceDateTime == null )
+            {
+                btnAutoSchedule.Visible = false;
+                return;
+            }
+
+            var occurrenceDate = scheduleOccurrenceDateTime.Value.Date;
             btnAutoSchedule.Visible = true;
 
-            var rockContext = new RockContext();
+            
             var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
-            var missingAttendanceOccurrences = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( occurrenceDate.Value, scheduleId.Value, selectedGroupLocationIds );
+            var missingAttendanceOccurrences = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( occurrenceDate, scheduleId.Value, selectedGroupLocationIds );
             if ( missingAttendanceOccurrences.Any() )
             {
                 attendanceOccurrenceService.AddRange( missingAttendanceOccurrences );
                 rockContext.SaveChanges();
             }
 
-            var attendanceOccurrenceGroupLocationScheduleConfigQuery = attendanceOccurrenceService.AttendanceOccurrenceGroupLocationScheduleConfigJoinQuery( occurrenceDate.Value, scheduleId.Value, selectedGroupLocationIds );
+            var attendanceOccurrenceGroupLocationScheduleConfigQuery = attendanceOccurrenceService.AttendanceOccurrenceGroupLocationScheduleConfigJoinQuery( occurrenceDate, scheduleId.Value, selectedGroupLocationIds );
 
             var attendanceOccurrencesOrderedList = attendanceOccurrenceGroupLocationScheduleConfigQuery.AsNoTracking()
                 .OrderBy( a => a.GroupLocation.Order ).ThenBy( a => a.GroupLocation.Location.Name )
@@ -445,11 +552,11 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// Handles the ValueChanged event of the dpDate control.
+        /// Handles the SelectedIndexChanged event of the ddlWeek control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void dpDate_ValueChanged( object sender, EventArgs e )
+        protected void ddlWeek_SelectedIndexChanged( object sender, EventArgs e )
         {
             ApplyFilter();
         }
@@ -520,17 +627,19 @@ namespace RockWeb.Blocks.Groups
             var rockContext = new RockContext();
 
             var groupId = hfGroupId.Value.AsInteger();
-            var selectedDate = dpDate.SelectedDate.Value;
             var scheduleId = rblSchedule.SelectedValue.AsInteger();
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
             var attendanceService = new AttendanceService( rockContext );
 
-            var sundayDate = selectedDate.SundayDate();
+            var sundayDate = ddlWeek.SelectedValue.AsDateTime();
+            if ( sundayDate.HasValue )
+            {
 
-            // NOTE: Partially functional
-            attendanceService.SchedulePersonsAutomatically( groupId, sundayDate, this.CurrentPersonAlias );
-            rockContext.SaveChanges();
+                // NOTE: Partially functional
+                attendanceService.SchedulePersonsAutomatically( groupId, sundayDate.Value, this.CurrentPersonAlias );
+                rockContext.SaveChanges();
+            }
 
             // NOTE: If SchedulePersonsAutomatically ended up scheduling anybody, they'll now show up in the UI. (JavaScript+REST takes care of populating it)
         }

@@ -92,23 +92,7 @@ namespace Rock.Rest.Controllers
         }
 
         /// <summary>
-        /// Confirms a person for a scheduled attendance
-        /// </summary>
-        /// <param name="attendanceId">The attendance identifier.</param>
-        [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/ScheduledPersonConfirm" )]
-        [HttpPut]
-        public void ScheduledPersonConfirm( int attendanceId )
-        {
-            var rockContext = new RockContext();
-            var attendanceService = new AttendanceService( rockContext );
-            attendanceService.ScheduledPersonConfirm( attendanceId );
-
-            rockContext.SaveChanges();
-        }
-
-        /// <summary>
-        /// Schedules a person to an attendance
+        /// Schedules a person to an attendance and marks them as pending
         /// </summary>
         /// <param name="personId">The person identifier.</param>
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
@@ -126,6 +110,54 @@ namespace Rock.Rest.Controllers
             rockContext.SaveChanges();
 
             return result;
+        }
+
+        /// <summary>
+        /// Sets a person's status to pending for the scheduled attendance
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        [Authenticate, Secured]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonPending" )]
+        [HttpPut]
+        public void ScheduledPersonPending( int attendanceId )
+        {
+            var rockContext = new RockContext();
+            var attendanceService = new AttendanceService( rockContext );
+            attendanceService.ScheduledPersonPending( attendanceId );
+
+            rockContext.SaveChanges();
+        }
+
+        /// <summary>
+        /// Confirms a person for a scheduled attendance
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        [Authenticate, Secured]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonConfirm" )]
+        [HttpPut]
+        public void ScheduledPersonConfirm( int attendanceId )
+        {
+            var rockContext = new RockContext();
+            var attendanceService = new AttendanceService( rockContext );
+            attendanceService.ScheduledPersonConfirm( attendanceId );
+
+            rockContext.SaveChanges();
+        }
+
+        /// <summary>
+        /// Set person as declined for a scheduled attendance
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        [Authenticate, Secured]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonDecline" )]
+        [HttpPut]
+        public void ScheduledPersonDecline( int attendanceId )
+        {
+            var rockContext = new RockContext();
+            var attendanceService = new AttendanceService( rockContext );
+            attendanceService.ScheduledPersonDecline( attendanceId, null );
+
+            rockContext.SaveChanges();
         }
 
         #endregion Group Scheduler Related
