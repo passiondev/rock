@@ -102,7 +102,7 @@ namespace RockWeb.Blocks.Groups
 
                 return GroupScheduleToolboxTab.MySchedule;
             }
-            
+
             set
             {
                 ViewState["CurrentTab"] = value;
@@ -658,7 +658,7 @@ $('#{0}').tooltip();
 
             var repeaterItemGroup = ( ( Repeater ) sender ).BindingContainer as RepeaterItem;
             var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
-            
+
             var rockContext = new RockContext();
 
             // TODO: If the person has multiple roles in the Group the same settings will be saved for each of those group members so we only need to get the first one
@@ -692,7 +692,7 @@ $('#{0}').tooltip();
             if ( groupmemberAssignment != null )
             {
                 ddlGroupPreferenceAssignmentLocation.SelectedValue = groupmemberAssignment.LocationId.ToStringSafe();
-                ddlGroupPreferenceAssignmentLocation.Items[0].Text = "No Preference";
+                ddlGroupPreferenceAssignmentLocation.Items[0].Text = "No Location Preference";
             }
         }
 
@@ -709,7 +709,7 @@ $('#{0}').tooltip();
             var hfScheduleId = ( HiddenField ) repeaterItemSchedule.FindControl( "hfScheduleId" );
 
             ddlGroupPreferenceAssignmentLocation.Enabled = scheduleCheckBox.Checked;
-            ddlGroupPreferenceAssignmentLocation.Items[0].Text = scheduleCheckBox.Checked ? "No Preference" : string.Empty;
+            ddlGroupPreferenceAssignmentLocation.Items[0].Text = scheduleCheckBox.Checked ? "No Location Preference" : string.Empty;
 
             var repeaterItemGroup = repeaterItemSchedule.Parent.Parent as RepeaterItem;
             var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
@@ -1203,6 +1203,7 @@ $('#{0}').tooltip();
             var container = new HtmlGenericContainer();
             container.Attributes.Add( "class", "row" );
             container.AddCssClass( "js-person-schedule-signup-row" );
+            container.AddCssClass( "margin-b-sm" );
 
             var cbContainer = new HtmlGenericContainer();
             cbContainer.Attributes.Add( "class", "col-md-1" );
@@ -1211,7 +1212,6 @@ $('#{0}').tooltip();
             cb.ID = "dbSignupSchedule";
             cb.Text = personScheduleSignup.OccurrenceDate.ToString("hh:mm tt");
             cb.ToolTip = personScheduleSignup.ScheduleName;
-            cb.Attributes.Add( "style", "float: left;" );
             cb.AddCssClass( "js-person-schedule-signup-checkbox" );
             cb.Checked = false;
             cbContainer.Controls.Add( cb );
@@ -1225,23 +1225,21 @@ $('#{0}').tooltip();
 
             var ddl = new RockDropDownList();
             ddl.ID = "ddlSignupLocations";
-            ddl.Attributes.Add( "style", "width:200px" );
             ddl.DataSource = locations;
             ddl.DataTextField = "Text";
             ddl.DataValueField = "Value";
             ddl.DataBind();
             ddl.AddCssClass( "js-person-schedule-signup-ddl" );
+            ddl.AddCssClass( "input-width-xl" );
             ddl.Items.Insert( 0, new ListItem( string.Empty, string.Empty ) );
 
             var ddlContainer = new HtmlGenericContainer();
             ddlContainer.Attributes.Add( "class", "col-md-11" );
-            ddlContainer.Attributes.Add( "style", "padding-top: 7px;" );
             ddlContainer.Controls.Add( ddl );
 
             var notificationLabel = new Label();
             notificationLabel.Style.Add( "display", "none" );
-            notificationLabel.Style.Add( "padding-left", "10px" );
-            notificationLabel.AddCssClass( "label label-warning" );
+            notificationLabel.AddCssClass( "label label-warning margin-l-sm" );
             notificationLabel.AddCssClass( "js-person-schedule-signup-notification" );
             notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
             ddlContainer.Controls.Add( notificationLabel );

@@ -130,8 +130,8 @@
                                             <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" AutoPostBack="true" />
                                         </div>
                                     </div>
-                                    
-                                    
+
+
 
                                     <span class="control-label">
                                         <asp:Literal runat="server" ID="lGroupPreferenceAssignmentLabel" Text="Assignment" />
@@ -142,7 +142,7 @@
 
                                     <asp:Repeater ID="rptGroupPreferenceAssignments" runat="server" OnItemDataBound="rptGroupPreferenceAssignments_ItemDataBound">
                                         <ItemTemplate>
-                                            <div class="row js-person-schedule-preferences-row">
+                                            <div class="row js-person-schedule-preferences-row margin-b-sm">
                                                 <asp:HiddenField ID="hfGroupMemberId" runat="server" />
                                                 <asp:HiddenField ID="hfScheduleId" runat="server" />
                                                 <div class="col-md-4">
