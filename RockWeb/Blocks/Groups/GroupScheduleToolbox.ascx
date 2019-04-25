@@ -22,7 +22,7 @@
                         <asp:Repeater ID="rptTabs" runat="server">
                             <ItemTemplate>
                                 <li class='<%# GetTabClass(Container.DataItem) %>'>
-                                    <asp:LinkButton ID="lbTab" runat="server" Text='<%# Container.DataItem %>' OnClick="lbTab_Click" CausesValidation="false">
+                                    <asp:LinkButton ID="lbTab" runat="server" Text='<%# GetTabName(Container.DataItem) %>' CommandArgument="<%# Container.DataItem %>" OnClick="lbTab_Click" CausesValidation="false">
                                     </asp:LinkButton>
                                 </li>
                             </ItemTemplate>
@@ -126,9 +126,10 @@
                                                 <asp:ListItem Value="13" Text="13 days before"></asp:ListItem>
                                                 <asp:ListItem Value="14" Text="14 days before"></asp:ListItem>
                                             </Rock:RockDropDownList>
+                                            <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" AutoPostBack="true" />
                                         </div>
                                         <div class="col-md-6">
-                                            <Rock:RockDropDownList ID="ddlGroupMemberScheduleTemplate" runat="server" Label="Current Schedule" OnSelectedIndexChanged="ddlGroupMemberScheduleTemplate_SelectedIndexChanged" AutoPostBack="true" />
+                                            
                                         </div>
                                     </div>
 
@@ -162,9 +163,9 @@
 
                         <%-- Blackout Dates --%>
                         <div class="col-md-6">
-                            <h2>
+                            <h4>
                                 <asp:Literal runat="server" ID="lBlackoutDates" Text="Blackout Dates" />
-                            </h2>
+                            </h4>
                             <hr class="margin-t-sm margin-b-sm" />
                             <p>
                                 <asp:Literal runat="server" ID="lBlackoutDatesHelp" Text="Please provide any dates you will not be able to attend." />
@@ -240,8 +241,8 @@
                 <asp:ValidationSummary ID="valSummaryAddBlackoutDates" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="AddBlackOutDates"/>
 
                 <Rock:DateRangePicker ID="drpBlackoutDateRange" runat="server" Label="Date Range" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="Date Range is required" />
-                <Rock:RockDropDownList ID="ddlBlackoutGroups" runat="server" Label="Groups"></Rock:RockDropDownList>
-                <Rock:RockCheckBoxList ID="cblBlackoutPersons" runat="server" RepeatDirection="Vertical" RepeatColumns="1" Label="Individual" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="At least one person must be selected" ></Rock:RockCheckBoxList>
+                <Rock:RockDropDownList ID="ddlBlackoutGroups" runat="server" Label="Group" />
+                <Rock:RockCheckBoxList ID="cblBlackoutPersons" runat="server" RepeatDirection="Vertical" RepeatColumns="1" Label="Individual" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="At least one person must be selected" />
 
             </Content>
         </Rock:ModalDialog>

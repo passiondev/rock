@@ -72,16 +72,19 @@ namespace RockWeb.Blocks.Groups
             /// <summary>
             /// My Schedule tab
             /// </summary>
+            [Description("My Schedule")]
             MySchedule = 0,
 
             /// <summary>
             /// Preferences tab
             /// </summary>
+            [Description( "Preferences" )]
             Preferences = 1,
 
             /// <summary>
             /// Sign-up tab
             /// </summary>
+            [Description( "Sign-up" )]
             SignUp = 2
         }
 
@@ -276,7 +279,7 @@ $('#{0}').tooltip();
             LinkButton lb = sender as LinkButton;
             if ( lb != null )
             {
-                CurrentTab = (GroupScheduleToolboxTab)Enum.Parse(typeof(GroupScheduleToolboxTab), lb.Text);
+                CurrentTab = lb.CommandArgument.ConvertToEnum<GroupScheduleToolboxTab>();
 
                 rptTabs.DataSource = _tabs;
                 rptTabs.DataBind();
@@ -315,6 +318,16 @@ $('#{0}').tooltip();
             }
 
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Gets the name of the tab.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <returns></returns>
+        protected string GetTabName( object property )
+        { 
+            return ( ( GroupScheduleToolboxTab ) property ).GetDescription();
         }
 
         /// <summary>
@@ -652,7 +665,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 var groupLocationService = new GroupLocationService( rockContext );
-                var schedules = groupLocationService
+                var scheduleList = groupLocationService
                     .Queryable()
                     .AsNoTracking()
                     .Where( g => g.GroupId == group.Id )
@@ -660,13 +673,12 @@ $('#{0}').tooltip();
                     .Distinct()
                     .ToList();
 
-                // The time is locked up in the iCal string in the schedule. So use the list of schedules, get the times from them, and create a new list
-                // of ScheduleTime so we can sort by time.
-                var scheduleTime = schedules
-                    .Select( s => new ScheduleTime ( s ) )
-                    .OrderBy( st => st.Time );
+                // Calculate the Next Start Date Time based on the start of the week so that schedule columns are in the correct order
+                var occurrenceDate = RockDateTime.Now.SundayDate().AddDays( 1 );
 
-                rptGroupPreferenceAssignments.DataSource = scheduleTime;
+                List<Schedule> sortedScheduleList = scheduleList.OrderBy( a => a.GetNextStartDateTime( occurrenceDate ) ).ToList();
+
+                rptGroupPreferenceAssignments.DataSource = sortedScheduleList;
                 rptGroupPreferenceAssignments.DataBind();
             }
         }
@@ -678,14 +690,14 @@ $('#{0}').tooltip();
         /// <param name="e">The <see cref="RepeaterItemEventArgs"/> instance containing the event data.</param>
         protected void rptGroupPreferenceAssignments_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
-            var scheduleTime = ( ScheduleTime ) e.Item.DataItem;
-            if ( scheduleTime == null )
+            var schedule = e.Item.DataItem as Schedule;
+            if ( schedule == null )
             {
                 return;
             }
 
             var hfScheduleId = ( HiddenField ) e.Item.FindControl( "hfScheduleId" );
-            hfScheduleId.Value = scheduleTime.ScheduleForTime.Id.ToString();
+            hfScheduleId.Value = schedule.Id.ToString();
 
             var cbGroupPreferenceAssignmentScheduleTime = ( CheckBox ) e.Item.FindControl( "cbGroupPreferenceAssignmentScheduleTime" );
 
@@ -706,15 +718,20 @@ $('#{0}').tooltip();
                 .Queryable()
                 .AsNoTracking()
                 .Where( x => x.GroupMemberId == groupMemberId )
-                .Where( x => x.ScheduleId == scheduleTime.ScheduleForTime.Id )
+                .Where( x => x.ScheduleId == schedule.Id )
                 .FirstOrDefault();
 
-            cbGroupPreferenceAssignmentScheduleTime.Text = scheduleTime.Time.ToShortTimeString();
-            cbGroupPreferenceAssignmentScheduleTime.ToolTip = scheduleTime.ScheduleForTime.Name;
+            cbGroupPreferenceAssignmentScheduleTime.Text = schedule.Name;
             cbGroupPreferenceAssignmentScheduleTime.Checked = groupmemberAssignment != null;
 
             var ddlGroupPreferenceAssignmentLocation = ( DropDownList ) e.Item.FindControl( "ddlGroupPreferenceAssignmentLocation" );
-            var locations = new LocationService( rockContext ).GetByGroupSchedule( scheduleTime.ScheduleForTime.Id, hfPreferencesGroupId.ValueAsInt() ).ToList();
+            var locations = new LocationService( rockContext ).GetByGroupSchedule( schedule.Id, hfPreferencesGroupId.ValueAsInt() )
+                .Select( a => new
+                {
+                    a.Id,
+                    a.Name
+                } ).ToList();
+
             ddlGroupPreferenceAssignmentLocation.DataSource = locations;
             ddlGroupPreferenceAssignmentLocation.DataValueField = "Id";
             ddlGroupPreferenceAssignmentLocation.DataTextField = "Name";
@@ -842,48 +859,6 @@ $('#{0}').tooltip();
                 ddlGroupMemberScheduleTemplate.DataBind();
                 ddlGroupMemberScheduleTemplate.SelectedValue = groupMember.ScheduleTemplateId == null ? string.Empty : groupMember.ScheduleTemplateId.ToString();
             }
-        }
-
-        /// <summary>
-        /// Class to allow the block to easily sort schedules by time
-        /// </summary>
-        private class ScheduleTime
-        {
-            /// <summary>
-            /// Initializes a new instance of the <see cref="ScheduleTime"/> class.
-            /// </summary>
-            /// <param name="schedule">The schedule.</param>
-            public ScheduleTime( Schedule schedule )
-            {
-                ScheduleForTime = schedule;
-                var occurrenceDateTime = schedule.GetOccurrences( DateTime.Now.AddDays(-1), DateTime.Now.AddDays( 365 ) ).FirstOrDefault().Period.StartTime.Value;
-
-                // We need to sort by time, so set the dates all the same and just use the time.
-                _time = DateTime.MinValue.Add( occurrenceDateTime.TimeOfDay );
-            }
-
-            /// <summary>
-            /// Gets the time for the Schedule. The date part is the min date, so this is just for the time.
-            /// </summary>
-            /// <value>
-            /// The time.
-            /// </value>
-            public DateTime Time {
-                get
-                {
-                    return _time;
-                }
-            }
-
-            private DateTime _time;
-
-            /// <summary>
-            /// Gets or sets the schedule.
-            /// </summary>
-            /// <value>
-            /// The schedule for time.
-            /// </value>
-            public Schedule ScheduleForTime { get; set; }
         }
 
         #region Preferences Tab Blackout
@@ -1144,6 +1119,7 @@ $('#{0}').tooltip();
             {
                 case "MDADDBLACKOUTDATES":
                     mdAddBlackoutDates.Show();
+                    drpBlackoutDateRange.DelimitedValues = string.Empty;
                     mdAddBlackoutDates_ddlBlackoutGroups_Bind();
                     mdAddBlackoutDates_cblBlackoutPersons_Bind();
                     break;
