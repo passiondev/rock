@@ -2,12 +2,13 @@
 
 <asp:UpdatePanel ID="upnlContent" runat="server">
     <ContentTemplate>
+        <asp:HiddenField ID="hfSelectedPersonId" runat="server" />
         <asp:Panel ID="pnlView" runat="server" CssClass="panel panel-block">
 
             <div class="panel-heading">
                 <h1 class="panel-title">
                     <i class="fa fa-calendar"></i>
-                    Schedule Toolbox
+                    <asp:Literal ID="lTitle" runat="server" Text="Schedule Toolbox" />
                 </h1>
 
                 <div class="panel-labels">

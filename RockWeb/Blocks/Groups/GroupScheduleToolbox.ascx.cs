@@ -86,6 +86,25 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
+        /// Gets or sets the selected person identifier.
+        /// </summary>
+        /// <value>
+        /// The selected person identifier.
+        /// </value>
+        public int SelectedPersonId
+        {
+            get
+            {
+                return hfSelectedPersonId.Value.AsInteger();
+            }
+
+            set
+            {
+                hfSelectedPersonId.Value = value.ToString();
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the current tab in the ViewState
         /// </summary>
         /// <value>
@@ -194,7 +213,7 @@ $('#{0}').tooltip();
                         using ( var rockContext = new RockContext() )
                         {
                             var attendanceService = new AttendanceService( rockContext );
-                            var attendance = attendanceService.ScheduledPersonAssign( CurrentPerson.Id, attendanceOccurrence.Id, CurrentPersonAlias );
+                            var attendance = attendanceService.ScheduledPersonAssign( this.SelectedPersonId, attendanceOccurrence.Id, CurrentPersonAlias );
                             rockContext.SaveChanges();
 
                             attendanceService.ScheduledPersonConfirm( attendance.Id );
@@ -216,6 +235,18 @@ $('#{0}').tooltip();
 
             if ( !Page.IsPostBack )
             {
+                var targetPerson = this.ContextEntity<Person>();
+                if ( targetPerson != null )
+                {
+                    lTitle.Text = "Schedule Toolbox - " + targetPerson.FullName;
+                    this.SelectedPersonId = targetPerson.Id;
+                }
+                else
+                {
+                    lTitle.Text = "Schedule Toolbox";
+                    this.SelectedPersonId = this.CurrentPersonId ?? 0;
+                }
+
                 BindTabs();
                 ShowSelectedTab();
             }
@@ -460,7 +491,7 @@ $('#{0}').tooltip();
             var rockContext = new RockContext();
 
             var qryPendingConfirmations = new AttendanceService( rockContext ).GetConfirmedScheduled()
-                .Where( a => a.PersonAlias.PersonId == CurrentPerson.Id )
+                .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId )
                 .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
@@ -468,14 +499,16 @@ $('#{0}').tooltip();
             rptUpcomingSchedules.DataBind();
 
             var personAliasService = new PersonAliasService( rockContext );
-            var paguid = CurrentPersonAlias.Guid;
-
-            // Set URL in feed button
-            var globalAttributes = Rock.Web.Cache.GlobalAttributesCache.Get();
-            btnCopyToClipboard.Attributes["data-clipboard-text"] = string.Format(
-                "{0}GetPersonGroupScheduleFeed.ashx?paguid={1}",
-                globalAttributes.GetValue( "PublicApplicationRoot" ).EnsureTrailingForwardslash(),
-                CurrentPersonAlias.Guid );
+            var primaryAlias = personAliasService.GetPrimaryAlias( this.SelectedPersonId );
+            if ( primaryAlias != null )
+            {
+                // Set URL in feed button
+                var globalAttributes = Rock.Web.Cache.GlobalAttributesCache.Get();
+                btnCopyToClipboard.Attributes["data-clipboard-text"] = string.Format(
+                    "{0}GetPersonGroupScheduleFeed.ashx?paguid={1}",
+                    globalAttributes.GetValue( "PublicApplicationRoot" ).EnsureTrailingForwardslash(),
+                    primaryAlias.Guid );
+            }
             btnCopyToClipboard.Disabled = false;
         }
 
@@ -489,7 +522,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 var pendingConfirmations = new AttendanceService( rockContext ).GetPendingScheduledConfirmations()
-                    .Where( a => a.PersonAlias.PersonId == CurrentPerson.Id )
+                    .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId )
                     .OrderBy( a => a.Occurrence.OccurrenceDate )
                     .ToList();
 
@@ -517,7 +550,7 @@ $('#{0}').tooltip();
                 var groups = groupMemberService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( x => x.PersonId == CurrentPerson.Id )
+                    .Where( x => x.PersonId == this.SelectedPersonId )
                     .Where( x => x.Group.GroupType.IsSchedulingEnabled == true )
                     .Select( x => x.Group )
                     .OrderBy( x => x.Name )
@@ -551,7 +584,7 @@ $('#{0}').tooltip();
                 var groupMembers = groupMemberService
                     .Queryable()
                     .Where( x => x.GroupId == groupId )
-                    .Where( x => x.PersonId == CurrentPerson.Id )
+                    .Where( x => x.PersonId == this.SelectedPersonId )
                     .ToList();
 
                 // in most cases the will be only one unless the person has multiple roles in the group (e.g. leader and member)
@@ -582,7 +615,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMembers = groupMemberService.GetByGroupIdAndPersonId( groupId, CurrentPerson.Id ).ToList();
+                var groupMembers = groupMemberService.GetByGroupIdAndPersonId( groupId, this.SelectedPersonId ).ToList();
 
                 // In most cases there will be only one unless the person has multiple roles in the group (e.g. Leader and Member)
                 foreach ( var groupMember in groupMembers )
@@ -663,7 +696,7 @@ $('#{0}').tooltip();
 
             // TODO: If the person has multiple roles in the Group the same settings will be saved for each of those group members so we only need to get the first one
             int groupMemberId = new GroupMemberService( rockContext )
-                .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), CurrentPerson.Id )
+                .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), this.SelectedPersonId )
                 .AsNoTracking()
                 .Select( gm => gm.Id )
                 .FirstOrDefault();
@@ -717,7 +750,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 List<int> groupMemberIds = new GroupMemberService( rockContext )
-                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), CurrentPerson.Id )
+                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), this.SelectedPersonId )
                     .AsNoTracking()
                     .Select( gm => gm.Id )
                     .ToList();
@@ -757,7 +790,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 List<int> groupMemberIds = new GroupMemberService( rockContext )
-                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), CurrentPerson.Id )
+                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), this.SelectedPersonId )
                     .AsNoTracking()
                     .Select( gm => gm.Id )
                     .ToList();
@@ -787,7 +820,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, CurrentPerson.Id ).FirstOrDefault();
+                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, this.SelectedPersonId ).FirstOrDefault();
 
                 // The items for this are hard coded in the markup, so just set the selected value.
                 ddlSendRemindersDaysOffset.SelectedValue = groupMember.ScheduleReminderEmailOffsetDays == null ? string.Empty : groupMember.ScheduleReminderEmailOffsetDays.ToString();
@@ -913,7 +946,7 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 List<int> familyMemberAliasIds = new PersonService( rockContext )
-                    .GetFamilyMembers( CurrentPerson.Id, true )
+                    .GetFamilyMembers( this.SelectedPersonId, true )
                     .Select( m => m.Person.Aliases.FirstOrDefault( a => a.PersonId == m.PersonId ) )
                     .Select( a => a.Id )
                     .ToList();
@@ -993,7 +1026,7 @@ $('#{0}').tooltip();
                 var groups = groupMemberService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( g => g.PersonId == CurrentPerson.Id )
+                    .Where( g => g.PersonId == this.SelectedPersonId )
                     .Where( g => g.Group.GroupType.IsSchedulingEnabled == true )
                     .Select( g => new { Value = (int?)g.GroupId, Text = g.Group.Name } )
                     .ToList();
@@ -1016,13 +1049,22 @@ $('#{0}').tooltip();
             {
                 var personService = new PersonService( rockContext );
 
-                var familyMemberAliasIds = new PersonService( rockContext )
-                    .GetFamilyMembers( CurrentPerson.Id )
+                var familyMemberAliasIds = personService
+                    .GetFamilyMembers( this.SelectedPersonId )
                     .Select( m => m.Person.Aliases.FirstOrDefault( a => a.PersonId == m.PersonId ) )
                     .Select( a => new { Value = a.Id, Text = a.Person.NickName + " " + a.Person.LastName } )
                     .ToList();
 
-                familyMemberAliasIds.Insert( 0, new { Value = CurrentPersonAlias.Id, Text = CurrentPerson.FullName + " (you)" } );
+                var selectedPerson = personService.GetNoTracking( this.SelectedPersonId );
+
+                if ( this.SelectedPersonId == this.CurrentPersonId )
+                {
+                    familyMemberAliasIds.Insert( 0, new { Value = selectedPerson.PrimaryAliasId ?? 0, Text = selectedPerson.FullName + " (you)" } );
+                }
+                else
+                {
+                    familyMemberAliasIds.Insert( 0, new { Value = selectedPerson.PrimaryAliasId ?? 0, Text = selectedPerson.FullName } );
+                }
 
                 cblBlackoutPersons.DataSource = familyMemberAliasIds;
                 cblBlackoutPersons.DataValueField = "Value";
@@ -1267,7 +1309,7 @@ $('#{0}').tooltip();
                 var personScheduleExclusionService = new PersonScheduleExclusionService( rockContext );
 
                 // Get a list of schedules that a person can sign up for
-                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( CurrentPerson.Id )
+                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( this.SelectedPersonId )
                     .Tables[0]
                     .AsEnumerable()
                     .Select( s => new PersonScheduleSignup
@@ -1287,13 +1329,13 @@ $('#{0}').tooltip();
                 {
                     foreach ( var occurrence in schedule.Occurrences )
                     {
-                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, CurrentPerson.Id ) )
+                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, this.SelectedPersonId ) )
                         {
                             // If the person is scheduled for any group/location for this date/schedule then do not include in the sign-up list.
                             continue;
                         }
 
-                        if (personScheduleExclusionService.IsExclusionDate( CurrentPersonAliasId.Value, schedule.GroupId, occurrence.Period.StartTime.Value ) )
+                        if ( personScheduleExclusionService.IsExclusionDate( this.SelectedPersonId, schedule.GroupId, occurrence.Period.StartTime.Value ) )
                         {
                             // Don't show dates they have blacked out
                             continue;
