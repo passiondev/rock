@@ -32,11 +32,11 @@ namespace Rock.Model
     /// <seealso cref="Rock.Data.Service{Rock.Model.PersonScheduleExclusion}" />
     public partial class PersonScheduleExclusionService
     {
-        public bool IsExclusionDate( int personAliasId, int groupId, DateTime date )
+        public bool IsExclusionDate( int personId, int groupId, DateTime date )
         {
             var exclusions = Queryable()
             .AsNoTracking()
-            .Where ( e => e.PersonAliasId == personAliasId )
+            .Where ( e => e.PersonAlias.PersonId == personId )
             .Where ( e => e.GroupId == groupId || e.GroupId == null )
             .Where( e => e.StartDate >= DbFunctions.TruncateTime( date ) && e.EndDate <= DbFunctions.TruncateTime( date )  )
             .Select( e => e.Id )
