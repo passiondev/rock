@@ -41,6 +41,13 @@
                     isContainer: function (el) {
                         return false;
                     },
+                    moves: function (el, source, handle, sibling) {
+                        if ($(el).data('has-blackout-conflict') || $(el).data('has-requirements-conflict')) {
+                            // don't let resources with blackout or requirement conflicts to be assigned
+                            return false;
+                        }
+                        return true; 
+                    },
                     copy: function (el, source) {
                         return false;
                     },
@@ -214,7 +221,7 @@
 
                     var toolTipHtml = '<div>Confirmed: ' + totalConfirmed + '<br/>Pending: ' + totalPending + '<br/>Declined: ' + totalDeclined + '</div>';
                     
-                    $schedulingStatusContainer.attr('title', toolTipHtml);
+                    $schedulingStatusContainer.attr('data-original-title', toolTipHtml);
                     $schedulingStatusContainer.tooltip({ 'html': 'true', container: 'body' });
 
                     var confirmedPercent = !progressMax || (totalConfirmed*100 / progressMax);
@@ -312,8 +319,9 @@
             populateResourceDiv: function ($resourceDiv, schedulerResource, state) {
                 $resourceDiv.attr('data-state', state);
                 $resourceDiv.attr('data-person-id', schedulerResource.PersonId);
-                $resourceDiv.attr('data-has-conflict', schedulerResource.HasConflict);
+                $resourceDiv.attr('data-has-scheduling-conflict', schedulerResource.HasSchedulingConflict);
                 $resourceDiv.attr('data-has-blackout-conflict', schedulerResource.HasBlackoutConflict);
+                $resourceDiv.attr('data-has-requirements-conflict', schedulerResource.HasGroupRequirementsConflict);
 
                 $resourceDiv.find('.js-resource-name').text(schedulerResource.PersonName);
                 if (schedulerResource.Note) {

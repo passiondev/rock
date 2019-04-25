@@ -293,9 +293,13 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void ApplyFilter()
         {
-            this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupId, hfGroupId.Value );
-            this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, ddlWeek.SelectedValue );
-            this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds, cblGroupLocations.SelectedValues.AsDelimited( "," ) );
+            int groupId = hfGroupId.Value.AsInteger();
+            int scheduleId = rblSchedule.SelectedValue.AsInteger();
+            var groupLocationIdList = cblGroupLocations.SelectedValues.AsIntegerList();
+
+            this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupId, groupId.ToString() );
+            this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, scheduleId.ToString() );
+            this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds, groupLocationIdList.AsDelimited( "," ) );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedScheduleId, rblSchedule.SelectedValue );
 
             var resourceListSourceType = bgResourceListSource.SelectedValueAsEnum<SchedulerResourceListSourceType>();
@@ -311,8 +315,16 @@ namespace RockWeb.Blocks.Groups
             pnlResourceFilterAlternateGroup.Visible = resourceListSourceType == SchedulerResourceListSourceType.AlternateGroup;
             pnlResourceFilterDataView.Visible = resourceListSourceType == SchedulerResourceListSourceType.DataView;
 
-            InitResourceList();
-            BindAttendanceOccurrences();
+            bool filterIsValid = groupId > 0 && scheduleId > 0 && groupLocationIdList.Any();
+
+            pnlScheduler.Visible = filterIsValid;
+            nbFilterInstructions.Visible = !filterIsValid;
+
+            //if ( filterIsValid )
+            {
+                InitResourceList();
+                BindAttendanceOccurrences();
+            }
         }
 
         /// <summary>

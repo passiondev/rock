@@ -51,16 +51,22 @@
   &[data-state="assigned"] {
     display: inline-block;
   }
-
   // &[data-state="unassigned"] {
   //
   // }
-
   &[data-state="unassigned"][data-is-scheduled="true"] {
     background-color: @state-danger-bg;
   }
 
-  &[data-has-conflict="true"] {
+  &[data-has-scheduling-conflict="true"] {
+    background-color: @state-warning-bg;
+  }
+
+  &[data-has-blackout-conflict="true"] {
+    background-color: @state-warning-bg;
+  }
+
+  &[data-has-requirements-conflict="true"] {
     background-color: @state-warning-bg;
   }
 
@@ -75,6 +81,39 @@
 
   .dropdown-menu {
     font-size: @font-size-small;
+  }
+
+  .resource-blackout-status {
+    margin-left: 5px;
+    display: none;
+  }
+
+  &[data-has-blackout-conflict="true"] {
+    .resource-blackout-status {
+      display: block;
+    }
+  }
+
+  .resource-requirements-conflict {
+    margin-left: 5px;
+    display: none;
+  }
+
+  &[data-has-requirements-conflict="true"] {
+    .resource-requirements-conflict {
+      display: block;
+    }
+  }
+
+  .resource-scheduling-conflict {
+    margin-left: 5px;
+    display: none;
+  }
+
+  &[data-has-scheduling-conflict="true"] {
+    .resource-scheduling-conflict {
+      display: block;
+    }
   }
 }
 
