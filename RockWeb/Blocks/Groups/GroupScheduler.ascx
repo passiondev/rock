@@ -232,6 +232,8 @@
                                                                             </div>
                                                                             <div class="minimum-indicator js-minimum-indicator" data-minimum-value="0" style="margin-left: 0%">
                                                                             </div>
+                                                                            <div class="desired-indicator js-desired-indicator" data-desired-value="0" style="margin-left: 0%">
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div class="js-scheduling-status-light scheduling-status-light" data-status="none">

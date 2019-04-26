@@ -42,11 +42,11 @@
                         return false;
                     },
                     moves: function (el, source, handle, sibling) {
-                        if ($(el).data('has-blackout-conflict') || $(el).data('has-requirements-conflict')) {
+                        if (source.classList.contains('js-scheduler-source-container') && ($(el).data('has-blackout-conflict') || $(el).data('has-requirements-conflict'))) {
                             // don't let resources with blackout or requirement conflicts to be assigned
                             return false;
                         }
-                        return true; 
+                        return true;
                     },
                     copy: function (el, source) {
                         return false;
@@ -70,7 +70,7 @@
                     })
                     .on('dragend', function (el) {
                         if (self.resourceScroll) {
-                            // reenable the scroller when done dragging
+                            // re-enable the scroller when done dragging
                             //self.resourceScroll.enable();
                         }
                         $('body').removeClass('state-drag');
@@ -87,23 +87,10 @@
                             additionalPersonIds.push(personId);
 
                             self.$additionalPersonIds.val(additionalPersonIds);
-                            var scheduledPersonUnassignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonUnassign';
 
                             var attendanceId = $unassignedResource.attr('data-attendance-id')
-                            $.ajax({
-                                method: "PUT",
-                                url: scheduledPersonUnassignUrl + '?attendanceId=' + attendanceId
-                            }).done(function (scheduledAttendance) {
-                                // after unassigning a resource, repopulate the list of unassigned resources
-                                self.populateSchedulerResources(self.$resourceList);
-
-                                // after unassigning a resource, repopulate the list of resources for the occurrence
-                                var $occurrence = $(source).closest('.js-scheduled-occurrence');
-                                self.populateScheduledOccurrence($occurrence);
-                            }).fail(function (a, b, c) {
-                                // TODO
-                                debugger
-                            })
+                            var $occurrence = $(source).closest('.js-scheduled-occurrence');
+                            self.unassignResource(attendanceId, $occurrence);
                         }
                         else {
                             // deal with the resource that was dragged into an assigned occurrence (location)
@@ -112,35 +99,25 @@
                             $assignedResource.attr('data-state', 'assigned');
                             var personId = $assignedResource.attr('data-person-id')
                             var attendanceOccurrenceId = $(target).closest('.js-scheduled-occurrence').find('.js-attendanceoccurrence-id').val();
+                            var $occurrence = $(el).closest('.js-scheduled-occurrence');
+
+                            // if they were dragged from another occurrence, unassign from that first
+                            if (source.classList.contains('js-scheduler-target-container')) {
+                                var attendanceId = $assignedResource.attr('data-attendance-id')
+                                self.unassignResource(attendanceId, $occurrence);
+                            }
+
+                            // assign to target occurrence
                             $.ajax({
                                 method: "PUT",
                                 url: scheduledPersonAssignUrl + '?personId=' + personId + '&attendanceOccurrenceId=' + attendanceOccurrenceId
                             }).done(function (scheduledAttendance) {
                                 // after adding a resource, repopulate the list of resources for the occurrence
-                                var $occurrence = $(el).closest('.js-scheduled-occurrence');
                                 self.populateScheduledOccurrence($occurrence);
-                            }).fail(function (a, b, c) {
-                                // TODO
-                                debugger
-                            })
+                            });
                         }
                         self.trimSourceContainer();
                     });
-
-                // initialize scrollbar
-                // var $scrollContainer = $control.find('.js-resource-scroller');
-                // var $scrollIndicator = $control.find('.track');
-                // self.resourceScroll = new IScroll($scrollContainer[0], {
-                //     mouseWheel: true,
-                //     indicators: {
-                //         el: $scrollIndicator[0],
-                //         interactive: true,
-                //         resize: false,
-                //         listenY: true,
-                //         listenX: false,
-                //     },
-                //     preventDefaultException: { tagName: /.*/ }
-                // });
 
                 this.trimSourceContainer();
                 this.initializeEventHandlers();
@@ -161,9 +138,28 @@
                     $sourceContainer.html("");
                 }
             },
+            /** Unassigns the resource are repopulates the UI */
+            unassignResource: function (attendanceId, $occurrence) {
+                var self = this;
+
+                // un-assign and repopulate ui
+                var scheduledPersonUnassignUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonUnassign';
+
+                $.ajax({
+                    method: "PUT",
+                    url: scheduledPersonUnassignUrl + '?attendanceId=' + attendanceId
+                }).done(function (scheduledAttendance) {
+                    // after unassigning a resource, repopulate the list of unassigned resources
+                    self.populateSchedulerResources(self.$resourceList);
+
+                    // after unassigning a resource, repopulate the list of resources for the occurrence
+
+                    self.populateScheduledOccurrence($occurrence);
+                });
+            },
             /** populates the assigned (requested/scheduled) resources for the occurrence div */
             populateScheduledOccurrence: function ($occurrence) {
-                var getScheduledUrl = Rock.settings.get('baseUrl') + 'api/Attendances/GetScheduled';
+                var getScheduledUrl = Rock.settings.get('baseUrl') + 'api/Attendances/GetAssignedSchedulerResources';
                 var attendanceOccurrenceId = $occurrence.find('.js-attendanceoccurrence-id').val();
                 var $schedulerTargetContainer = $occurrence.find('.js-scheduler-target-container');
 
@@ -198,14 +194,16 @@
 
                     var $statusLight = $schedulingStatusContainer.find('.js-scheduling-status-light');
 
-                    if (minimumCapacity && (totalConfirmed < minimumCapacity)) {
+                    var totalPendingOrConfirmed = totalConfirmed + totalPending;
+
+                    if (minimumCapacity && (totalPendingOrConfirmed < minimumCapacity)) {
                         $statusLight.attr('data-status', 'below-minimum');
                     }
-                    else if (desiredCapacity && (totalConfirmed < desiredCapacity)) {
+                    else if (desiredCapacity && (totalPendingOrConfirmed < desiredCapacity)) {
                         $statusLight.attr('data-status', 'below-desired');
                     }
-                    else if (desiredCapacity && (totalConfirmed >= desiredCapacity)) {
-                        $statusLight.attr('data-status', 'meets-desired');``
+                    else if (desiredCapacity && (totalPendingOrConfirmed >= desiredCapacity)) {
+                        $statusLight.attr('data-status', 'meets-desired'); ``
                     }
                     else {
                         // no capacities defined, so just hide it
@@ -214,31 +212,45 @@
 
                     // set the progressbar max range to desired capacity if known
                     var progressMax = desiredCapacity;
+                    var totalAssigned = (totalPending + totalConfirmed + totalDeclined);
                     if (!progressMax) {
                         // desired capacity isn't known, so just have it act as a stacked bar based on the sum of pending,confirmed,declined
-                        progressMax = (totalPending + totalConfirmed + totalDeclined)
+                        progressMax = totalAssigned;
+                    }
+
+                    if (totalAssigned > desiredCapacity) {
+                        // more assigned then desired, so base the progress bar on the total assigned
+                        progressMax = totalAssigned;
                     }
 
                     var toolTipHtml = '<div>Confirmed: ' + totalConfirmed + '<br/>Pending: ' + totalPending + '<br/>Declined: ' + totalDeclined + '</div>';
-                    
+
                     $schedulingStatusContainer.attr('data-original-title', toolTipHtml);
                     $schedulingStatusContainer.tooltip({ 'html': 'true', container: 'body' });
+                    debugger
 
-                    var confirmedPercent = !progressMax || (totalConfirmed*100 / progressMax);
-                    var pendingPercent = !progressMax || (totalPending*100 / progressMax);
+                    var confirmedPercent = !progressMax || (totalConfirmed * 100 / progressMax);
+                    var pendingPercent = !progressMax || (totalPending * 100 / progressMax);
                     var declinedPercent = !progressMax || (totalDeclined * 100 / progressMax);
                     var minimumPercent = !progressMax || (minimumCapacity * 100 / progressMax);
+                    var desiredPercent = !progressMax || (desiredCapacity * 100 / progressMax);
 
                     var $progressMinimumIndicator = $schedulingStatusContainer.find('.js-minimum-indicator');
+                    var $progressDesiredIndicator = $schedulingStatusContainer.find('.js-desired-indicator');
 
                     if (desiredCapacity && minimumCapacity && minimumCapacity > 0) {
                         $progressMinimumIndicator
                             .attr('data-minimum-value', minimumCapacity)
                             .css({ 'margin-left': minimumPercent + '%' }).show();
+
+                        $progressDesiredIndicator
+                            .attr('data-desired-value', desiredCapacity)
+                            .css({ 'margin-left': desiredPercent + '%' }).show();
                     }
                     else {
                         // if neither desired capacity or minimum is defined, showing a minimum indicator on progress bar really doesn't make sense.
                         $progressMinimumIndicator.hide();
+                        $progressDesiredIndicator.hide();
                     }
 
                     var $progressConfirmed = $schedulingStatusContainer.find('.js-scheduling-progress-confirmed');
@@ -357,21 +369,21 @@
             initializeEventHandlers: function () {
                 var self = this;
 
-                self.$groupScheduler.on('click', '.js-markconfirmed, .js-markdeclined, .js-markpending', function (a,b,c) {
+                self.$groupScheduler.on('click', '.js-markconfirmed, .js-markdeclined, .js-markpending', function (a, b, c) {
                     var $resource = $(this).closest('.js-resource');
                     var attendanceId = $resource.attr('data-attendance-id');
                     var scheduledPersonUrl;
-                    if ($(this).hasClass('js-markconfirmed')){
+                    if ($(this).hasClass('js-markconfirmed')) {
                         scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonConfirm';
                     }
-                    else if ($(this).hasClass('js-markdeclined')){
+                    else if ($(this).hasClass('js-markdeclined')) {
                         scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonDecline';
                     }
-                    else if ($(this).hasClass('js-markpending')){
+                    else if ($(this).hasClass('js-markpending')) {
                         scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonPending';
                     }
                     else {
-                       return;
+                        return;
                     }
                     //if 
                     //= Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonConfirm';
