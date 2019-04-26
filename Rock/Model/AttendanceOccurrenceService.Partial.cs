@@ -243,23 +243,42 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Creates the missing attendance occurrences.
+        /// Ensures that an AttendanceOccurrence record exists for the specified date, schedule, locationId and group. If it doesn't exist, it is created and saved to the database.
         /// </summary>
         /// <param name="occurrenceDate">The occurrence date.</param>
         /// <param name="scheduleId">The schedule identifier.</param>
         /// <param name="locationId">The location identifier.</param>
         /// <param name="groupId">The group identifier.</param>
-        /// <returns></returns>
-        public List<AttendanceOccurrence> CreateMissingAttendanceOccurrences( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
+        /// <returns>AttendanceOccurrence</returns>
+        public static AttendanceOccurrence GetOrCreateAttendanceOccurrence( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
         {
-            List<int> groupLocationIds = new GroupLocationService( this.Context as RockContext )
-                .Queryable()
-                .Where( gl => gl.GroupId == groupId )
-                .Where( gl => gl.LocationId == locationId )
-                .Select( gl => gl.Id )
-                .ToList();
+            using ( var rockContext = new RockContext() )
+            {
+                var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
 
-            return CreateMissingAttendanceOccurrences( occurrenceDate, scheduleId, groupLocationIds );
+                // There is a unique constraint on OccurrenceDate, ScheduleId, LocationId and GroupId. So there is at most one record.
+                var attendanceOccurrence = attendanceOccurrenceService.Queryable().Where( a =>
+                     a.OccurrenceDate == occurrenceDate.Date
+                     && a.ScheduleId.HasValue && a.ScheduleId == scheduleId
+                     && a.LocationId.HasValue && a.LocationId == locationId
+                     && a.GroupId.HasValue && a.GroupId == groupId ).AsNoTracking().FirstOrDefault();
+
+                if ( attendanceOccurrence == null )
+                {
+                    attendanceOccurrence = new AttendanceOccurrence
+                    {
+                        GroupId = groupId,
+                        LocationId = locationId,
+                        ScheduleId = scheduleId,
+                        OccurrenceDate = occurrenceDate
+                    };
+
+                    attendanceOccurrenceService.Add( attendanceOccurrence );
+                    rockContext.SaveChanges();
+                }
+
+                return attendanceOccurrence;
+            }
         }
 
         /// <summary>

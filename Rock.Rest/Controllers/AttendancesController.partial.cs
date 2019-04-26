@@ -65,14 +65,14 @@ namespace Rock.Rest.Controllers
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
         /// <returns></returns>
         [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/GetScheduled" )]
+        [System.Web.Http.Route( "api/Attendances/GetAssignedSchedulerResources" )]
         [HttpGet]
-        public IEnumerable<ScheduledAttendanceItem> GetScheduled( int attendanceOccurrenceId )
+        public IEnumerable<SchedulerResourceAssigned> GetAssignedSchedulerResources( int attendanceOccurrenceId )
         {
             var rockContext = new RockContext();
             var attendanceService = new AttendanceService( rockContext );
 
-            return attendanceService.GetScheduled( attendanceOccurrenceId );
+            return attendanceService.GetAssignedSchedulerResources( attendanceOccurrenceId );
         }
 
         /// <summary>
