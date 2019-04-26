@@ -882,11 +882,11 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Gets a list of SchedulerResourceAssigned records 
+        /// Gets a list of SchedulerResourceAttend records 
         /// </summary>
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
         /// <returns></returns>
-        public IEnumerable<SchedulerResourceAssigned> GetAssignedSchedulerResources( int attendanceOccurrenceId )
+        public IEnumerable<SchedulerResourceAttend> GetAttendingSchedulerResources( int attendanceOccurrenceId )
         {
             var conflictingScheduledAttendancesQuery = this.Queryable();
 
@@ -939,7 +939,7 @@ namespace Rock.Model
                     status = ScheduledAttendanceItemStatus.Confirmed;
                 }
 
-                return new SchedulerResourceAssigned
+                return new SchedulerResourceAttend
                 {
                     AttendanceId = a.Id,
                     ConfirmationStatus = status.ConvertToString( false ).ToLower(),
@@ -951,51 +951,6 @@ namespace Rock.Model
             } );
 
             return result;
-        }
-
-        /// <summary>
-        /// Add/Updates an attendance record to indicate person is assigned (Requested to Attend) a scheduled attendance and marks them pending
-        /// </summary>
-        /// <param name="personId">The person identifier.</param>
-        /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
-        /// <param name="scheduledByPersonAlias">The scheduled by person alias.</param>
-        /// <returns></returns>
-        public Attendance ScheduledPersonAssign( int personId, int attendanceOccurrenceId, PersonAlias scheduledByPersonAlias )
-        {
-            var rockContext = this.Context as RockContext;
-            var scheduledAttendance = this.Queryable()
-                .FirstOrDefault( a => a.PersonAlias.PersonId == personId
-                    && a.OccurrenceId == attendanceOccurrenceId );
-
-            if ( scheduledAttendance == null )
-            {
-                var personAliasId = new PersonAliasService( rockContext ).GetPrimaryAliasId( personId );
-                var attendanceOccurrence = new AttendanceOccurrenceService( rockContext ).Get( attendanceOccurrenceId );
-                var scheduledDateTime = attendanceOccurrence.OccurrenceDate.Add( attendanceOccurrence.Schedule.StartTimeOfDay );
-                scheduledAttendance = new Attendance
-                {
-                    PersonAliasId = personAliasId,
-                    OccurrenceId = attendanceOccurrenceId,
-                    ScheduledByPersonAliasId = scheduledByPersonAlias?.Id,
-                    StartDateTime = scheduledDateTime,
-                    DidAttend = false,
-                    RequestedToAttend = true,
-                    ScheduledToAttend = false,
-                    RSVP = RSVP.Maybe
-                };
-
-                this.Add( scheduledAttendance );
-            }
-            else
-            {
-                if ( scheduledAttendance.RequestedToAttend != true )
-                {
-                    scheduledAttendance.RequestedToAttend = true;
-
-                }
-            }
-
-            return scheduledAttendance;
         }
 
         /// <summary>
@@ -1078,7 +1033,7 @@ namespace Rock.Model
 
             if ( !scheduleResourcesGroupMemberIds.Any() )
             {
-                // nobody to assign, so return
+                // nobody to add as scheduled resource, so return
                 return;
             }
 
@@ -1115,45 +1070,51 @@ namespace Rock.Model
 
             if (!desiredCapacity.HasValue)
             {
-                // TODO: Verify that we don't want to do auto scheduling if there isn't a desired capacity set
+                // We don't want to do auto scheduling if there isn't a desired capacity set
                 return;
             }
 
-            // ##TODO ##
-            // Add logic to factor-in assigned vs desired when doing "Schedule OR Location" templates
-            // var currentAssigned = ....
+            // get the count of people that are either pending or confirmed for this occurrence so that we know how close we are to the desired count
+            // start with the number of people in the database, and add as we auto-schedule (so we don't have to re-query)
+            int currentScheduledCount = this.Queryable().Where( a => a.OccurrenceId == attendanceOccurrence.Id && ( a.ScheduledToAttend == true || a.RequestedToAttend == true ) && ( a.RSVP != RSVP.No ) ).Count();
+
+
+            // ##TODO ## // Add logic to factor-in attending vs desired when doing "Schedule OR Location" templates
 
             /// Automatically schedules people for attendance for the specified groupId, occurrenceDate, and groupLocationIds.
             /// It'll do this by looking at <see cref="GroupMemberAssignment"/>s and <see cref="GroupMemberScheduleTemplate"/>.
-            /// The most specific assignments will be assigned first (both schedule and location are specified), followed by less specific assignments (just schedule or just location).
+            /// The most specific assignments will be added as attending first (both schedule and location are specified), followed by less specific assignments (just schedule or just location).
             /// The assignments will be done in random order until all available spots have been filled (in case there are a limited number of spots available).
 
             // randomize order of group member assignments
             groupMemberAssignmentsList = groupMemberAssignmentsList.OrderBy( a => Guid.NewGuid() ).ToList();
 
-            // use a new RockContext to Assign so that get can get saved to the database without saving any changes associated with the current rockContext
-            var groupAssignmentRockContext = new RockContext();
-            var groupAssignmentAttendanceService = new AttendanceService( groupAssignmentRockContext );
+            // use a new RockContext to use for adding attending resources so that get can get saved to the database without saving any changes associated with the current rockContext
+            var groupAssignmentAttendanceRockContext = new RockContext();
+            var groupAssignmentAttendanceService = new AttendanceService( groupAssignmentAttendanceRockContext );
 
             // loop through the most specific assignments first (both LocationId and ScheduleId are assigned)
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.ScheduleId.HasValue && a.LocationId.HasValue ).ToList() )
             {
-                groupAssignmentAttendanceService.ScheduledPersonAssign( groupMemberAssignment.PersonId, attendanceOccurrenceId, scheduledByPersonAlias );
-                groupAssignmentRockContext.SaveChanges();
+                if ( currentScheduledCount < desiredCapacity )
+                {
+                    groupAssignmentAttendanceService.ScheduledPersonAddPending( groupMemberAssignment.PersonId, attendanceOccurrenceId, scheduledByPersonAlias );
+                    groupAssignmentAttendanceRockContext.SaveChanges();
 
-                // person is assigned, so remove them from the list
-                groupMemberAssignmentsList.Remove( groupMemberAssignment );
+                    // person is assigned, so remove them from the list
+                    groupMemberAssignmentsList.Remove( groupMemberAssignment );
+                    currentScheduledCount++;
+                }
             }
 
             // loop through the assignments that only have a ScheduleId (no specific location)
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.ScheduleId.HasValue && !a.LocationId.HasValue ).ToList() )
             {
-
                 // TODO: Ask which Schedule/Location should be chosen if there are multiple and neither are full
-                groupAssignmentAttendanceService.ScheduledPersonAssign( groupMemberAssignment.PersonId, attendanceOccurrenceId, scheduledByPersonAlias );
-                groupAssignmentRockContext.SaveChanges();
+                groupAssignmentAttendanceService.ScheduledPersonAddPending( groupMemberAssignment.PersonId, attendanceOccurrenceId, scheduledByPersonAlias );
+                groupAssignmentAttendanceRockContext.SaveChanges();
 
-                // person is assigned, so remove them from the list
+                // person is scheduled, so remove them from the list
                 groupMemberAssignmentsList.Remove( groupMemberAssignment );
             }
 
@@ -1161,25 +1122,66 @@ namespace Rock.Model
             foreach ( var groupMemberAssignment in groupMemberAssignmentsList.Where( a => a.LocationId.HasValue && !a.ScheduleId.HasValue ).ToList() )
             {
                 // TODO: Ask which Schedule/Location should be chosen if there are multiple and neither are full
-                groupAssignmentAttendanceService.ScheduledPersonAssign( groupMemberAssignment.PersonId, attendanceOccurrenceId, scheduledByPersonAlias );
-                groupAssignmentRockContext.SaveChanges();
+                groupAssignmentAttendanceService.ScheduledPersonAddPending( groupMemberAssignment.PersonId, attendanceOccurrenceId, scheduledByPersonAlias );
+                groupAssignmentAttendanceRockContext.SaveChanges();
 
-                // person is assigned, so remove them from the list
+                // person is scheduled, so remove them from the list
                 groupMemberAssignmentsList.Remove( groupMemberAssignment );
-
             }
 
             // Note: If neither Schedule and Location are specified, don't auto-schedule
-
-
-
         }
 
         /// <summary>
-        /// Updates attendance record to indicate person is unassigned from a scheduled attendance
+        /// Add/Updates an attendance record to indicate person is Requested to Attend marks them pending
+        /// </summary>
+        /// <param name="personId">The person identifier.</param>
+        /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
+        /// <param name="scheduledByPersonAlias">The scheduled by person alias.</param>
+        /// <returns></returns>
+        public Attendance ScheduledPersonAddPending( int personId, int attendanceOccurrenceId, PersonAlias scheduledByPersonAlias )
+        {
+            var rockContext = this.Context as RockContext;
+            var scheduledAttendance = this.Queryable()
+                .FirstOrDefault( a => a.PersonAlias.PersonId == personId
+                    && a.OccurrenceId == attendanceOccurrenceId );
+
+            if ( scheduledAttendance == null )
+            {
+                var personAliasId = new PersonAliasService( rockContext ).GetPrimaryAliasId( personId );
+                var attendanceOccurrence = new AttendanceOccurrenceService( rockContext ).Get( attendanceOccurrenceId );
+                var scheduledDateTime = attendanceOccurrence.OccurrenceDate.Add( attendanceOccurrence.Schedule.StartTimeOfDay );
+                scheduledAttendance = new Attendance
+                {
+                    PersonAliasId = personAliasId,
+                    OccurrenceId = attendanceOccurrenceId,
+                    ScheduledByPersonAliasId = scheduledByPersonAlias?.Id,
+                    StartDateTime = scheduledDateTime,
+                    DidAttend = false,
+                    RequestedToAttend = true,
+                    ScheduledToAttend = false,
+                    RSVP = RSVP.Maybe
+                };
+
+                this.Add( scheduledAttendance );
+            }
+            else
+            {
+                if ( scheduledAttendance.RequestedToAttend != true )
+                {
+                    scheduledAttendance.RequestedToAttend = true;
+
+                }
+            }
+
+            return scheduledAttendance;
+        }
+
+        /// <summary>
+        /// Updates attendance record to indicate person is not pending, or confirmed, or declined
         /// </summary>
         /// <param name="attendanceId">The attendance identifier.</param>
-        public void ScheduledPersonUnassign( int attendanceId )
+        public void ScheduledPersonRemove( int attendanceId )
         {
             var scheduledAttendance = this.Get( attendanceId );
             if ( scheduledAttendance != null )
@@ -1230,7 +1232,6 @@ namespace Rock.Model
             }
         }
 
-
         /// <summary>
         /// Updates attendance record to indicate person is back to a pending state
         /// </summary>
@@ -1260,7 +1261,6 @@ namespace Rock.Model
             if ( scheduledAttendance != null )
             {
                 scheduledAttendance.DeclineReasonValueId = declineReasonValueId;
-
                 scheduledAttendance.RSVP = RSVP.No;
             }
             else
@@ -1318,9 +1318,9 @@ namespace Rock.Model
     #region Group Scheduling related classes and types
 
     /// <summary>
-    /// A Scheduler Resource (Person) that has been assigned to an Attendance
+    /// A Scheduler Resource (Person) that has been associated with Attendance Occurrence in some sort of scheduled state (Pending, Confirmed or Declined)
     /// </summary>
-    public class SchedulerResourceAssigned : SchedulerResource
+    public class SchedulerResourceAttend : SchedulerResource
     {
         /// <summary>
         /// Gets or sets the attendance identifier.
@@ -1636,6 +1636,4 @@ namespace Rock.Model
             return qryAttendanceGroupedBy;
         }
     }
-
-
 }

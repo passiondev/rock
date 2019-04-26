@@ -57,7 +57,7 @@
                     <asp:Panel ID="pnlSchedulerContainer" runat="server" CssClass="col-lg-10 col-md-9">
                         <Rock:NotificationBox ID="nbFilterInstructions" runat="server" CssClass="margin-all-md" NotificationBoxType="Info" Visible="true" Text="Select a group, schedule and at least one location to start scheduling." />
 
-                        <%-- Scheduling: container for the scheduler assignments containers --%>
+                        <%-- Scheduling: container for the scheduler scheduled containers --%>
                         <asp:Panel ID="pnlScheduler" runat="server" CssClass="resource-area">
                             <div class="row">
                                 <div class="col-md-4">
@@ -72,10 +72,10 @@
                                         <Rock:HiddenFieldWithClass ID="hfResourceDataViewId" CssClass="js-resource-dataview-id" runat="server" />
                                         <Rock:HiddenFieldWithClass ID="hfResourceAdditionalPersonIds" CssClass="js-resource-additional-person-ids" runat="server" />
 
-                                        <div class="js-unassigned-resource-template" style="display: none">
-                                            <%-- template that groupScheduler.js uses to populate unassigned resources --%>
+                                        <div class="js-unscheduled-resource-template" style="display: none">
+                                            <%-- template that groupScheduler.js uses to populate unscheduled resources --%>
 
-                                            <div class="js-resource resource clearfix" data-state="unassigned" data-has-scheduling-conflict="false" data-has-requirements-conflict="false" data-has-blackout-conflict="false" data-is-scheduled="" data-person-id="">
+                                            <div class="js-resource resource clearfix" data-state="unscheduled" data-has-scheduling-conflict="false" data-has-requirements-conflict="false" data-has-blackout-conflict="false" data-is-scheduled="" data-person-id="">
                                                 <span class="resource-name js-resource-name"></span>
                                                 <div class="resource-note pull-left">
                                                     <span class="js-resource-note"></span>
@@ -150,10 +150,10 @@
 
                                 <div class="col-md-8">
 
-                                    <div class="js-assigned-resource-template" style="display: none">
-                                        <%-- template that groupScheduler.js uses to populate assigned resources --%>
+                                    <div class="js-scheduled-resource-template" style="display: none">
+                                        <%-- template that groupScheduler.js uses to populate scheduled resources --%>
 
-                                        <div class="meta js-resource resource" data-state="assigned" data-has-scheduling-conflict="false" data-has-requirements-conflict="false" data-has-blackout-conflict="false" data-attendance-id="" data-person-id="">
+                                        <div class="meta js-resource resource" data-state="scheduled" data-has-scheduling-conflict="false" data-has-requirements-conflict="false" data-has-blackout-conflict="false" data-attendance-id="" data-person-id="">
                                             <div class="meta-figure">
                                             </div>
                                             <div class="meta-body">

@@ -428,7 +428,7 @@ namespace RockWeb.Blocks.Groups
 
         /// <summary>
         /// Binds the Attendance Occurrences ( Which shows the Location for the Attendance Occurrence for the selected Group + DateTime + Location ).
-        /// groupScheduler.js will populate these with the assigned resources
+        /// groupScheduler.js will populate these with the scheduled resources
         /// </summary>
         private void BindAttendanceOccurrences()
         {

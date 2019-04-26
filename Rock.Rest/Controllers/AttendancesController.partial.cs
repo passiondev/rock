@@ -65,29 +65,29 @@ namespace Rock.Rest.Controllers
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
         /// <returns></returns>
         [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/GetAssignedSchedulerResources" )]
+        [System.Web.Http.Route( "api/Attendances/GetAttendingSchedulerResources" )]
         [HttpGet]
-        public IEnumerable<SchedulerResourceAssigned> GetAssignedSchedulerResources( int attendanceOccurrenceId )
+        public IEnumerable<SchedulerResourceAttend> GetAttendingSchedulerResources( int attendanceOccurrenceId )
         {
             var rockContext = new RockContext();
             var attendanceService = new AttendanceService( rockContext );
 
-            return attendanceService.GetAssignedSchedulerResources( attendanceOccurrenceId );
+            return attendanceService.GetAttendingSchedulerResources( attendanceOccurrenceId );
         }
 
         /// <summary>
-        /// Unassigns a person from a scheduled attendance
+        /// Updates attendance record to indicate person is not pending, or confirmed, or declined
         /// </summary>
         /// <param name="attendanceId">The attendance identifier.</param>
         [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/ScheduledPersonUnassign" )]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonRemove" )]
         [HttpPut]
-        public void ScheduledPersonUnassign( int attendanceId )
+        public void ScheduledPersonRemove( int attendanceId )
         {
             var rockContext = new RockContext();
             var attendanceService = new AttendanceService( rockContext );
 
-            attendanceService.ScheduledPersonUnassign( attendanceId );
+            attendanceService.ScheduledPersonRemove( attendanceId );
             rockContext.SaveChanges();
         }
 
@@ -97,16 +97,16 @@ namespace Rock.Rest.Controllers
         /// <param name="personId">The person identifier.</param>
         /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
         [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/ScheduledPersonAssign" )]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonAddPending" )]
         [HttpPut]
-        public Attendance ScheduledPersonAssign( int personId, int attendanceOccurrenceId )
+        public Attendance ScheduledPersonAddPending( int personId, int attendanceOccurrenceId )
         {
             var rockContext = new RockContext();
             var attendanceService = new AttendanceService( rockContext );
 
             var currentPersonAlias = this.GetPersonAlias();
 
-            var result = attendanceService.ScheduledPersonAssign( personId, attendanceOccurrenceId, currentPersonAlias );
+            var result = attendanceService.ScheduledPersonAddPending( personId, attendanceOccurrenceId, currentPersonAlias );
             rockContext.SaveChanges();
 
             return result;

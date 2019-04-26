@@ -48,13 +48,13 @@
   border-radius: 4px;
   box-shadow: 0 1px 0 hsl(228, 7%, 83%);
 
-  &[data-state="assigned"] {
+  &[data-state="scheduled"] {
     display: inline-block;
   }
-  // &[data-state="unassigned"] {
+  // &[data-state="unscheduled"] {
   //
   // }
-  &[data-state="unassigned"][data-is-scheduled="true"] {
+  &[data-state="unscheduled"][data-is-scheduled="true"] {
     background-color: @state-danger-bg;
   }
 
