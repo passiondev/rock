@@ -11,6 +11,7 @@
                 </h1>
 
                 <div class="panel-labels">
+                    <asp:HiddenField ID="hfDisplayedOccurrenceIds" runat="server" />
                     <asp:LinkButton ID="btnAutoSchedule" runat="server" CssClass="js-autoschedule btn btn-default btn-xs" OnClick="btnAutoSchedule_Click">
                         <i class="fa fa-magic"></i>
                         Auto Schedule
@@ -217,8 +218,7 @@
                                                                 <asp:Literal ID="lLocationTitle" runat="server" />
                                                             </h1>
                                                             <div class="panel-labels">
-                                                                <div class="scheduling-status js-scheduling-status">
-
+                                                                <div class="scheduling-status js-scheduling-status pull-right">
                                                                     <div class="scheduling-status-progress">
                                                                         <div class="progress js-scheduling-progress">
                                                                             <div class="progress-bar scheduling-progress-confirmed js-scheduling-progress-confirmed" style="width: 0%">
@@ -238,6 +238,10 @@
                                                                     </div>
                                                                     <div class="js-scheduling-status-light scheduling-status-light" data-status="none">
                                                                     </div>
+                                                                </div>
+
+                                                                <div class="autoscheduler-warning js-autoscheduler-warning pull-right margin-r-md" data-original-title="Auto Schedule requires that a desired capacity is configured for this location.">
+                                                                    <i class="fa fa-exclamation-triangle"></i>
                                                                 </div>
                                                             </div>
                                                         </div>

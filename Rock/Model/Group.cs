@@ -277,6 +277,7 @@ namespace Rock.Model
         [DataMember]
         public int? ScheduleCancellationPersonAliasId { get; set; }
 
+        /// <summary>
         /// Gets or sets the group administrator person alias identifier.
         /// </summary>
         /// <value>

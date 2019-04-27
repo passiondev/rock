@@ -175,6 +175,14 @@
                 var desiredCapacity = $occurrence.find('.js-desired-capacity').val();
                 var maximumCapacity = $occurrence.find('.js-maximum-capacity').val();
                 var $schedulingStatusContainer = $occurrence.find('.js-scheduling-status');
+                var $autoschedulerWarning = $occurrence.find('.js-autoscheduler-warning');
+                if (!desiredCapacity) {
+                    $autoschedulerWarning.show();
+                    $autoschedulerWarning.tooltip({ container: 'body' });
+                }
+                else {
+                    $autoschedulerWarning.hide();
+                }
 
                 var self = this;
                 $.get(getScheduledUrl + '?attendanceOccurrenceId=' + attendanceOccurrenceId, function (scheduledAttendanceItems) {

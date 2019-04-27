@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // </copyright>
-//
 using System;
 using System.ComponentModel;
 using System.Data.Entity;
@@ -122,8 +121,6 @@ namespace RockWeb.Blocks.Groups
             RockPage.AddScriptLink( "~/Scripts/dragula.min.js", true );
             RockPage.AddCSSLink( "~/Themes/Rock/Styles/group-scheduler.css", true );
 
-            // this event gets fired after block settings are updated. it's nice to repaint the screen if these settings would alter it
-            this.BlockUpdated += Block_BlockUpdated;
             this.AddConfigurationUpdateTrigger( upnlContent );
 
             LoadDropDowns();
@@ -298,7 +295,7 @@ namespace RockWeb.Blocks.Groups
             var groupLocationIdList = cblGroupLocations.SelectedValues.AsIntegerList();
 
             this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupId, groupId.ToString() );
-            this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, scheduleId.ToString() );
+            this.SetBlockUserPreference( UserPreferenceKey.SelectedDate, ddlWeek.SelectedValue );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds, groupLocationIdList.AsDelimited( "," ) );
             this.SetBlockUserPreference( UserPreferenceKey.SelectedScheduleId, rblSchedule.SelectedValue );
 
@@ -320,7 +317,7 @@ namespace RockWeb.Blocks.Groups
             pnlScheduler.Visible = filterIsValid;
             nbFilterInstructions.Visible = !filterIsValid;
 
-            //if ( filterIsValid )
+            if ( filterIsValid )
             {
                 InitResourceList();
                 BindAttendanceOccurrences();
@@ -391,14 +388,15 @@ namespace RockWeb.Blocks.Groups
                 case SchedulerResourceListSourceType.Group:
                     {
                         resourceGroupId = hfGroupId.Value.AsInteger();
-                        // todo matching vs all
                         break;
                     }
+
                 case SchedulerResourceListSourceType.AlternateGroup:
                     {
                         resourceGroupId = gpResourceListAlternateGroup.SelectedValue.AsInteger();
                         break;
                     }
+
                 case SchedulerResourceListSourceType.DataView:
                     {
                         resourceDataViewId = dvpResourceListDataView.SelectedValue.AsInteger();
@@ -437,7 +435,6 @@ namespace RockWeb.Blocks.Groups
 
             var scheduleId = rblSchedule.SelectedValueAsId();
 
-
             var rockContext = new RockContext();
             var occurrenceSchedule = new ScheduleService( rockContext ).GetNoTracking( scheduleId ?? 0 );
 
@@ -449,7 +446,6 @@ namespace RockWeb.Blocks.Groups
 
             var scheduleOccurrenceDateTime = occurrenceSchedule.GetNextStartDateTime( occurrenceSundayWeekStartDate );
 
-
             if ( scheduleOccurrenceDateTime == null )
             {
                 btnAutoSchedule.Visible = false;
@@ -459,7 +455,6 @@ namespace RockWeb.Blocks.Groups
             var occurrenceDate = scheduleOccurrenceDateTime.Value.Date;
             btnAutoSchedule.Visible = true;
 
-            
             var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
             var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
 
@@ -488,15 +483,37 @@ namespace RockWeb.Blocks.Groups
 
             rptAttendanceOccurrences.DataSource = attendanceOccurrencesOrderedList;
             rptAttendanceOccurrences.DataBind();
+
+            hfDisplayedOccurrenceIds.Value = attendanceOccurrencesOrderedList.Select( a => a.AttendanceOccurrenceId ).ToList().AsDelimited( "," );
         }
 
         /// <summary>
-        ///
+        /// 
         /// </summary>
         private class CapacityInfo
         {
+            /// <summary>
+            /// Gets or sets the minimum capacity.
+            /// </summary>
+            /// <value>
+            /// The minimum capacity.
+            /// </value>
             public int? MinimumCapacity { get; set; }
+
+            /// <summary>
+            /// Gets or sets the desired capacity.
+            /// </summary>
+            /// <value>
+            /// The desired capacity.
+            /// </value>
             public int? DesiredCapacity { get; set; }
+
+            /// <summary>
+            /// Gets or sets the maximum capacity.
+            /// </summary>
+            /// <value>
+            /// The maximum capacity.
+            /// </value>
             public int? MaximumCapacity { get; set; }
         }
 
@@ -505,8 +522,28 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private class AttendanceOccurrenceRowItem
         {
+            /// <summary>
+            /// Gets or sets the attendance occurrence identifier.
+            /// </summary>
+            /// <value>
+            /// The attendance occurrence identifier.
+            /// </value>
             public int AttendanceOccurrenceId { get; set; }
+
+            /// <summary>
+            /// Gets or sets the capacity information.
+            /// </summary>
+            /// <value>
+            /// The capacity information.
+            /// </value>
             public CapacityInfo CapacityInfo { get; set; }
+
+            /// <summary>
+            /// Gets or sets the name of the location.
+            /// </summary>
+            /// <value>
+            /// The name of the location.
+            /// </value>
             public string LocationName { get; internal set; }
         }
 
@@ -539,16 +576,6 @@ namespace RockWeb.Blocks.Groups
         #endregion
 
         #region Events
-
-        /// <summary>
-        /// Handles the BlockUpdated event of the control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void Block_BlockUpdated( object sender, EventArgs e )
-        {
-            //
-        }
 
         /// <summary>
         /// Handles the ValueChanged event of the gpGroup control.
@@ -638,22 +665,13 @@ namespace RockWeb.Blocks.Groups
         {
             var rockContext = new RockContext();
 
-            var groupId = hfGroupId.Value.AsInteger();
-            var scheduleId = rblSchedule.SelectedValue.AsInteger();
-            var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
+            var attendanceOccurrenceIdList = hfDisplayedOccurrenceIds.Value.SplitDelimitedValues().AsIntegerList();
 
             var attendanceService = new AttendanceService( rockContext );
 
-            var sundayDate = ddlWeek.SelectedValue.AsDateTime();
-            if ( sundayDate.HasValue )
-            {
-
-                // NOTE: Partially functional
-                attendanceService.SchedulePersonsAutomatically( groupId, sundayDate.Value, this.CurrentPersonAlias );
-                rockContext.SaveChanges();
-            }
-
-            // NOTE: If SchedulePersonsAutomatically ended up scheduling anybody, they'll now show up in the UI. (JavaScript+REST takes care of populating it)
+            // AutoSchedule the occurrences that are shown
+            attendanceService.SchedulePersonsAutomaticallyForAttendanceOccurrences( attendanceOccurrenceIdList, this.CurrentPersonAlias );
+            rockContext.SaveChanges();
         }
 
         #endregion

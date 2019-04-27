@@ -243,41 +243,52 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Ensures that an AttendanceOccurrence record exists for the specified date, schedule, locationId and group. If it doesn't exist, it is created and saved to the database.
+        /// Ensures that an AttendanceOccurrence record exists for the specified date, schedule, locationId and group. If it doesn't exist, it is created and saved to the database
         /// </summary>
         /// <param name="occurrenceDate">The occurrence date.</param>
         /// <param name="scheduleId">The schedule identifier.</param>
         /// <param name="locationId">The location identifier.</param>
         /// <param name="groupId">The group identifier.</param>
         /// <returns>AttendanceOccurrence</returns>
-        public static AttendanceOccurrence GetOrCreateAttendanceOccurrence( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
+        public AttendanceOccurrence GetOrCreateAttendanceOccurrence( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
         {
-            using ( var rockContext = new RockContext() )
-            {
-                var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
-
-                // There is a unique constraint on OccurrenceDate, ScheduleId, LocationId and GroupId. So there is at most one record.
-                var attendanceOccurrence = attendanceOccurrenceService.Queryable().Where( a =>
+            // There is a unique constraint on OccurrenceDate, ScheduleId, LocationId and GroupId. So there is at most one record.
+            var attendanceOccurrence = this.Queryable().Where( a =>
                      a.OccurrenceDate == occurrenceDate.Date
                      && a.ScheduleId.HasValue && a.ScheduleId == scheduleId
                      && a.LocationId.HasValue && a.LocationId == locationId
-                     && a.GroupId.HasValue && a.GroupId == groupId ).AsNoTracking().FirstOrDefault();
+                     && a.GroupId.HasValue && a.GroupId == groupId ).FirstOrDefault();
 
-                if ( attendanceOccurrence == null )
+            if ( attendanceOccurrence != null )
+            {
+                return attendanceOccurrence;
+            }
+            else
+            {
+                // if the attendance occurrence is not found, create and save it using a separate context, then get it with this context using the created attendanceOccurrence.Id
+                int attendanceOccurrenceId;
+                using ( var rockContext = new RockContext() )
                 {
-                    attendanceOccurrence = new AttendanceOccurrence
-                    {
-                        GroupId = groupId,
-                        LocationId = locationId,
-                        ScheduleId = scheduleId,
-                        OccurrenceDate = occurrenceDate
-                    };
+                    var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
 
-                    attendanceOccurrenceService.Add( attendanceOccurrence );
-                    rockContext.SaveChanges();
+                    if ( attendanceOccurrence == null )
+                    {
+                        attendanceOccurrence = new AttendanceOccurrence
+                        {
+                            GroupId = groupId,
+                            LocationId = locationId,
+                            ScheduleId = scheduleId,
+                            OccurrenceDate = occurrenceDate
+                        };
+
+                        attendanceOccurrenceService.Add( attendanceOccurrence );
+                        rockContext.SaveChanges();
+                    }
+
+                    attendanceOccurrenceId = attendanceOccurrence.Id;
                 }
 
-                return attendanceOccurrence;
+                return this.Get( attendanceOccurrence.Id );
             }
         }
 
@@ -334,15 +345,15 @@ namespace Rock.Model
 
             // join with the GroupLocation 
             var joinQuery = from ao in attendanceOccurrencesQuery
-                                                 join gl in groupLocationQuery
-                                                 on new { LocationId = ao.LocationId.Value, GroupId = ao.GroupId.Value } equals new { gl.LocationId, gl.GroupId }
-                                                 select new AttendanceOccurrenceGroupLocationScheduleConfigJoinResult
-                                                 {
-                                                     AttendanceOccurrence = ao,
-                                                     GroupLocation = gl,
-                                                     GroupLocationScheduleConfig = gl.GroupLocationScheduleConfigs
-                                                        .Where( c => c.ScheduleId == ao.ScheduleId ).FirstOrDefault()
-                                                 };
+                            join gl in groupLocationQuery
+                            on new { LocationId = ao.LocationId.Value, GroupId = ao.GroupId.Value } equals new { gl.LocationId, gl.GroupId }
+                            select new AttendanceOccurrenceGroupLocationScheduleConfigJoinResult
+                            {
+                                AttendanceOccurrence = ao,
+                                GroupLocation = gl,
+                                GroupLocationScheduleConfig = gl.GroupLocationScheduleConfigs
+                                   .Where( c => c.ScheduleId == ao.ScheduleId ).FirstOrDefault()
+                            };
 
             return joinQuery;
         }

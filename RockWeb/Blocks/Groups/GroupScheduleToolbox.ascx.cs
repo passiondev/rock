@@ -72,7 +72,7 @@ namespace RockWeb.Blocks.Groups
             /// <summary>
             /// My Schedule tab
             /// </summary>
-            [Description("My Schedule")]
+            [Description( "My Schedule" )]
             MySchedule = 0,
 
             /// <summary>
@@ -119,7 +119,7 @@ namespace RockWeb.Blocks.Groups
             {
                 if ( ViewState["CurrentTab"] != null )
                 {
-                    return ( GroupScheduleToolboxTab )Enum.Parse( typeof( GroupScheduleToolboxTab ), ViewState["CurrentTab"].ToString() );
+                    return ( GroupScheduleToolboxTab ) Enum.Parse( typeof( GroupScheduleToolboxTab ), ViewState["CurrentTab"].ToString() );
                 }
 
                 return GroupScheduleToolboxTab.MySchedule;
@@ -184,39 +184,24 @@ $('#{0}').tooltip();
                 string[] occurrences = postbackArgs.Split( new char[] { '|' } );
                 foreach ( string occurrence in occurrences )
                 {
-                    int? groupId = null;
-                    int? locationId = null;
-                    int? scheduleId = null;
-                    DateTime? date = null;
+                    int groupId;
+                    int locationId;
+                    int scheduleId;
+                    DateTime occurrenceDate;
 
                     try
                     {
                         string[] props = occurrence.Split( new char[] { ',' } );
-                        groupId = props[0].AsIntegerOrNull();
-                        locationId = props[1].AsIntegerOrNull();
-                        scheduleId = props[2].AsIntegerOrNull();
-                        date = props[3].AsDateTime();
-                        AttendanceOccurrence attendanceOccurrence = null;
+                        groupId = props[0].AsInteger();
+                        locationId = props[1].AsInteger();
+                        scheduleId = props[2].AsInteger();
+                        occurrenceDate = props[3].AsDateTime().Value.Date;
 
                         using ( var rockContext = new RockContext() )
                         {
-                            var attendanceOccurrenceService = new AttendanceOccurrenceService( rockContext );
-
-                            attendanceOccurrence = attendanceOccurrenceService.Get( date.Value.Date, groupId, locationId, scheduleId );
-
-                            // Create the occurrence if needed
-                            if ( attendanceOccurrence == null )
-                            {
-                                attendanceOccurrence = attendanceOccurrenceService.CreateMissingAttendanceOccurrences( date.Value, scheduleId.Value, locationId.Value, groupId.Value ).FirstOrDefault();
-                                attendanceOccurrenceService.Add( attendanceOccurrence );
-                                rockContext.SaveChanges();
-                            }
-                        }
-
-                        using ( var rockContext = new RockContext() )
-                        {
+                            AttendanceOccurrence attendanceOccurrence = new AttendanceOccurrenceService( rockContext ).GetOrCreateAttendanceOccurrence( occurrenceDate, scheduleId, locationId, groupId );
                             var attendanceService = new AttendanceService( rockContext );
-                            var attendance = attendanceService.ScheduledPersonAssign( this.SelectedPersonId, attendanceOccurrence.Id, CurrentPersonAlias );
+                            var attendance = attendanceService.ScheduledPersonAddPending( this.SelectedPersonId, attendanceOccurrence.Id, CurrentPersonAlias );
                             rockContext.SaveChanges();
 
                             attendanceService.ScheduledPersonConfirm( attendance.Id );
@@ -326,7 +311,7 @@ $('#{0}').tooltip();
         /// <param name="property">The property.</param>
         /// <returns></returns>
         protected string GetTabName( object property )
-        { 
+        {
             return ( ( GroupScheduleToolboxTab ) property ).GetDescription();
         }
 
@@ -390,7 +375,7 @@ $('#{0}').tooltip();
             return attendance.Occurrence.Schedule.GetCalenderEvent().DTStart.Value.TimeOfDay.ToTimeString();
         }
 
-         /// <summary>
+        /// <summary>
         /// Handles the ItemDataBound event of the rptUpcomingSchedules control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
@@ -634,6 +619,13 @@ $('#{0}').tooltip();
                 foreach ( var groupMember in groupMembers )
                 {
                     groupMember.ScheduleTemplateId = ( ( DropDownList ) sender ).SelectedValueAsInt( true );
+
+                    // make sure there is a StartDate so the schedule can be based off of something
+                    var currentDate = RockDateTime.Now.Date;
+                    if ( !groupMember.ScheduleStartDate.HasValue || groupMember.ScheduleStartDate > currentDate )
+                    {
+                        groupMember.ScheduleStartDate = currentDate;
+                    }
                 }
 
                 rockContext.SaveChanges();
@@ -648,7 +640,7 @@ $('#{0}').tooltip();
         protected void rptGroupPreferences_ItemDataBound( object sender, RepeaterItemEventArgs e )
         {
             var group = ( Group ) e.Item.DataItem;
-            if (group == null )
+            if ( group == null )
             {
                 return;
             }
@@ -736,7 +728,7 @@ $('#{0}').tooltip();
             ddlGroupPreferenceAssignmentLocation.DataValueField = "Id";
             ddlGroupPreferenceAssignmentLocation.DataTextField = "Name";
             ddlGroupPreferenceAssignmentLocation.DataBind();
-            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( string.Empty, string.Empty) );
+            ddlGroupPreferenceAssignmentLocation.Items.Insert( 0, new ListItem( string.Empty, string.Empty ) );
             ddlGroupPreferenceAssignmentLocation.Enabled = groupmemberAssignment != null;
 
             if ( groupmemberAssignment != null )
@@ -848,10 +840,10 @@ $('#{0}').tooltip();
                     .Queryable()
                     .AsNoTracking()
                     .Where( x => x.GroupTypeId == null || x.GroupTypeId == group.GroupTypeId )
-                    .Select( x => new { Value = (int?)x.Id, Text = x.Name } )
+                    .Select( x => new { Value = ( int? ) x.Id, Text = x.Name } )
                     .ToList();
 
-                groupMemberScheduleTemplates.Insert( 0, new { Value = (int?)null, Text = "No Schedule" } );
+                groupMemberScheduleTemplates.Insert( 0, new { Value = ( int? ) null, Text = "No Schedule" } );
 
                 ddlGroupMemberScheduleTemplate.DataSource = groupMemberScheduleTemplates;
                 ddlGroupMemberScheduleTemplate.DataValueField = "Value";
@@ -935,14 +927,14 @@ $('#{0}').tooltip();
                     .OrderBy( e => e.StartDate )
                     .ThenBy( e => e.EndDate )
                     .Select( e => new BlackoutDate
-                     {
-                         ExclusionId = e.Id,
-                         PersonAliasId = e.PersonAliasId.Value,
-                         StartDate = DbFunctions.TruncateTime( e.StartDate ).Value,
-                         EndDate = DbFunctions.TruncateTime( e.EndDate ).Value,
-                         FullName = e.PersonAlias.Person.NickName + " " + e.PersonAlias.Person.LastName,
-                         GroupName = e.Group.Name
-                     } );
+                    {
+                        ExclusionId = e.Id,
+                        PersonAliasId = e.PersonAliasId.Value,
+                        StartDate = DbFunctions.TruncateTime( e.StartDate ).Value,
+                        EndDate = DbFunctions.TruncateTime( e.EndDate ).Value,
+                        FullName = e.PersonAlias.Person.NickName + " " + e.PersonAlias.Person.LastName,
+                        GroupName = e.Group.Name
+                    } );
 
                 gBlackoutDates.DataSource = personScheduleExclusions.ToList();
                 gBlackoutDates.DataBind();
@@ -1003,10 +995,10 @@ $('#{0}').tooltip();
                     .AsNoTracking()
                     .Where( g => g.PersonId == this.SelectedPersonId )
                     .Where( g => g.Group.GroupType.IsSchedulingEnabled == true )
-                    .Select( g => new { Value = (int?)g.GroupId, Text = g.Group.Name } )
+                    .Select( g => new { Value = ( int? ) g.GroupId, Text = g.Group.Name } )
                     .ToList();
 
-                groups.Insert( 0, new { Value = (int?)null, Text = ALL_GROUPS_STRING } );
+                groups.Insert( 0, new { Value = ( int? ) null, Text = ALL_GROUPS_STRING } );
 
                 ddlBlackoutGroups.DataSource = groups;
                 ddlBlackoutGroups.DataValueField = "Value";
@@ -1174,7 +1166,7 @@ $('#{0}').tooltip();
 
                 if ( availableSchedule.OccurrenceDate.Date != currentOccurrenceDate.Date )
                 {
-                    if (currentScheduleId != -1 )
+                    if ( currentScheduleId != -1 )
                     {
                         phSignUpSchedules.Controls.Add( new LiteralControl( "</div>" ) );
                     }
@@ -1194,7 +1186,7 @@ $('#{0}').tooltip();
         /// <param name="groupName">Name of the group.</param>
         private void CreateGroupHeader( string groupName )
         {
-            LiteralControl lc = new LiteralControl( string.Format("<h3>{0} Schedules</h3>", groupName) );
+            LiteralControl lc = new LiteralControl( string.Format( "<h3>{0} Schedules</h3>", groupName ) );
             phSignUpSchedules.Controls.Add( lc );
         }
 
@@ -1228,7 +1220,7 @@ $('#{0}').tooltip();
 
             var cb = new RockCheckBox();
             cb.ID = "dbSignupSchedule";
-            cb.Text = personScheduleSignup.OccurrenceDate.ToString("hh:mm tt");
+            cb.Text = personScheduleSignup.OccurrenceDate.ToString( "hh:mm tt" );
             cb.ToolTip = personScheduleSignup.ScheduleName;
             cb.AddCssClass( "js-person-schedule-signup-checkbox" );
             cb.Checked = false;
@@ -1290,14 +1282,14 @@ $('#{0}').tooltip();
                     .AsEnumerable()
                     .Select( s => new PersonScheduleSignup
                     {
-                        GroupId = s.Field<int>("GroupId"),
-                        GroupName = s.Field<string>("GroupName"),
-                        LocationId = s.Field<int>("LocationId"),
-                        LocationName = s.Field<string>("LocationName"),
-                        ScheduleId = s.Field<int>("ScheduleId"),
-                        ScheduleName = s.Field<string>("ScheduleName"),
-                        ICalendarContent = s.Field<string>("ICalendarContent"),
-                        Occurrences = scheduleService.Get( s.Field<int>("ScheduleId") ).GetOccurrences( startDate, endDate )
+                        GroupId = s.Field<int>( "GroupId" ),
+                        GroupName = s.Field<string>( "GroupName" ),
+                        LocationId = s.Field<int>( "LocationId" ),
+                        LocationName = s.Field<string>( "LocationName" ),
+                        ScheduleId = s.Field<int>( "ScheduleId" ),
+                        ScheduleName = s.Field<string>( "ScheduleName" ),
+                        ICalendarContent = s.Field<string>( "ICalendarContent" ),
+                        Occurrences = scheduleService.Get( s.Field<int>( "ScheduleId" ) ).GetOccurrences( startDate, endDate )
                     } )
                     .ToList();
 
