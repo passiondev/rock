@@ -5,12 +5,14 @@
         <asp:UpdatePanel ID="upnlFolders" runat="server" UpdateMode="Conditional" ChildrenAsTriggers="false">
             <ContentTemplate>
                 <asp:HiddenField ID="hfScriptInitialized" runat="server" />
-                <div style="display: none;">
-                    <asp:Label ID="lbAssetStorageId" CssClass="js-assetstorage-id" runat="server"></asp:Label><br />
-                    <asp:Label ID="lbSelectFolder" CssClass="js-selectfolder" runat="server"></asp:Label><br />
-                    <asp:Label ID="lbExpandedFolders" CssClass="js-expandedFolders" runat="server"></asp:Label>
-                </div>
 
+                <%-- Hidden Field to store the selected value that was set to, in case a new value wasn't selected--%>
+                <asp:HiddenField ID="hfSelectedValue" runat="server" />
+
+                <Rock:HiddenFieldWithClass ID="hfAssetStorageId" CssClass="js-assetstorage-id" runat="server" />
+                <Rock:HiddenFieldWithClass ID="hfSelectFolder" CssClass="js-selectfolder" runat="server" />
+                <Rock:HiddenFieldWithClass ID="hfExpandedFolders" CssClass="js-expandedFolders" runat="server" />
+                 <Rock:HiddenFieldWithClass ID="hfIsRoot" CssClass="js-isroot" runat="server" />
 
                 <div class="actions btn-group">
                     <a href="#" class="btn btn-xs btn-default js-createfolder" title="Create a new folder in the selected folder">
@@ -84,7 +86,7 @@
                         <asp:LinkButton ID="lbRefresh" runat="server" CssClass="btn btn-xs btn-default js-assetselect" OnClick="lbRefresh_Click" CausesValidation="false" ToolTip="Refresh"><i class="fa fa-sync"></i></asp:LinkButton>
                     </div>
 
-                    <div class="actions well well-sm js-renamefile-div" id="divRenameFile" style="display: none;">
+                    <div class="actions well well-sm js-renamefile-div" id="divRenameFile" style="display: none;" runat="server">
                         <div class="pull-left">
                             <Rock:RockTextBox ID="tbRenameFile" runat="server" CssClass="js-renamefile-input input-sm"  />
                         </div>
@@ -96,7 +98,7 @@
                         <a id="lbRenameFileCancel" href="#" class="btn btn-xs btn-default js-renamefile-cancel">
                             <i class="fa fa-times"></i> Cancel
                         </a>
-                        <label class="js-renamefile-notification alert alert-warning clearfix" style="display:none"></label>
+                        <label class="js-renamefile-notification alert alert-warning clearfix" style="display:none" runat="server" id="lblRenameFileNotification"></label>
                     </div>
 
                     <table class="table table-striped table-responsive table-no-border assetmanager-files">
@@ -105,10 +107,15 @@
                                 <tr>
                                     <td><Rock:RockCheckBox ID="cbSelected" runat="server" CssClass="js-checkbox" /></td>
                                     <td><img src='<%# Eval("IconPath") %>' style='max-width:60px;'></td>
-                                    <td><asp:Label ID="lbName" runat="server" Text='<%# Eval("Name") %>' CssClass="align-middle"></asp:Label></td>
+                                    <td>
+                                        <asp:Label ID="lbName" runat="server" Text='<%# Eval("Name") %>' CssClass="align-middle js-assetManager-name"></asp:Label>
+                                        <asp:Label ID="lbUrl" runat="server" Text='<%# Eval("Uri") %>' style="display: none" CssClass="js-assetManager-uri" ></asp:Label>
+                                    </td>
                                     <td data-priority="3"><asp:Label ID="lbLastModified" runat="server" Text='<%# Eval("LastModifiedDateTime") %>'></asp:Label></td>
-                                    <td><asp:Label ID="lbFileSize" runat="server" Text='<%# Eval("FormattedFileSize") %>'></asp:Label>
-                                    <asp:Label ID="lbKey" runat="server" Text='<%# Eval("Key") %>' Visible="false"></asp:Label></td>
+                                    <td>
+                                        <asp:Label ID="lbFileSize" runat="server" Text='<%# Eval("FormattedFileSize") %>'></asp:Label>
+                                        <asp:Label ID="lbKey" runat="server" Text='<%# Eval("Key") %>' style="display: none"></asp:Label>
+                                    </td>
                                 </tr>
                             </ItemTemplate>
                             <FooterTemplate>

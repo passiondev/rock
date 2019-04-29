@@ -25,8 +25,8 @@ using System.Runtime.Serialization;
 
 using Newtonsoft.Json;
 
-using Rock.Data;
 using Rock.Communication;
+using Rock.Data;
 using Rock.Security;
 
 namespace Rock.Model
@@ -578,6 +578,8 @@ namespace Rock.Model
             {
                 return false;
             }
+
+            templateHtml = templateHtml.ResolveMergeFields( Rock.Lava.LavaHelper.GetCommonMergeFields( null ) );
 
             HtmlAgilityPack.HtmlDocument templateDoc = new HtmlAgilityPack.HtmlDocument();
             templateDoc.LoadHtml( templateHtml );

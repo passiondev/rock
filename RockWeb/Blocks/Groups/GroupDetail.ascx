@@ -51,7 +51,6 @@
                     <asp:CustomValidator ID="cvGroup" runat="server" Display="None" />
 
                     <div id="pnlEditDetails" runat="server">
-
                         <div class="row">
                             <div class="col-md-6">
                                 <Rock:DataTextBox ID="tbName" runat="server" SourceTypeName="Rock.Model.Group, Rock" PropertyName="Name" />
@@ -68,7 +67,6 @@
                                 <Rock:DataTextBox ID="tbDescription" runat="server" SourceTypeName="Rock.Model.Group, Rock" PropertyName="Description" TextMode="MultiLine" Rows="4" />
                             </div>
                         </div>
-
                         <Rock:PanelWidget ID="wpGeneral" runat="server" Title="General">
                             <div class="row">
                                 <div class="col-md-6">
@@ -254,6 +252,9 @@
 
                     <fieldset id="fieldsetViewDetails" runat="server">
 
+                        <div class="taglist">
+                            <Rock:TagList ID="taglGroupTags" runat="server" CssClass="clearfix" />
+                        </div>
                         <asp:Literal ID="lContent" runat="server"></asp:Literal>
 
                         <div class="actions">

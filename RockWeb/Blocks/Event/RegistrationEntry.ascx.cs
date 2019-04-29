@@ -217,7 +217,11 @@ namespace RockWeb.Blocks.Event
         /// <value>
         /// The step2 i frame URL.
         /// </value>
-        protected string Step2IFrameUrl { get; set; }
+        protected string Step2IFrameUrl
+        {
+            get { return ViewState["Step2IFrameUrl"] as string; }
+            set { ViewState["Step2IFrameUrl"] = value; }
+        }
 
         /// <summary>
         /// Gets or sets the minimum payment total after factoring in discounts, fees, and minimum payment amount per registrant
@@ -729,7 +733,7 @@ namespace RockWeb.Blocks.Event
             if ( _saveNavigationHistory )
             {
                 // make sure that a URL with navigation history parameters is really from a browser navigation and not a Link or Refresh
-                hfAllowNavigate.Value = true.ToTrueFalse();
+                hfAllowNavigate.Value = ( CurrentPanel == PanelIndex.PanelSummary ? false : true ).ToTrueFalse();
                 try
                 {
                     if ( CurrentPanel != PanelIndex.PanelRegistrant )
@@ -820,6 +824,15 @@ namespace RockWeb.Blocks.Event
                             break;
                         }
                 }
+            }
+            else if ( CurrentPanel == PanelIndex.PanelSummary && !hfAllowNavigate.Value.AsBoolean() )
+            {
+                Dictionary<string, string> qryParams = new Dictionary<string, string>();
+                if ( RegistrationInstanceState != null )
+                {
+                    qryParams.Add( REGISTRATION_INSTANCE_ID_PARAM_NAME, RegistrationInstanceState.Id.ToString() );
+                }
+                this.NavigateToCurrentPageReference( qryParams );
             }
             else
             {
@@ -1769,7 +1782,8 @@ namespace RockWeb.Blocks.Event
 
             if ( RegistrationState != null )
             {
-                if ( !RegistrationState.RegistrationId.HasValue && RegistrationInstanceState != null && RegistrationInstanceState.MaxAttendees > 0 )
+                // Calculate the available slots. If maxAttendees is 0 that means unlimited since this is not a nullable.
+                if ( !RegistrationState.RegistrationId.HasValue && RegistrationInstanceState != null && RegistrationInstanceState.MaxAttendees != 0 )
                 {
                     var existingRegistrantIds = RegistrationState.Registrants.Select( r => r.Id ).ToList();
                     var otherRegistrantsCount = new RegistrationRegistrantService( new RockContext() ).Queryable()
@@ -1792,7 +1806,7 @@ namespace RockWeb.Blocks.Event
             if ( RegistrationTemplate != null &&
                 RegistrationTemplate.FinancialGateway != null )
             {
-                var threeStepGateway = RegistrationTemplate.FinancialGateway.GetGatewayComponent() as ThreeStepGatewayComponent;
+                var threeStepGateway = RegistrationTemplate.FinancialGateway.GetGatewayComponent() as IThreeStepGatewayComponent;
                 Using3StepGateway = threeStepGateway != null;
                 if ( Using3StepGateway )
                 {
@@ -1843,84 +1857,87 @@ namespace RockWeb.Blocks.Event
         /// <param name="registrantCount">The number of registrants that registration should have.</param>
         private void SetRegistrantState( int registrantCount )
         {
-            if ( RegistrationState != null )
+            if ( RegistrationState == null )
             {
-                decimal cost = RegistrationTemplate.Cost;
-                if ( ( RegistrationTemplate.SetCostOnInstance ?? false ) && RegistrationInstanceState != null )
-                {
-                    cost = RegistrationInstanceState.Cost ?? 0.0m;
-                }
-
-                // If this is the first registrant being added and all are in the same family, default it to the current person
-                if ( RegistrationState.RegistrantCount == 0 && registrantCount == 1 && CurrentPerson != null && RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.Yes )
-                {
-                    var registrant = new RegistrantInfo( RegistrationInstanceState, CurrentPerson );
-                    if ( RegistrationTemplate.ShowCurrentFamilyMembers )
-                    {
-                        // If currentfamily members can be selected, the firstname and lastname fields will be
-                        // disabled so values need to be set (in case those fields did not have the 'showCurrentValue'
-                        // option selected
-                        foreach ( var field in RegistrationTemplate.Forms
-                            .SelectMany( f => f.Fields )
-                            .Where( f =>
-                                ( f.PersonFieldType == RegistrationPersonFieldType.FirstName ||
-                                f.PersonFieldType == RegistrationPersonFieldType.LastName ) &&
-                                f.FieldSource == RegistrationFieldSource.PersonField ) )
-                        {
-                            registrant.FieldValues.AddOrReplace(
-                                field.Id,
-                                new FieldValueObject( field, field.PersonFieldType == RegistrationPersonFieldType.FirstName ? CurrentPerson.NickName : CurrentPerson.LastName ) );
-                        }
-                    }
-
-                    registrant.Cost = cost;
-                    registrant.FamilyGuid = RegistrationState.FamilyGuid;
-                    if ( RegistrationState.Registrants.Count >= RegistrationState.SlotsAvailable )
-                    {
-                        registrant.OnWaitList = true;
-                    }
-
-                    RegistrationState.Registrants.Add( registrant );
-                }
-
-                // While the number of registrants belonging to registration is less than the selected count, add another registrant
-                while ( RegistrationState.RegistrantCount < registrantCount )
-                {
-                    var registrant = new RegistrantInfo { Cost = cost };
-                    if ( RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.No )
-                    {
-                        registrant.FamilyGuid = Guid.NewGuid();
-                    }
-                    else if ( RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.Yes )
-                    {
-                        registrant.FamilyGuid = RegistrationState.FamilyGuid;
-                    }
-
-                    if ( RegistrationState.Registrants.Count >= RegistrationState.SlotsAvailable )
-                    {
-                        registrant.OnWaitList = true;
-                    }
-
-                    RegistrationState.Registrants.Add( registrant );
-                }
-
-                // Get the number of registrants that needs to be removed.
-                int removeCount = RegistrationState.RegistrantCount - registrantCount;
-                if ( removeCount > 0 )
-                {
-                    // If removing any, reverse the order of registrants, so that most recently added will be removed first
-                    RegistrationState.Registrants.Reverse();
-
-                    // Try to get the registrants to remove. Most recently added will be taken first
-                    foreach ( var registrant in RegistrationState.Registrants.Take( removeCount ).ToList() )
-                    {
-                        RegistrationState.Registrants.Remove( registrant );
-                    }
-
-                    // Reset the order after removing any registrants
-                    RegistrationState.Registrants.Reverse();
-                }
+                return;
             }
+
+            decimal cost = RegistrationTemplate.Cost;
+            if ( ( RegistrationTemplate.SetCostOnInstance ?? false ) && RegistrationInstanceState != null )
+            {
+                cost = RegistrationInstanceState.Cost ?? 0.0m;
+            }
+
+            // If this is the first registrant being added and all are in the same family, default it to the current person
+            if ( RegistrationState.RegistrantCount == 0 && registrantCount == 1 && CurrentPerson != null && RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.Yes )
+            {
+                var registrant = new RegistrantInfo( RegistrationInstanceState, CurrentPerson );
+                if ( RegistrationTemplate.ShowCurrentFamilyMembers )
+                {
+                    // If currentfamily members can be selected, the firstname and lastname fields will be
+                    // disabled so values need to be set (in case those fields did not have the 'showCurrentValue'
+                    // option selected
+                    foreach ( var field in RegistrationTemplate.Forms
+                        .SelectMany( f => f.Fields )
+                        .Where( f =>
+                            ( f.PersonFieldType == RegistrationPersonFieldType.FirstName ||
+                            f.PersonFieldType == RegistrationPersonFieldType.LastName ) &&
+                            f.FieldSource == RegistrationFieldSource.PersonField ) )
+                    {
+                        registrant.FieldValues.AddOrReplace(
+                            field.Id,
+                            new FieldValueObject( field, field.PersonFieldType == RegistrationPersonFieldType.FirstName ? CurrentPerson.NickName : CurrentPerson.LastName ) );
+                    }
+                }
+
+                registrant.Cost = cost;
+                registrant.FamilyGuid = RegistrationState.FamilyGuid;
+                if ( RegistrationState.Registrants.Count >= RegistrationState.SlotsAvailable )
+                {
+                    registrant.OnWaitList = true;
+                }
+
+                RegistrationState.Registrants.Add( registrant );
+            }
+
+            // While the number of registrants belonging to registration is less than the selected count, add another registrant
+            while ( RegistrationState.RegistrantCount < registrantCount )
+            {
+                var registrant = new RegistrantInfo { Cost = cost };
+                if ( RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.No )
+                {
+                    registrant.FamilyGuid = Guid.NewGuid();
+                }
+                else if ( RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.Yes )
+                {
+                    registrant.FamilyGuid = RegistrationState.FamilyGuid;
+                }
+
+                if ( RegistrationState.Registrants.Count >= RegistrationState.SlotsAvailable )
+                {
+                    registrant.OnWaitList = true;
+                }
+
+                RegistrationState.Registrants.Add( registrant );
+            }
+
+            // Get the number of registrants that needs to be removed.
+            int removeCount = RegistrationState.RegistrantCount - registrantCount;
+            if ( removeCount > 0 )
+            {
+                // If removing any, reverse the order of registrants, so that most recently added will be removed first
+                RegistrationState.Registrants.Reverse();
+
+                // Try to get the registrants to remove. Most recently added will be taken first
+                foreach ( var registrant in RegistrationState.Registrants.Take( removeCount ).ToList() )
+                {
+                    RegistrationState.Registrants.Remove( registrant );
+                }
+
+                // Reset the order after removing any registrants
+                RegistrationState.Registrants.Reverse();
+            }
+            
         }
 
         #endregion
@@ -3354,8 +3371,18 @@ namespace RockWeb.Blocks.Event
                     History.EvaluateChange( batchChanges, "Control Amount", batch.ControlAmount.FormatAsCurrency(), newControlAmount.FormatAsCurrency() );
                     batch.ControlAmount = newControlAmount;
 
+                    var financialTransactionService = new FinancialTransactionService( rockContext );
+
+                    // If this is a new Batch, SaveChanges so that we can get the Batch.Id
+                    if ( batch.Id == 0 )
+                    {
+                        rockContext.SaveChanges();
+                    }
+
                     transaction.BatchId = batch.Id;
-                    batch.Transactions.Add( transaction );
+
+                    // use the financialTransactionService to add the transaction instead of batch.Transactions to avoid lazy-loading the transactions already associated with the batch
+                    financialTransactionService.Add( transaction );
 
                     rockContext.SaveChanges();
                 } );
@@ -3403,10 +3430,10 @@ namespace RockWeb.Blocks.Event
         /// <returns></returns>
         private bool ProcessStep1( out string errorMessage )
         {
-            ThreeStepGatewayComponent gateway = null;
+            IThreeStepGatewayComponent gateway = null;
             if ( RegistrationTemplate != null && RegistrationTemplate.FinancialGateway != null )
             {
-                gateway = RegistrationTemplate.FinancialGateway.GetGatewayComponent() as ThreeStepGatewayComponent;
+                gateway = RegistrationTemplate.FinancialGateway.GetGatewayComponent() as IThreeStepGatewayComponent;
             }
 
             if ( gateway == null )
@@ -3470,13 +3497,16 @@ namespace RockWeb.Blocks.Event
         /// <returns></returns>
         private bool ProcessStep3( RockContext rockContext, Registration registration, string resultQueryString, out string errorMessage )
         {
-            ThreeStepGatewayComponent gateway = null;
+            GatewayComponent gateway = null;
+            IThreeStepGatewayComponent threeStepGatewayComponent = null;
+
             if ( RegistrationTemplate != null && RegistrationTemplate.FinancialGateway != null )
             {
-                gateway = RegistrationTemplate.FinancialGateway.GetGatewayComponent() as ThreeStepGatewayComponent;
+                gateway = RegistrationTemplate.FinancialGateway.GetGatewayComponent();
+                threeStepGatewayComponent = gateway as IThreeStepGatewayComponent;
             }
 
-            if ( gateway == null )
+            if ( threeStepGatewayComponent == null )
             {
                 errorMessage = "There was a problem creating the payment gateway information";
                 return false;
@@ -3488,7 +3518,7 @@ namespace RockWeb.Blocks.Event
                 return false;
             }
 
-            var transaction = gateway.ChargeStep3( RegistrationTemplate.FinancialGateway, resultQueryString, out errorMessage );
+            var transaction = threeStepGatewayComponent.ChargeStep3( RegistrationTemplate.FinancialGateway, resultQueryString, out errorMessage );
             return SaveTransaction( gateway, registration, transaction, null, rockContext );
         }
 
@@ -3579,7 +3609,7 @@ namespace RockWeb.Blocks.Event
                     CurrentFormIndex = 0;
 
                     SetRegistrantState( MinRegistrants );
-
+                    numHowMany.Value = MinRegistrants;
                     ShowRegistrationAttributesStart( true );
                 }
             }
@@ -3691,7 +3721,7 @@ namespace RockWeb.Blocks.Event
         /// <returns>true or the value of ShowOnWaitlist</returns>
         private bool FormHasWaitFields()
         {
-            if ( RegistrationTemplate != null && RegistrationState != null && RegistrationState.Registrants.Count > CurrentRegistrantIndex )
+            if ( RegistrationTemplate != null && RegistrationState != null && RegistrationState.Registrants.Count > CurrentRegistrantIndex && FormCount > CurrentFormIndex )
             {
                 var registrant = RegistrationState.Registrants[CurrentRegistrantIndex];
                 if ( registrant.OnWaitList )
@@ -4011,7 +4041,7 @@ namespace RockWeb.Blocks.Event
         {
             CurrentPanel = currentPanelIndex;
 
-            if ( CurrentPanel == PanelIndex.PanelSummary )
+            if ( CurrentPanel == PanelIndex.PanelSummary && !( RegistrationState.RegistrationId.HasValue && RegistrationState.DiscountCode.IsNotNullOrWhiteSpace() ) )
             {
                 AutoApplyDiscounts();
             }
@@ -4350,6 +4380,8 @@ namespace RockWeb.Blocks.Event
                     if ( CurrentFormIndex < FormCount )
                     {
                         ParseRegistrantControls();
+                        decimal currentStep = ( FormCount * CurrentRegistrantIndex ) + CurrentFormIndex + 1;
+                        PercentComplete = ( currentStep / ProgressBarSteps ) * 100.0m;
                     }
 
                     break;
@@ -4374,10 +4406,10 @@ namespace RockWeb.Blocks.Event
 
             if ( FormCount > CurrentFormIndex )
             {
-                // Get the current and previous registrant ( previous is used when a field has the 'IsSharedValue' property )
-                // so that current registrant can use the previous registrants value
+                // Get the current and previous registrant ( first is used when a field has the 'IsSharedValue' property )
+                // so that current registrant can use the first registrant's value
                 RegistrantInfo registrant = null;
-                RegistrantInfo previousRegistrant = null;
+                RegistrantInfo firstRegistrant = null;
                 var preselectCurrentPerson = RegistrationTemplate.RegistrantsSameFamily == RegistrantsSameFamily.Yes;
 
                 if ( RegistrationState != null && RegistrationState.RegistrantCount >= CurrentRegistrantIndex )
@@ -4418,7 +4450,7 @@ namespace RockWeb.Blocks.Event
                     {
                         if ( CurrentRegistrantIndex > 0 )
                         {
-                            previousRegistrant = RegistrationState.Registrants[CurrentRegistrantIndex - 1];
+                            firstRegistrant = RegistrationState.Registrants[0];
                         }
 
                         rblFamilyOptions.SetValue( registrant.FamilyGuid.ToString() );
@@ -4440,9 +4472,9 @@ namespace RockWeb.Blocks.Event
                         value = registrant.FieldValues[field.Id].FieldValue;
                     }
 
-                    if ( value == null && field.IsSharedValue && previousRegistrant != null && previousRegistrant.FieldValues.ContainsKey( field.Id ) )
+                    if ( value == null && field.IsSharedValue && firstRegistrant != null && firstRegistrant.FieldValues.ContainsKey( field.Id ) )
                     {
-                        value = previousRegistrant.FieldValues[field.Id].FieldValue;
+                        value = firstRegistrant.FieldValues[field.Id].FieldValue;
                     }
 
                     if ( field.FieldSource == RegistrationFieldSource.PersonField )
@@ -4553,7 +4585,7 @@ namespace RockWeb.Blocks.Event
                     fieldVisibilityWrapper.Controls.Add( new LiteralControl( field.PostText ) );
                 }
 
-                bool hasDependantVisibilityRule = form.Fields.Any( a => a.FieldVisibilityRules.Any( r => r.ComparedToAttributeGuid == attribute.Guid ) );
+                bool hasDependantVisibilityRule = form.Fields.Any( a => a.FieldVisibilityRules.RuleList.Any( r => r.ComparedToAttributeGuid == attribute.Guid ) );
 
                 if ( hasDependantVisibilityRule && attribute.FieldType.Field.HasChangeHandler( editControl ) )
                 {
@@ -4676,7 +4708,7 @@ namespace RockWeb.Blocks.Event
 
                 case RegistrationPersonFieldType.Grade:
                     var gpGrade = phRegistrantControls.FindControl( "gpGrade" ) as GradePicker;
-                    return gpGrade != null ? Person.GraduationYearFromGradeOffset( gpGrade.SelectedValueAsInt() ) : null;
+                    return gpGrade != null ? Person.GraduationYearFromGradeOffset( gpGrade.SelectedValueAsInt( false ) ) : null;
 
                 case RegistrationPersonFieldType.Gender:
                     var ddlGender = phRegistrantControls.FindControl( "ddlGender" ) as RockDropDownList;
@@ -4905,6 +4937,7 @@ namespace RockWeb.Blocks.Event
                         lUseLoggedInPersonFirstName.Text = CurrentPerson.NickName;
                         lUseLoggedInPersonLastName.Text = CurrentPerson.LastName;
                         lUseLoggedInPersonEmail.Text = CurrentPerson.Email;
+                        tbUseLoggedInPersonEmail.Text = CurrentPerson.Email;
                         lUseLoggedInPersonEmail.Visible = !CurrentPerson.Email.IsNullOrWhiteSpace();
                         tbUseLoggedInPersonEmail.Visible = CurrentPerson.Email.IsNullOrWhiteSpace();
                     }
@@ -5162,11 +5195,24 @@ namespace RockWeb.Blocks.Event
                         RegistrationState.PaymentAmount.Value < minimumPayment.Value ||
                         RegistrationState.PaymentAmount.Value > balanceDue )
                     {
-                        if ( defaultPayment.HasValue && ( defaultPayment >= minimumPayment && defaultPayment <= balanceDue ) )
+                        if ( defaultPayment.HasValue )
                         {
-                            // if there is defaultPayment set, make that the payment amount as long it is more than the minimumPayment and not more than the balanceDue
                             // NOTE: if the configured 'Minimum Initial Payment' is null, the minimumPayment is the full amount, so the 'Default Payment Amount' option would be ignored
-                            RegistrationState.PaymentAmount = defaultPayment;
+                            if ( defaultPayment >= minimumPayment && defaultPayment <= balanceDue )
+                            {
+                                // default Payment is more than min and less than balance due, so we can use it
+                                RegistrationState.PaymentAmount = defaultPayment;
+                            }
+                            else if (defaultPayment <= minimumPayment)
+                            {
+                                // default Payment is less than min, so use min instead
+                                RegistrationState.PaymentAmount = minimumPayment;
+                            }
+                            else if (defaultPayment >= balanceDue)
+                            {
+                                // default Payment is more than balance due, so use balance due
+                                RegistrationState.PaymentAmount = balanceDue;
+                            }
                         }
                         else
                         {

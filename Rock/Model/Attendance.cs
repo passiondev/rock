@@ -16,10 +16,13 @@
 //
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
 using System.Data.Entity.ModelConfiguration;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+
 using Rock.Data;
 using Rock.Web.Cache;
 
@@ -250,6 +253,14 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public int? ScheduledByPersonAliasId { get; set; }
+
+        /// Gets or sets the data that was used to print the label
+        /// </summary>
+        /// <value>
+        /// The label data.
+        /// </value>
+        [LavaInclude]
+        public virtual AttendanceLabelData LabelData { get; set; }
 
         #endregion
 
@@ -641,7 +652,7 @@ namespace Rock.Model
         /// </summary>
         /// <param name="dbContext">The database context.</param>
         /// <param name="entry">The entry.</param>
-        public override void PreSaveChanges( DbContext dbContext, System.Data.Entity.Infrastructure.DbEntityEntry entry )
+        public override void PreSaveChanges( Data.DbContext dbContext, DbEntityEntry entry )
         {
             var transaction = new Rock.Transactions.GroupAttendedTransaction( entry );
             Rock.Transactions.RockQueue.TransactionQueue.Enqueue( transaction );
@@ -659,9 +670,9 @@ namespace Rock.Model
         /// <param name="entry">The entry.</param>
         [RockObsolete( "1.8" )]
         [Obsolete]
-        private void ProcessObsoleteOccurrenceFields( System.Data.Entity.Infrastructure.DbEntityEntry entry )
+        private void ProcessObsoleteOccurrenceFields( DbEntityEntry entry )
         {
-            if ( entry.State == System.Data.Entity.EntityState.Modified || entry.State == System.Data.Entity.EntityState.Added )
+            if ( entry.State == EntityState.Modified || entry.State == EntityState.Added )
             {
                 // NOTE: If they only changed StartDateTime, don't change the Occurrence record. We want to support letting StartDateTime be a different Date than the OccurenceDate in that situation
                 if ( _updatedObsoleteGroupId || _updatedObsoleteLocationId || _updatedObsoleteScheduleId || _updatedObsoleteDidNotOccur )
@@ -827,6 +838,7 @@ namespace Rock.Model
             this.HasOptional( a => a.AttendanceCode ).WithMany( c => c.Attendances ).HasForeignKey( a => a.AttendanceCodeId ).WillCascadeOnDelete( false );
             this.HasOptional( a => a.DeclineReasonValue ).WithMany().HasForeignKey( a => a.DeclineReasonValueId ).WillCascadeOnDelete( false );
             this.HasOptional( a => a.ScheduledByPersonAlias ).WithMany().HasForeignKey( p => p.ScheduledByPersonAliasId ).WillCascadeOnDelete( false );
+            this.HasOptional( a => a.LabelData ).WithRequired().WillCascadeOnDelete();
         }
     }
 

@@ -335,5 +335,9 @@ namespace Rock.SystemGuid
         /// The volunteer schedule decline reason
         /// </summary>
         public const string VOLUNTEER_SCHEDULE_DECLINE_REASON = "70C9F9C4-20CC-43DD-888D-9243853A0E52";
+
+        /// Used to store various liquid templates for features in Rock.
+        /// </summary>
+        public const string LAVA_TEMPLATES = "C3D44004-6951-44D9-8560-8567D705A48B";
     }
 }

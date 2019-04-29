@@ -659,7 +659,8 @@ namespace Rock.Migrations.Migrations {
         ///		* PersonId
         ///		* TimeAttending
         ///		* SundayDate
-        ///	&lt;/returns&gt;        /// [rest of string was truncated]&quot;;.
+        ///	&lt;/returns&gt;
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
         public static string _201805152055059_AttendanceOccurrence_spCheckin_AttendanceAnalyticsQuery_AttendeeLastAttendance {
             get {
@@ -1093,7 +1094,8 @@ namespace Rock.Migrations.Migrations {
         ///    BEGIN
         ///	
         ///	    -- configuration of the duration in weeks
-        ///	    DECLARE @GivingDurationLongWeeks int = 52        /// [rest of string was truncated]&quot;;.
+        ///	    DECLARE @GivingDurationLongWeeks int = 52
+        /// [rest of string was truncated]&quot;;.
         /// </summary>
         public static string _201808062254493_Rollup_0806_spCrm_FamilyAnalyticsGiving {
             get {
@@ -1423,6 +1425,36 @@ namespace Rock.Migrations.Migrations {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to IF NOT EXISTS (
+        ///		SELECT [Id]
+        ///		FROM [ServiceJob]
+        ///		WHERE [Class] = &apos;Rock.Jobs.PostV90DataMigrations&apos;
+        ///			AND [Guid] = &apos;3F279016-C7D1-490F-835D-8FFE6D943A32&apos;
+        ///		)
+        ///BEGIN
+        ///	INSERT INTO [ServiceJob] (
+        ///		[IsSystem]
+        ///		,[IsActive]
+        ///		,[Name]
+        ///		,[Description]
+        ///		,[Class]
+        ///		,[CronExpression]
+        ///		,[NotificationStatus]
+        ///		,[Guid]
+        ///		)
+        ///	VALUES (
+        ///		0
+        ///		,1
+        ///		,&apos;Runs data updates that need to occur after updating to v9.0&apos;
+        ///		,&apos;This job will take care of any data migrations that need to occur after updating to v [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string _201904231856504_Rollup_0423_CreatePost90DataMigrationServiceJob {
+            get {
+                return ResourceManager.GetString("_201904231856504_Rollup_0423_CreatePost90DataMigrationServiceJob", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to DECLARE @WeeklySundayScheduleGuid UNIQUEIDENTIFIER = &apos;04A17BB3-B3E8-4E4B-B575-22CB7E81D5F4&apos;,
         ///	@EveryOtherWeekSundayScheduleGuid UNIQUEIDENTIFIER = &apos;07F1D164-F8D7-4FA4-B98B-B7480CC40457&apos;,
         ///	@FirstAndThirdSundayScheduleGuid UNIQUEIDENTIFIER = &apos;8342535C-A48B-4AE6-8522-33C33BFBBFFC&apos;,
@@ -1435,6 +1467,30 @@ namespace Rock.Migrations.Migrations {
         public static string _201901142159294_GroupScheduling_PopulateScheduleTemplates {
             get {
                 return ResourceManager.GetString("_201901142159294_GroupScheduling_PopulateScheduleTemplates", resourceCulture);
+            }
+        }
+
+        ///   Looks up a localized string similar to -- Scheduled Transactions didn&apos;t write to history until v7.4, so convert those into History notes
+        ///
+        ///DECLARE @historyCategoryId INT = (
+        ///		SELECT TOP 1 Id
+        ///		FROM Category
+        ///		WHERE Guid = &apos;477EE3BE-C68F-48BD-B218-FAFC99AF56B3&apos;
+        ///		)
+        ///	,@entityTypeIdScheduledTransaction INT = (
+        ///		SELECT TOP 1 Id
+        ///		FROM EntityType
+        ///		WHERE [Guid] = &apos;76824E8A-CCC4-4085-84D9-8AF8C0807E20&apos;
+        ///		)
+        ///	,@noteTypeIdScheduledTransaction INT = (
+        ///		SELECT TOP 1 Id
+        ///		FROM NoteType
+        ///		WHERE [Guid] = &apos;360CFFE2-7FE3-4B0B-85A7-BFDACC9AF588&apos; [rest of string was truncated]&quot;;.
+        /// </summary>
+        public static string _201903202308416_ScheduledTransactionHistory_MigrateScheduledTransactionNotesToHistory {
+            get {
+                return ResourceManager.GetString("_201903202308416_ScheduledTransactionHistory_MigrateScheduledTransactionNotesToHi" +
+                        "story", resourceCulture);
             }
         }
     }

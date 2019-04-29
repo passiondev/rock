@@ -14,8 +14,6 @@
 // limitations under the License.
 // </copyright>
 //
-using System;
-
 namespace Rock.SystemGuid
 {
     /// <summary>
@@ -126,6 +124,16 @@ namespace Rock.SystemGuid
         /// </summary>
         public const string CURRENCY_TYPE_OTHER = "0FDF0BB3-B483-4C0A-9DFF-A35ABE3B688D";
 
+        /// <summary>
+        /// Apple Pay Currency Type
+        /// </summary>
+        public const string CURRENCY_TYPE_APPLE_PAY = "D42C4DF7-1AE9-4DDE-ADA2-774B866B798C";
+
+        /// <summary>
+        /// Android Pay Currency Type
+        /// </summary>
+        public const string CURRENCY_TYPE_ANDROID_PAY = "6151F6E0-3223-46BA-A59E-E091BE4AF75C";
+
         #endregion
 
         #region Financial Transaction Type
@@ -168,6 +176,11 @@ namespace Rock.SystemGuid
         /// The financial source of On-site Collection
         /// </summary>
         public const string FINANCIAL_SOURCE_TYPE_ONSITE_COLLECTION = "BE7ECF50-52BC-4774-808D-574BA842DB98";
+
+        /// <summary>
+        /// The financial source of Text-to-Give (Give action of the SMS actions)
+        /// </summary>
+        public const string FINANCIAL_SOURCE_TYPE_SMS_GIVE = "8BA95E24-D291-499E-A535-4DCAC365689B";
 
         #endregion
 

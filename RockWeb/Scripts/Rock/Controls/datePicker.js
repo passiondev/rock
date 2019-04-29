@@ -23,7 +23,7 @@
                 var datePicker = $datePickerInputGroup.datepicker({
                     format: dateFormat,
                     autoclose: true,
-                    todayBtn: true,
+                    todayBtn: "linked",
                     forceParse: options.forceParse,
                     startDate: options.startDate,
                     endDate: options.endDate || new Date(8640000000000000),

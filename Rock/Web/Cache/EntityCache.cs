@@ -21,6 +21,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 
 using Rock.Data;
+
 using DbContext = Rock.Data.DbContext;
 
 namespace Rock.Web.Cache
@@ -139,6 +140,17 @@ namespace Rock.Web.Cache
         }
 
         /// <summary>
+        /// Gets the Id for the cache object, or NULL if it doesn't exist
+        /// </summary>
+        /// <param name="guidString">The unique identifier in string form.</param>
+        /// <returns></returns>
+        public static int? GetId( string guidString )
+        {
+            var guid = guidString.AsGuidOrNull();
+            return guid.HasValue ? GetId( guid.Value ) : null;
+        }
+
+        /// <summary>
         /// Gets the cached object by guid using the included RockContext if needed.
         /// </summary>
         /// <param name="guid">The unique identifier.</param>
@@ -243,7 +255,7 @@ namespace Rock.Web.Cache
         /// </summary>
         /// <param name="entityId">The entity identifier.</param>
         /// <param name="entityState">State of the entity. If unknown, use <see cref="EntityState.Detached" /></param>
-        public static void UpdateCachedEntity( int entityId, System.Data.Entity.EntityState entityState )
+        public static void UpdateCachedEntity( int entityId, EntityState entityState )
         {
             // NOTE: Don't read the Item into the Cache here since it could be part of a transaction that could be rolled back.
             // Reading it from the database here could also cause a deadlock depending on the database isolation level.

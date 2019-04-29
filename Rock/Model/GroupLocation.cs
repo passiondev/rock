@@ -14,11 +14,11 @@
 // limitations under the License.
 // </copyright>
 //
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.ModelConfiguration;
 using System.Linq;
@@ -193,7 +193,7 @@ namespace Rock.Model
         /// </summary>
         /// <param name="dbContext"></param>
         /// <param name="entry"></param>
-        public override void PreSaveChanges( DbContext dbContext, DbEntityEntry entry )
+        public override void PreSaveChanges( Data.DbContext dbContext, DbEntityEntry entry )
         {
             var rockContext = (RockContext)dbContext;
 
@@ -201,7 +201,7 @@ namespace Rock.Model
 
             switch ( entry.State )
             {
-                case System.Data.Entity.EntityState.Added:
+                case EntityState.Added:
                     {
                         string locationType = History.GetDefinedValueValue( null, GroupLocationTypeValueId );
                         locationType = locationType.IsNotNullOrWhiteSpace() ? locationType : "Unknown";
@@ -212,7 +212,7 @@ namespace Rock.Model
                         break;
                     }
 
-                case System.Data.Entity.EntityState.Modified:
+                case EntityState.Modified:
                     {
                         string locationTypeName = DefinedValueCache.GetName( GroupLocationTypeValueId ) ?? "Unknown";
                         int? oldLocationTypeId = entry.OriginalValues["GroupLocationTypeValueId"].ToStringSafe().AsIntegerOrNull();
@@ -233,7 +233,7 @@ namespace Rock.Model
                         break;
                     }
 
-                case System.Data.Entity.EntityState.Deleted:
+                case EntityState.Deleted:
                     {
                         string locationType = History.GetDefinedValueValue( null, entry.OriginalValues["GroupLocationTypeValueId"].ToStringSafe().AsIntegerOrNull() );
                         locationType = locationType.IsNotNullOrWhiteSpace() ? locationType : "Unknown";

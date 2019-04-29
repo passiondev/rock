@@ -18,15 +18,15 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Web;
 using System.Web.Security;
 
 using Rock.Data;
 using Rock.Model;
-using Rock.Web.Cache;
-using System.Runtime.Serialization;
 using Rock.Utility;
+using Rock.Web.Cache;
 
 namespace Rock.Security
 {
@@ -87,6 +87,10 @@ namespace Rock.Security
         /// Authorization to perform scheduling
         /// </summary>
         public const string SCHEDULE = "Schedule";
+
+        /// Authorization action for using (tagging with) the Tag.
+        /// </summary>
+        public const string TAG = "Tag";
 
         #endregion
 

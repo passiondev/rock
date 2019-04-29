@@ -2,7 +2,7 @@
 
 <asp:UpdatePanel ID="upPanel" runat="server">
     <ContentTemplate>
-        <Rock:NotificationBox ID="nbNoNumbers" runat="server" NotificationBoxType="Warning" Text='No "SMS Phone Numbers" are available to view. Either there are none configured our you do not have access to them.' Visible="false"></Rock:NotificationBox>
+        <Rock:NotificationBox ID="nbNoNumbers" runat="server" NotificationBoxType="Warning" Text='No "SMS Phone Numbers" are available to view. Either there are none configured or you do not have access to them.' Visible="false"></Rock:NotificationBox>
 
         <div class="panel panel-block" runat="server" id="divMain" visible="false">
 
@@ -33,7 +33,9 @@
 
             <div class="sms-conversations-container">
                 <div class="conversation-list">
-                    <asp:LinkButton ID="btnCreateNewMessage" runat="server" CssClass="btn btn-default btn-block btn-new-message" OnClick="btnCreateNewMessage_Click"><i class="fa fa-comments"></i>&nbsp;New Message</asp:LinkButton>
+                <div class="header">
+                    <asp:LinkButton ID="btnCreateNewMessage" runat="server" CssClass="btn btn-default btn-sm btn-square" OnClick="btnCreateNewMessage_Click" ToolTip="New Message"><i class="fa fa-edit"></i></asp:LinkButton>
+                </div>
                     <asp:UpdatePanel ID="upRecipients" runat="server" class="overflow-scroll">
                         <ContentTemplate>
                             <Rock:Grid ID="gRecipients" runat="server" OnRowSelected="gRecipients_RowSelected" OnRowDataBound="gRecipients_RowDataBound" ShowHeader="false" ShowActionRow="false" DisplayType="Light" EnableResponsiveTable="False">
@@ -112,7 +114,7 @@
                 });
 
                 function clearActiveDialog() {
-                    $('#<%=hfActiveDialog.ClientID %>').val('');
+                    __doPostBack(null,'cancel');
                 }
 
                 var yPos;
@@ -144,13 +146,14 @@
         <Rock:ModalDialog ID="mdNewMessage" runat="server" Title="New Message" OnSaveClick="mdNewMessage_SaveClick" OnCancelScript="clearActiveDialog();" SaveButtonText="Send" ValidationGroup="vgMobileTextEditor">
             <Content>
                 <asp:ValidationSummary ID="vsMobileTextEditor" runat="server" HeaderText="Please correct the following:" ValidationGroup="vgMobileTextEditor" CssClass="alert alert-validation" />
+                <Rock:NotificationBox ID="nbNoSms" runat="server" Text="The selected person does not have an SMS enabled Phone number." Dismissable="true" Visible="false" NotificationBoxType="Warning"></Rock:NotificationBox>
                 <div class="form-group">
-                    <label runat="server" id="lblFromNumber" class="control-label">From Number</label>
+                    <label runat="server" id="lblFromNumber" class="control-label">From</label>
                     <div><asp:Label ID="lblMdNewMessageSendingSMSNumber" runat="server" /></div>
                 </div>
 
                 <%-- person picker --%>
-                <Rock:PersonPicker ID="ppRecipient" runat="server" Label="Recipient" ValidationGroup="vgMobileTextEditor" RequiredErrorMessage="Please select an SMS recipient." Required="true" />
+                <Rock:PersonPicker ID="ppRecipient" runat="server" Label="Recipient" ValidationGroup="vgMobileTextEditor" RequiredErrorMessage="Please select an SMS recipient." Required="true" OnSelectPerson="ppRecipient_SelectPerson" />
 
                 <%-- multi-line textbox --%>
                 <Rock:RockTextBox ID="tbSMSTextMessage" runat="server" CssClass="js-sms-text-message" TextMode="MultiLine" Rows="3" Placeholder="Type a message" Required="true" ValidationGroup="vgMobileTextEditor" RequiredErrorMessage="Message is required" ValidateRequestMode="Disabled" />

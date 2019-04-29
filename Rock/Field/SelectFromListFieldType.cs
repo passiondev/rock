@@ -17,10 +17,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-using Rock.Data;
+
 using Rock.Model;
 using Rock.Reporting;
 using Rock.Web.UI.Controls;
@@ -32,9 +31,9 @@ namespace Rock.Field.Types
     /// </summary>
     public abstract class SelectFromListFieldType : FieldType
     {
-        private const string REPEAT_COLUMNS = "repeatColumns";
-
         #region Configuration
+
+        private const string REPEAT_COLUMNS = "repeatColumns";
 
         /// <summary>
         /// Returns a list of the configuration keys
@@ -42,7 +41,7 @@ namespace Rock.Field.Types
         /// <returns></returns>
         public override List<string> ConfigurationKeys()
         {
-            List<string> configKeys = new List<string>();
+            List<string> configKeys = base.ConfigurationKeys();
             configKeys.Add( REPEAT_COLUMNS );
             return configKeys;
         }

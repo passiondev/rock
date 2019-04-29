@@ -19,13 +19,15 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Data.Entity.ModelConfiguration;
-using System.Runtime.Serialization;
-using Rock.Data;
-using Rock.Web.Cache;
-using Rock.Security;
-using System.Linq;
+using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
+using System.Data.Entity.ModelConfiguration;
+using System.Linq;
+using System.Runtime.Serialization;
+
+using Rock.Data;
+using Rock.Security;
+using Rock.Web.Cache;
 
 namespace Rock.Model
 {
@@ -303,6 +305,7 @@ namespace Rock.Model
 
         /// <summary>
         /// Gets or sets the collection of <see cref="Rock.Model.Category">Categories</see> that this Attribute is associated with.
+        /// NOTE: Since changes to Categories isn't tracked by ChangeTracker, set the ModifiedDateTime if Categories are modified.
         /// </summary>
         /// <value>
         /// A collection of <see cref="Rock.Model.Category">Categories</see> that this Attribute is associated with.
@@ -357,9 +360,9 @@ namespace Rock.Model
         /// </summary>
         /// <param name="dbContext">The database context.</param>
         /// <param name="state">The state.</param>
-        public override void PreSaveChanges( DbContext dbContext, System.Data.Entity.EntityState state )
+        public override void PreSaveChanges( Data.DbContext dbContext, EntityState state )
         {
-            if ( state != System.Data.Entity.EntityState.Deleted )
+            if ( state != EntityState.Deleted )
             {
                 // ensure that the BinaryFile.IsTemporary flag is set to false for any BinaryFiles that are associated with this record
                 var fieldTypeCache = FieldTypeCache.Get( this.FieldTypeId );
@@ -406,9 +409,9 @@ namespace Rock.Model
         /// <param name="dbContext">The database context.</param>
         /// <param name="entry">The entry.</param>
         /// <param name="state">The state.</param>
-        public override void PreSaveChanges( Data.DbContext dbContext, DbEntityEntry entry, System.Data.Entity.EntityState state )
+        public override void PreSaveChanges( Data.DbContext dbContext, DbEntityEntry entry, EntityState state )
         {
-            if ( state == System.Data.Entity.EntityState.Modified || state == System.Data.Entity.EntityState.Deleted )
+            if ( state == EntityState.Modified || state == EntityState.Deleted )
             {
                 originalEntityTypeId = entry.OriginalValues["EntityTypeId"]?.ToString().AsIntegerOrNull();
                 originalEntityTypeQualifierColumn = entry.OriginalValues["EntityTypeQualifierColumn"]?.ToString();
@@ -432,7 +435,7 @@ namespace Rock.Model
         /// </summary>
         /// <param name="entityState">State of the entity.</param>
         /// <param name="dbContext">The database context.</param>
-        public void UpdateCache( System.Data.Entity.EntityState entityState, Rock.Data.DbContext dbContext )
+        public void UpdateCache( EntityState entityState, Rock.Data.DbContext dbContext )
         {
             AttributeCache.UpdateCachedEntity( this.Id, entityState );
             AttributeCache.UpdateCacheEntityAttributes( this, entityState );
@@ -441,7 +444,7 @@ namespace Rock.Model
             string entityTypeQualifierColumn;
             string entityTypeQualifierValue;
 
-            if ( entityState == System.Data.Entity.EntityState.Deleted )
+            if ( entityState == EntityState.Deleted )
             {
                 entityTypeId = originalEntityTypeId;
                 entityTypeQualifierColumn = originalEntityTypeQualifierColumn;
@@ -461,7 +464,7 @@ namespace Rock.Model
 
             if ( ( !entityTypeId.HasValue || entityTypeId.Value == 0 ) && entityTypeQualifierColumn== Attribute.SYSTEM_SETTING_QUALIFIER && string.IsNullOrEmpty( entityTypeQualifierValue ) )
             {
-                if ( entityState != System.Data.Entity.EntityState.Modified )
+                if ( entityState != EntityState.Modified )
                 {
                     // if a SystemSettings was Added or Removed, flush the SystemSettings cache (if it was only modified, it'll will point to the updated AttributeCache value)
                     Rock.Web.SystemSettings.Remove();

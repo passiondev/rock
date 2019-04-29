@@ -20,6 +20,7 @@ using System.Linq;
 using System.Text;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+
 using Rock.Constants;
 
 namespace Rock.Web.UI.Controls
@@ -347,7 +348,7 @@ namespace Rock.Web.UI.Controls
             {
                 bool hasChanged = false;
 
-                // Hack to get the selected items on postback.  
+                // Hack to get the selected items on postback.
                 for ( int i = 0; i < this.Items.Count; i++ )
                 {
                     bool newCheckState = ( postCollection[string.Format( "{0}${1}", this.UniqueID, i )] != null );
@@ -391,18 +392,18 @@ namespace Rock.Web.UI.Controls
             if ( this.RepeatDirection == RepeatDirection.Horizontal )
             {
                 cssClassBuilder.Append( " rockcheckboxlist-horizontal" );
+
+                if ( this.RepeatColumns > 0 )
+                {
+                    cssClassBuilder.Append( string.Format(" in-columns in-columns-{0}", RepeatColumns ) );
+                }
+
             }
             else
             {
                 cssClassBuilder.Append( " rockcheckboxlist-vertical" );
             }
 
-            if ( this.RepeatColumns <= 0 )
-            {
-                this.RepeatColumns = 4;
-            }
-
-            cssClassBuilder.Append( string.Format(" in-columns in-columns-{0}", RepeatColumns ) );
 
             writer.AddAttribute( "class", cssClassBuilder.ToString() );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
@@ -424,11 +425,11 @@ namespace Rock.Web.UI.Controls
    function StrikeOffCheckbox( checkboxControl ){{
                 if ( checkboxControl.prop( 'checked' ) )
                 {{
-                    checkboxControl.parent('label').addClass( 'strikethrough' );
+                    checkboxControl.parent('label').addClass( 'line-through' );
                 }}
                 else
                 {{
-                    checkboxControl.parent('label').removeClass( 'strikethrough' );
+                    checkboxControl.parent('label').removeClass( 'line-through' );
                 }}
 
             }}

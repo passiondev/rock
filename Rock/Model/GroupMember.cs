@@ -20,9 +20,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
 using System.Data.Entity.ModelConfiguration;
 using System.Linq;
 using System.Runtime.Serialization;
+
 using Humanizer;
 
 using Rock.Data;
@@ -303,16 +305,8 @@ namespace Rock.Model
         /// </summary>
         /// <param name="dbContext">The database context.</param>
         /// <param name="entry">The entry.</param>
-        public override void PreSaveChanges( Rock.Data.DbContext dbContext, System.Data.Entity.Infrastructure.DbEntityEntry entry )
+        public override void PreSaveChanges( Rock.Data.DbContext dbContext, DbEntityEntry entry )
         {
-            string errorMessage = string.Empty;
-            if ( !ValidateGroupMembership( ( RockContext ) dbContext, out errorMessage ) )
-            {
-                var ex = new GroupMemberValidationException( errorMessage );
-                ExceptionLogService.LogException( ex );
-                throw ex;
-            }
-
             var changeTransaction = new Rock.Transactions.GroupMemberChangeTransaction( entry );
             Rock.Transactions.RockQueue.TransactionQueue.Enqueue( changeTransaction );
 
@@ -324,7 +318,7 @@ namespace Rock.Model
 
             switch ( entry.State )
             {
-                case System.Data.Entity.EntityState.Added:
+                case EntityState.Added:
                     {
                         oldPersonId = null;
                         newPersonId = PersonId;
@@ -340,7 +334,7 @@ namespace Rock.Model
                         break;
                     }
 
-                case System.Data.Entity.EntityState.Modified:
+                case EntityState.Modified:
                     {
                         oldPersonId = entry.OriginalValues["PersonId"].ToStringSafe().AsIntegerOrNull();
                         newPersonId = PersonId;
@@ -351,7 +345,7 @@ namespace Rock.Model
                         break;
                     }
 
-                case System.Data.Entity.EntityState.Deleted:
+                case EntityState.Deleted:
                     {
                         oldPersonId = entry.OriginalValues["PersonId"].ToStringSafe().AsIntegerOrNull();
                         newPersonId = null;
@@ -547,6 +541,7 @@ namespace Rock.Model
                 {
                     PersonService.UpdatePersonAgeClassification( this.PersonId, dbContext as RockContext );
                     PersonService.UpdatePrimaryFamily( this.PersonId, dbContext as RockContext );
+                    PersonService.UpdateGivingLeaderId( this.PersonId, dbContext as RockContext );
                 }
             }
         }
@@ -605,16 +600,15 @@ namespace Rock.Model
         {
             errorMessage = string.Empty;
             var groupService = new GroupService( rockContext );
-            var group = this.Group ?? groupService.Queryable().AsNoTracking().Where( g => g.Id == this.GroupId ).FirstOrDefault();
 
-            if ( !groupService.AllowsDuplicateMembers( group ) )
+            if ( !GroupService.AllowsDuplicateMembers() )
             {
                 var groupMember = new GroupMemberService( rockContext ).GetByGroupIdAndPersonIdAndGroupRoleId( this.GroupId, this.PersonId, this.GroupRoleId );
                 if ( groupMember != null && groupMember.Id != this.Id )
                 {
                     var person = this.Person ?? new PersonService( rockContext ).Get( this.PersonId );
 
-                    var groupRole = groupType.Roles.First( a => a.Id == this.GroupRoleId );
+                    var groupRole = groupType.Roles.Where( a => a.Id == this.GroupRoleId ).FirstOrDefault();
                     errorMessage = string.Format(
                         "{0} already belongs to the {1} role for this {2}, and cannot be added again with the same role",
                         person,
@@ -637,15 +631,26 @@ namespace Rock.Model
         private bool ValidateGroupMembership( RockContext rockContext, out string errorMessage )
         {
             errorMessage = string.Empty;
-
-            var groupService = new GroupService( rockContext );
             var group = this.Group ?? new GroupService( rockContext ).Queryable().AsNoTracking().Where( g => g.Id == this.GroupId ).FirstOrDefault();
 
             var groupType = GroupTypeCache.Get( group.GroupTypeId );
-            var groupRole = groupType.Roles.First( a => a.Id == this.GroupRoleId );
+            if ( groupType == null )
+            {
+                // For some reason we could not get a GroupType
+                errorMessage = $"The GroupTypeId {group.GroupTypeId} used by {this.Group.Name} does not exist.";
+                return false;
+            }
+
+            var groupRole = groupType.Roles.Where( a => a.Id == this.GroupRoleId ).FirstOrDefault();
+            if ( groupRole == null )
+            {
+                // For some reason we could not get a GroupTypeRole for the GroupRoleId for this GroupMember.
+                errorMessage = $"The GroupRoleId {this.GroupRoleId} for the group member {this.Person.FullName} in group {this.Group.Name} does not exist in the GroupType.Roles for GroupType {groupType.Name}.";
+                return false;
+            }
 
             // Verify duplicate role/person
-            if ( !groupService.AllowsDuplicateMembers( group ) )
+            if ( !GroupService.AllowsDuplicateMembers() )
             {
                 if ( !ValidateGroupMemberDuplicateMember( rockContext, groupType, out errorMessage ) )
                 {
@@ -703,19 +708,22 @@ namespace Rock.Model
             // if the GroupMember is getting Added (or if Person or Role is different), and if this Group has requirements that must be met before the person is added, check those
             if ( this.IsNewOrChangedGroupMember( rockContext ) )
             {
-                var requirementStatusesRequiredForAdd = group.PersonMeetsGroupRequirements( rockContext, this.PersonId, this.GroupRoleId )
-                    .Where( a => a.MeetsGroupRequirement == MeetsGroupRequirement.NotMet
-                    && ( ( a.GroupRequirement.GroupRequirementType.RequirementCheckType != RequirementCheckType.Manual ) && ( a.GroupRequirement.MustMeetRequirementToAddMember == true ) ) );
-
-                if ( requirementStatusesRequiredForAdd.Any() )
+                if ( group.GetGroupRequirements( rockContext ).Any( a => a.MustMeetRequirementToAddMember ) )
                 {
-                    // deny if any of the non-manual MustMeetRequirementToAddMember requirements are not met
-                    errorMessage = "This person must meet the following requirements before they are added to this group: "
-                        + requirementStatusesRequiredForAdd
-                        .Select( a => string.Format( "{0}", a.GroupRequirement.GroupRequirementType ) )
-                        .ToList().AsDelimited( ", " );
+                    var requirementStatusesRequiredForAdd = group.PersonMeetsGroupRequirements( rockContext, this.PersonId, this.GroupRoleId )
+                        .Where( a => a.MeetsGroupRequirement == MeetsGroupRequirement.NotMet
+                        && ( ( a.GroupRequirement.GroupRequirementType.RequirementCheckType != RequirementCheckType.Manual ) && ( a.GroupRequirement.MustMeetRequirementToAddMember == true ) ) );
 
-                    return false;
+                    if ( requirementStatusesRequiredForAdd.Any() )
+                    {
+                        // deny if any of the non-manual MustMeetRequirementToAddMember requirements are not met
+                        errorMessage = "This person must meet the following requirements before they are added to this group: "
+                            + requirementStatusesRequiredForAdd
+                            .Select( a => string.Format( "{0}", a.GroupRequirement.GroupRequirementType ) )
+                            .ToList().AsDelimited( ", " );
+
+                        return false;
+                    }
                 }
             }
 
@@ -964,7 +972,7 @@ namespace Rock.Model
         /// </summary>
         /// <param name="entityState">State of the entity.</param>
         /// <param name="dbContext">The database context.</param>
-        public void UpdateCache( System.Data.Entity.EntityState entityState, Rock.Data.DbContext dbContext )
+        public void UpdateCache( EntityState entityState, Rock.Data.DbContext dbContext )
         {
             var group = this.Group ?? new GroupService( new RockContext() ).GetNoTracking( this.GroupId );
             if ( group != null )

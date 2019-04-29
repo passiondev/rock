@@ -18,11 +18,14 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Entity;
 using System.Data.Entity.ModelConfiguration;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+
 using DDay.iCal;
+
 using Rock.Data;
 using Rock.Web.Cache;
 
@@ -229,7 +232,7 @@ namespace Rock.Model
         {
             get
             {
-                DDay.iCal.Event calendarEvent = this.GetCalenderEvent();
+                DDay.iCal.Event calendarEvent = this.GetCalendarEvent();
                 if ( calendarEvent != null && calendarEvent.DTStart != null )
                 {
                     return !string.IsNullOrWhiteSpace( this.Name ) ?
@@ -317,7 +320,7 @@ namespace Rock.Model
         {
             get
             {
-                DDay.iCal.Event calendarEvent = this.GetCalenderEvent();
+                DDay.iCal.Event calendarEvent = this.GetCalendarEvent();
                 if ( calendarEvent != null && calendarEvent.DTStart != null )
                 {
                     return calendarEvent.DTStart.TimeOfDay;
@@ -379,9 +382,9 @@ namespace Rock.Model
         /// </summary>
         /// <param name="dbContext">The database context.</param>
         /// <param name="state">The state.</param>
-        public override void PreSaveChanges( DbContext dbContext, System.Data.Entity.EntityState state )
+        public override void PreSaveChanges( Data.DbContext dbContext, EntityState state )
         {
-            var calEvent = GetCalenderEvent();
+            var calEvent = GetCalendarEvent();
             if ( calEvent != null )
             {
                 EffectiveStartDate = calEvent.DTStart != null ? calEvent.DTStart.Value.Date : ( DateTime? ) null;
@@ -397,9 +400,21 @@ namespace Rock.Model
         /// <value>
         /// A <see cref="DDay.iCal.Event"/> representing the iCalendar event for this Schedule.
         /// </value>
+        [Obsolete( "Use GetCalendarEvent() instead " )]
         public virtual DDay.iCal.Event GetCalenderEvent()
         {
-            return ScheduleICalHelper.GetCalenderEvent( iCalendarContent );
+            return ScheduleICalHelper.GetCalendarEvent( iCalendarContent );
+        }
+
+        /// <summary>
+        /// Gets the Schedule's iCalender Event.
+        /// </summary>
+        /// <value>
+        /// A <see cref="DDay.iCal.Event"/> representing the iCalendar event for this Schedule.
+        /// </value>
+        public virtual DDay.iCal.Event GetCalendarEvent()  
+        {
+            return ScheduleICalHelper.GetCalendarEvent( iCalendarContent );
         }
 
         /// <summary>
@@ -424,7 +439,7 @@ namespace Rock.Model
         {
             var occurrences = new List<Occurrence>();
 
-            DDay.iCal.Event calEvent = GetCalenderEvent();
+            DDay.iCal.Event calEvent = GetCalendarEvent();
             if ( calEvent == null )
             {
                 return occurrences;
@@ -585,7 +600,7 @@ namespace Rock.Model
         /// <returns></returns>
         public virtual bool HasSchedule()
         {
-            DDay.iCal.Event calEvent = GetCalenderEvent();
+            DDay.iCal.Event calEvent = GetCalendarEvent();
             if ( calEvent != null && calEvent.DTStart != null )
             {
                 return true;
@@ -603,7 +618,7 @@ namespace Rock.Model
         /// <returns></returns>
         public virtual bool HasScheduleWarning()
         {
-            DDay.iCal.Event calEvent = GetCalenderEvent();
+            DDay.iCal.Event calEvent = GetCalendarEvent();
             if ( calEvent != null && calEvent.DTStart != null )
             {
                 if ( calEvent.RecurrenceRules.Any() )
@@ -660,7 +675,7 @@ namespace Rock.Model
             // init the result to just the schedule name just in case we can't figure out the FriendlyText
             string result = this.Name;
 
-            DDay.iCal.Event calendarEvent = this.GetCalenderEvent();
+            DDay.iCal.Event calendarEvent = this.GetCalendarEvent();
             if ( calendarEvent != null && calendarEvent.DTStart != null )
             {
                 string startTimeText = calendarEvent.DTStart.Value.TimeOfDay.ToTimeString();
@@ -817,7 +832,7 @@ namespace Rock.Model
         /// <returns></returns>
         public bool WasScheduleActive( DateTime time )
         {
-            var calEvent = this.GetCalenderEvent();
+            var calEvent = this.GetCalendarEvent();
             if ( calEvent != null && calEvent.DTStart != null )
             {
                 if ( time.TimeOfDay.TotalSeconds < calEvent.DTStart.TimeOfDay.TotalSeconds )
@@ -849,7 +864,7 @@ namespace Rock.Model
                 return false;
             }
 
-            var calEvent = this.GetCalenderEvent();
+            var calEvent = this.GetCalendarEvent();
             if ( calEvent != null && calEvent.DTStart != null )
             {
                 var checkInStart = calEvent.DTStart.AddMinutes( 0 - CheckInStartOffsetMinutes.Value );
@@ -1190,11 +1205,22 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Gets the calender event.
+        /// Gets the calendar event.
         /// </summary>
         /// <param name="iCalendarContent">Content of the i calendar.</param>
         /// <returns></returns>
+        [Obsolete( "Use GetCalendarEvent( iCalendarContent ) instead " )]
         public static DDay.iCal.Event GetCalenderEvent( string iCalendarContent )
+        {
+            return GetCalendarEvent( iCalendarContent );
+        }
+
+        /// <summary>
+        /// Gets the calendar event.
+        /// </summary>
+        /// <param name="iCalendarContent">Content of the i calendar.</param>
+        /// <returns></returns>
+        public static DDay.iCal.Event GetCalendarEvent( string iCalendarContent )
         {
             string trimmedContent = iCalendarContent.Trim();
 

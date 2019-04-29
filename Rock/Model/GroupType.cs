@@ -23,12 +23,11 @@ using System.Data.Entity;
 using System.Data.Entity.ModelConfiguration;
 using System.Linq;
 using System.Runtime.Serialization;
+
 using Rock.Data;
-using Rock.Web.Cache;
-using Rock.UniversalSearch;
-using Rock.UniversalSearch.IndexModels;
 using Rock.Security;
 using Rock.Transactions;
+using Rock.Web.Cache;
 
 namespace Rock.Model
 {
@@ -982,9 +981,9 @@ namespace Rock.Model
         /// </summary>
         /// <param name="dbContext">The database context.</param>
         /// <param name="state">The state.</param>
-        public override void PreSaveChanges( Rock.Data.DbContext dbContext, System.Data.Entity.EntityState state )
+        public override void PreSaveChanges( Rock.Data.DbContext dbContext, EntityState state )
         {
-            if (state == System.Data.Entity.EntityState.Deleted)
+            if (state == EntityState.Deleted)
             {
                 ChildGroupTypes.Clear();
 
@@ -998,11 +997,11 @@ namespace Rock.Model
             }
 
             // clean up the index
-            if ( state == System.Data.Entity.EntityState.Deleted && IsIndexEnabled )
+            if ( state == EntityState.Deleted && IsIndexEnabled )
             {
                 this.DeleteIndexedDocumentsByGroupType( this.Id );
             }
-            else if ( state == System.Data.Entity.EntityState.Modified )
+            else if ( state == EntityState.Modified )
             {
                 // check if indexing is enabled
                 var changeEntry = dbContext.ChangeTracker.Entries<GroupType>().Where( a => a.Entity == this ).FirstOrDefault();
@@ -1196,7 +1195,7 @@ namespace Rock.Model
         /// </summary>
         /// <param name="entityState">State of the entity.</param>
         /// <param name="dbContext">The database context.</param>
-        public void UpdateCache( System.Data.Entity.EntityState entityState, Rock.Data.DbContext dbContext )
+        public void UpdateCache( EntityState entityState, Rock.Data.DbContext dbContext )
         {
             var parentGroupTypeIds = new GroupTypeService( dbContext as RockContext ).GetParentGroupTypes( this.Id ).Select( a => a.Id ).ToList();
             if ( parentGroupTypeIds?.Any() == true )

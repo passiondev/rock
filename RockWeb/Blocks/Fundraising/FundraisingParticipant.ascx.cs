@@ -52,6 +52,7 @@ namespace RockWeb.Blocks.Fundraising
     [BooleanField( "Show Clipboard Icon", "Show a clipboard icon which will copy the page url to the users clipboard", true, order:8)]
     [TextField( "Image CSS Class", "CSS class to apply to the image.", false, "img-thumbnail", key: "ImageCssClass", order: 9 )]
     [AttributeField( Rock.SystemGuid.EntityType.PERSON, "PersonAttributes", "The Person Attributes that the participant can edit", false, true, order: 7 )]
+    [BooleanField( "Show Amount", "Determines if the Amount column should be displayed in the Contributions List.", false, order: 8 )]
     public partial class FundraisingParticipant : RockBlock
     {
         #region Base Control Methods
@@ -214,6 +215,7 @@ namespace RockWeb.Blocks.Fundraising
         private void CreateDynamicControls( GroupMember groupMember )
         {
             groupMember.LoadAttributes();
+            groupMember.Group.LoadAttributes();
             // GroupMember Attributes (all of them)
             phGroupMemberAttributes.Controls.Clear();
 
@@ -404,7 +406,14 @@ namespace RockWeb.Blocks.Fundraising
 
             // Left Top Sidebar
             var photoGuid = group.GetAttributeValue( "OpportunityPhoto" );
-            imgOpportunityPhoto.ImageUrl = string.Format( "~/GetImage.ashx?Guid={0}", photoGuid );
+            if ( !string.IsNullOrWhiteSpace( photoGuid ) )
+            {
+                imgOpportunityPhoto.ImageUrl = string.Format( "~/GetImage.ashx?Guid={0}", photoGuid );
+            }
+            else
+            {
+                imgOpportunityPhoto.Visible = false;
+            }
 
             // Top Main
             string profileLavaTemplate = this.GetAttributeValue( "ProfileLavaTemplate" );
@@ -565,6 +574,15 @@ namespace RockWeb.Blocks.Fundraising
         /// </summary>
         protected void BindContributionsGrid()
         {
+            // Hide the whole Amount column if the block setting is set to hide
+            var showAmount = GetAttributeValue( "ShowAmount" ).AsBoolean();
+            var amountCol = gContributions.ColumnsOfType<RockLiteralField>()
+                .FirstOrDefault( c => c.ID == "lTransactionDetailAmount" );
+            if ( amountCol != null )
+            {
+                amountCol.Visible = showAmount;
+            }
+
             var rockContext = new RockContext();
             var entityTypeIdGroupMember = EntityTypeCache.GetId<Rock.Model.GroupMember>();
             int groupMemberId = hfGroupMemberId.Value.AsInteger();
@@ -608,9 +626,9 @@ namespace RockWeb.Blocks.Fundraising
 	            {
 	                lPersonName.Text = financialTransaction.ShowAsAnonymous ? "Anonymous" : financialTransaction.AuthorizedPersonAlias.Person.FullName;
 	            }
-				
-				Literal lTransactionDetailAmount = e.Row.FindControl( "lTransactionDetailAmount" ) as Literal;
-                if ( lTransactionDetailAmount != null )
+
+                Literal lTransactionDetailAmount = e.Row.FindControl( "lTransactionDetailAmount" ) as Literal;
+                if ( lTransactionDetailAmount != null && lTransactionDetailAmount.Visible )
                 {
 					var amount = financialTransaction.TransactionDetails
                         .Where( d => d.EntityTypeId.HasValue && d.EntityTypeId == entityTypeIdGroupMember && d.EntityId == groupMemberId )

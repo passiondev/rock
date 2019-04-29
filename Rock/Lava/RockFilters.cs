@@ -32,23 +32,30 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.UI.HtmlControls;
+
 using DDay.iCal;
+
 using DotLiquid;
 using DotLiquid.Util;
+
 using Humanizer;
 using Humanizer.Localisation;
+
 using ImageResizer;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+
 using Rock;
 using Rock.Attribute;
 using Rock.Data;
 using Rock.Model;
-using Rock.Web.Cache;
 using Rock.Security;
-using Rock.Web.UI;
-using UAParser;
 using Rock.Utility;
+using Rock.Web.Cache;
+using Rock.Web.UI;
+
+using UAParser;
 
 namespace Rock.Lava
 {
@@ -784,6 +791,25 @@ namespace Rock.Lava
             Match match = regex.Match( input );
 
             return match.Success;
+        }
+
+        /// <summary>
+        /// Returns matched RegEx string from inputted string
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <param name="expression">The regex expression.</param>
+        /// <returns></returns>
+        public static string RegExMatchValue( string input, string expression )
+        {
+            if ( input == null )
+            {
+                return null;
+            }
+
+            Regex regex = new Regex( expression );
+            Match match = regex.Match( input );
+
+            return match.Success ? match.Value : null;
         }
 
         /// <summary>
@@ -3233,6 +3259,27 @@ namespace Rock.Lava
         }
 
         /// <summary>
+        /// Creates a Person Action Identifier (rckid) for the specified Person (person can be specified by Person, Guid, or Id) for specific action.
+        /// </summary>
+        /// <param name="context">The context.</param>
+        /// <param name="input">The input.</param>
+        /// <param name="action">The action.</param>
+        /// <returns></returns>
+        public static string PersonActionIdentifier( DotLiquid.Context context, object input, string action )
+        {
+            Person person = GetPerson( input ) ?? PersonById( context, input ) ?? PersonByGuid( context, input );
+
+            if ( person != null )
+            {
+                return person.GetPersonActionIdentifier( action );
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Creates a Person Token (rckipid) for the specified Person (person can be specified by Person, Guid, or Id). Specify ExpireMinutes, UsageLimit and PageId to
         /// limit the usage of the token for the specified number of minutes, usage count, and specific pageid
         /// </summary>
@@ -3437,6 +3484,9 @@ namespace Rock.Lava
 
             if ( input != null )
             {
+                // Don't call Redirect with a false -- we want it to throw the thread abort exception
+                // so remaining lava does not continue to execute.  We'll catch the exception in the
+                // LavaExtension's ResolveMergeFields method.
                 HttpContext.Current.Response.Redirect( input, true );
             }
 
@@ -4332,7 +4382,7 @@ namespace Rock.Lava
                     else if (value is IDictionary<string, object>)
                     {
                         var dictionaryObject = value as IDictionary<string, object>;
-                        if ( dictionaryObject.ContainsKey( filterKey ) && dictionaryObject[filterKey].Equals( filterValue ) )
+                        if ( dictionaryObject.ContainsKey( filterKey ) && (dynamic) dictionaryObject[filterKey] == (dynamic) filterValue )
                         {
                             result.Add( dictionaryObject );
                         }

@@ -72,7 +72,7 @@
                                             Help="The maximum number of registrants that user is allowed to register. Leave blank for unlimited." Visible="false" />
                                     </div>
                                 </div>
-                                
+
                                 <div class="row">
                                     <div class="col-xs-6">
                                         <Rock:RockRadioButtonList ID="rblRegistrantsInSameFamily" runat="server" Label="Registrants In Same Family" RepeatDirection="Horizontal" CssClass="js-same-family"
@@ -425,7 +425,7 @@
                 <asp:ValidationSummary ID="ValidationSummaryFieldFilter" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="FieldFilter" />
 
                 <Rock:FieldVisibilityRulesEditor ID="fvreFieldVisibilityRulesEditor" runat="server" />
-                
+
             </Content>
         </Rock:ModalDialog>
 
@@ -454,7 +454,7 @@
                         <Rock:RockCheckBox ID="cbCommonValue" runat="server" Label="Common Value" Text="Yes" Visible="false" ValidationGroup="Field"
                             Help="When registering more than one person, should the value of this attribute default to the value entered for first person registered?" />
                         <Rock:RockCheckBox ID="cbShowOnGrid" runat="server" Label="Show on Grid" Text="Yes" Visible="false" ValidationGroup="Field"
-                            Help="Should this value be displayed on the list of registrants?" />
+                            Help="Should this value be displayed on the list of registrants? (Note: not all person fields are supported and therefore not shown on the grid)" />
                     </div>
                     <div class="col-md-3">
                         <Rock:RockCheckBox ID="cbUsePersonCurrentValue" runat="server" Label="Use Current Value" Text="Yes" Visible="false" ValidationGroup="Field"
@@ -516,7 +516,7 @@
                         <Rock:RockControlWrapper ID="rcwFeeItemsSingle" runat="server" Label="">
                             <asp:HiddenField ID="hfFeeItemSingleGuid" runat="server" />
                             <Rock:CurrencyBox ID="cbFeeItemSingleCost" runat="server" Label="Cost" ValidationGroup="Fee" />
-                            <Rock:NumberBox ID="nbFeeItemSingleMaximumUsageCount" runat="server" Label="Maximum Available" Help="The maximum number of times this fee can be used per registration instance." ValidationGroup="Fee" />
+                            <Rock:NumberBox ID="nbFeeItemSingleMaximumUsageCount" runat="server" Label="Maximum Available" Help="The maximum number of times this fee can be used per registration instance." ValidationGroup="Fee" CssClass="input-width-md" />
                         </Rock:RockControlWrapper>
                         <Rock:RockControlWrapper ID="rcwFeeItemsMultiple" runat="server" Label="Costs" Help="Enter the name, cost, and the maximum number of times this fee can be used per registration instance.">
                             <asp:Repeater id="rptFeeItemsMultiple" runat="server" OnItemDataBound="rptFeeItemsMultiple_ItemDataBound">

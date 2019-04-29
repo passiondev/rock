@@ -21,6 +21,7 @@ using System.Data.Entity;
 using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
 using System.Reflection;
+
 using Rock.Model;
 
 namespace Rock.Data
@@ -1061,6 +1062,14 @@ namespace Rock.Data
         public DbSet<HtmlContent> HtmlContents { get; set; }
 
         /// <summary>
+        /// Gets or sets the SMS actions.
+        /// </summary>
+        /// <value>
+        /// The SMS actions.
+        /// </value>
+        public DbSet<SmsAction> SmsActions { get; set; }
+
+        /// <summary>
         /// Gets or sets the Interactions.
         /// </summary>
         /// <value>
@@ -1155,22 +1164,6 @@ namespace Rock.Data
         /// The meta nick name lookups.
         /// </value>
         public DbSet<Rock.Model.MetaNickNameLookup> MetaNickNameLookups { get; set; }
-
-        /// <summary>
-        /// Gets or sets the meta personicx lifestage clusters.
-        /// </summary>
-        /// <value>
-        /// The meta personicx lifestage clusters.
-        /// </value>
-        public DbSet<Rock.Model.MetaPersonicxLifestageCluster> MetaPersonicxLifestageClusters { get; set; }
-
-        /// <summary>
-        /// Gets or sets the meta personicx lifestage groups.
-        /// </summary>
-        /// <value>
-        /// The meta personicx lifestage groups.
-        /// </value>
-        public DbSet<Rock.Model.MetaPersonicxLifestageGroup> MetaPersonicxLifestageGroups { get; set; }
 
         /// <summary>
         /// Gets or sets the metaphones.

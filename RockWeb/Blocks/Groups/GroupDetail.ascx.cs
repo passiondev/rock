@@ -306,6 +306,7 @@ namespace RockWeb.Blocks.Groups
                 if ( CurrentGroupTypeId > 0 )
                 {
                     var group = new Group { GroupTypeId = CurrentGroupTypeId };
+
                     ShowGroupTypeEditDetails( CurrentGroupTypeCache, group, false );
                 }
             }
@@ -315,9 +316,15 @@ namespace RockWeb.Blocks.Groups
             if ( groupId.HasValue && groupId.Value != 0 )
             {
                 var group = GetGroup( groupId.Value, rockContext );
+
+                // Handle tags
+                taglGroupTags.EntityTypeId = group.TypeId;
+                taglGroupTags.EntityGuid = group.Guid;
+                taglGroupTags.CategoryGuid = GetAttributeValue( "TagCategory" ).AsGuidOrNull();
+                taglGroupTags.GetTagValues( null );
+
                 FollowingsHelper.SetFollowing( group, pnlFollowing, this.CurrentPerson );
             }
-
         }
 
         /// <summary>
@@ -529,6 +536,7 @@ namespace RockWeb.Blocks.Groups
             Group group;
             bool wasSecurityRole = false;
             bool triggersUpdated = false;
+            bool checkinDataUpdated = false;
 
             RockContext rockContext = new RockContext();
 
@@ -584,6 +592,7 @@ namespace RockWeb.Blocks.Groups
                     // Remove 
                     group.GroupLocations.Remove( groupLocation );
                     groupLocationService.Delete( groupLocation );
+                    checkinDataUpdated = true;
                 }
 
                 // Remove any group requirements that removed in the UI
@@ -666,6 +675,7 @@ namespace RockWeb.Blocks.Groups
                     }
                 }
 
+
                 // Select group configs with min, desired or max values 
                 var modifiedScheduleConfigs = groupLocationState.GroupLocationScheduleConfigs
                     .Where( s => groupLocation.GroupLocationScheduleConfigs
@@ -712,6 +722,8 @@ namespace RockWeb.Blocks.Groups
                     var associatedConfig = groupLocation.GroupLocationScheduleConfigs.Where( cfg => cfg.Schedule != null && cfg.Schedule.Id == deletedScheduleId ).FirstOrDefault();
                     groupLocation.GroupLocationScheduleConfigs.Remove( associatedConfig );
                 }
+
+                checkinDataUpdated = true;
             }
 
             // Add/update GroupSyncs
@@ -769,7 +781,7 @@ namespace RockWeb.Blocks.Groups
             if ( scheduleType == ScheduleType.Custom )
             {
                 iCalendarContent = sbSchedule.iCalendarContent;
-                var calEvent = ScheduleICalHelper.GetCalenderEvent( iCalendarContent );
+                var calEvent = ScheduleICalHelper.GetCalendarEvent( iCalendarContent );
                 if ( calEvent == null || calEvent.DTStart == null )
                 {
                     scheduleType = ScheduleType.None;
@@ -890,7 +902,8 @@ namespace RockWeb.Blocks.Groups
                 return;
             }
 
-            // Use WrapTransaction since SaveAttributeValues does its own RockContext.SaveChanges()
+
+            // use WrapTransaction since SaveAttributeValues does its own RockContext.SaveChanges()
             rockContext.WrapTransaction( () =>
             {
                 var adding = group.Id.Equals( 0 );
@@ -899,6 +912,7 @@ namespace RockWeb.Blocks.Groups
                     groupService.Add( group );
                 }
 
+                // Save changes because we'll need the group's Id next...
                 rockContext.SaveChanges();
 
                 if ( adding )
@@ -976,6 +990,12 @@ namespace RockWeb.Blocks.Groups
             if ( triggersUpdated )
             {
                 GroupMemberWorkflowTriggerService.RemoveCachedTriggers();
+            }
+
+            // Flush the kiosk devices cache if this group updated check-in data and its group type takes attendance
+            if ( checkinDataUpdated && group.GroupType.TakesAttendance )
+            {
+                Rock.CheckIn.KioskDevice.Clear();
             }
 
             var qryParams = new Dictionary<string, string>();
@@ -1686,20 +1706,29 @@ namespace RockWeb.Blocks.Groups
             gLocations.Columns[2].Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
             spSchedules.Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
 
-            phGroupAttributes.Controls.Clear();
-            group.LoadAttributes();
+
+                if ( groupType != null && groupType.LocationSelectionMode != GroupLocationPickerMode.None )
+                {
+                    wpMeetingDetails.Visible = true;
+                    gLocations.Visible = true;
+                    BindLocationsGrid();
+                }
+                else
+                {
+                    wpMeetingDetails.Visible = pnlSchedule.Visible;
+                    gLocations.Visible = false;
+                }
+
+                gLocations.Columns[2].Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
+                spSchedules.Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
+
+                phGroupAttributes.Controls.Clear();
+                group.LoadAttributes();
 
             if ( group.Attributes != null && group.Attributes.Any() )
             {
                 wpGroupAttributes.Visible = true;
                 var excludeForEdit = group.Attributes.Where( a => !a.Value.IsAuthorized( Rock.Security.Authorization.EDIT, this.CurrentPerson ) ).Select( a => a.Key ).ToList();
-                Rock.Attribute.Helper.AddEditControls( group, phGroupAttributes, setValues, BlockValidationGroup, excludeForEdit );
-
-                // Hide the panel if it won't show anything.
-                if ( excludeForEdit.Count() == group.Attributes.Count() )
-                {
-                    wpGroupAttributes.Visible = false;
-                }
             }
             else
             {

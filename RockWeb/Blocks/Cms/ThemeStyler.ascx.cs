@@ -215,7 +215,8 @@ $('.js-panel-toggle').on('click', function (e) {
             var theme = new RockTheme( _themeName );
             if ( !theme.Compile( out messages ) )
             {
-                nbMessages.Text = "Unable to compile";
+                nbMessages.NotificationBoxType = NotificationBoxType.Danger;
+                nbMessages.Text = string.Format( "An error occurred while compiling the {0} theme.\nMessage: <pre>{1}</pre>", theme.Name, messages );;
                 nbMessages.Visible = true;
             }
             else
@@ -582,9 +583,10 @@ $('.js-panel-toggle').on('click', function (e) {
                     AddControl( panelClose, true );
                 }
 
-                if ( phThemeControls.Controls.Count == 0 )
+                if ( phThemeControls.Controls.Count == 0 && !pnlFontAwesomeSettings.Visible )
                 {
                     btnSave.Visible = false;
+                    nbMessages.NotificationBoxType = NotificationBoxType.Warning;
                     nbMessages.Text = "This theme does not define any variables for editing.";
                 }
             }

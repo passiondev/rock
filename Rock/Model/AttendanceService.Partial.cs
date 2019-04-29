@@ -19,9 +19,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Entity;
 using System.Data.Entity.SqlServer;
-using System.Diagnostics;
 using System.Linq;
-using System.Linq.Dynamic;
+
 using Rock.Chart;
 using Rock.Data;
 
@@ -224,7 +223,7 @@ namespace Rock.Model
         /// <returns>A queryable collection of <see cref="Rock.Model.Attendance"/> entities for a specific date and location.</returns>
         public IQueryable<Attendance> GetByDateAndLocation( DateTime date, int locationId )
         {
-            return Queryable( "Occurrence.Group,Occurrence.Schedule,PersonAlias.Person" )
+            return Queryable( "Occurrence.Group,Occurrence.Schedule,PersonAlias" )
                 .Where( a =>
                     a.Occurrence.OccurrenceDate == date.Date &&
                     a.Occurrence.LocationId == locationId &&
@@ -232,6 +231,19 @@ namespace Rock.Model
                     a.DidAttend.Value );
         }
 
+
+        /// <summary>
+        /// Returns a queryable collection of <see cref="Rock.Model.Attendance"/> for specific <see cref="Rock.Model.Schedule"/> in a <see cref="Rock.Model.Location"/> on a specified date.
+        /// </summary>
+        /// <param name="locationId">A <see cref="System.Int32"/> representing the Id of the <see cref="Rock.Model.Location"/></param>
+        /// <param name="date">A <see cref="System.DateTime"/> representing the date attended.</param>
+        /// <param name="scheduleId">A <see cref="System.Int32"/> representing the Id of the <see cref="Rock.Model.Schedule"/></param>
+        /// <returns>A queryable collection of <see cref="Rock.Model.Attendance"/> entities for a specific date and location.</returns>
+        public IQueryable<Attendance> GetByDateOnLocationAndSchedule( DateTime date, int locationId, int scheduleId )
+        {
+            return GetByDateAndLocation( date, locationId )
+                .Where( a => a.Occurrence.ScheduleId == scheduleId );
+        }
 
         /// <summary>
         /// Gets the chart data.
@@ -271,6 +283,7 @@ namespace Rock.Model
 
             if ( startDate.HasValue )
             {
+                startDate = startDate.Value.Date;
                 qryAttendance = qryAttendance.Where( a => a.Occurrence.OccurrenceDate >= startDate.Value );
             }
 
@@ -1373,7 +1386,6 @@ namespace Rock.Model
     /// <summary>
     /// Information about a potential scheduler resource (Person) for the GroupScheduler
     /// </summary>
-    [DebuggerDisplay( "{PersonName}" )]
     public class SchedulerResource
     {
         /// <summary>
