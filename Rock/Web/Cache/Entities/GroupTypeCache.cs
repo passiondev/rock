@@ -457,6 +457,15 @@ namespace Rock.Web.Cache
         public bool ShowAdministrator { get; private set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether group tag should be enabled for groups of this type
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [enable group tag]; otherwise, <c>false</c>.
+        /// </value>
+        [DataMember]
+        public bool EnableGroupTag { get; private set; }
+
+        /// <summary>
         /// Gets or sets the roles.
         /// </summary>
         /// <value>
@@ -723,6 +732,7 @@ namespace Rock.Web.Cache
             ShowMaritalStatus = groupType.ShowMaritalStatus;
             AdministratorTerm = groupType.AdministratorTerm;
             ShowAdministrator = groupType.ShowAdministrator;
+            EnableGroupTag = groupType.EnableGroupTag;
             GroupStatusDefinedTypeId = groupType.GroupStatusDefinedTypeId;
             IsSchedulingEnabled = groupType.IsSchedulingEnabled;
             ScheduledSystemEmailId = groupType.ScheduledSystemEmailId;

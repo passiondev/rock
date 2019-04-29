@@ -191,6 +191,7 @@ namespace Rock.Model
         public string Note { get; set; }
 
         /// <summary>
+<<<<<<< HEAD
         /// Gets or sets if the <see cref="PersonAlias"/> person is scheduled (confirmed) to attend.
         /// </summary>
         /// <value>
@@ -254,13 +255,13 @@ namespace Rock.Model
         [DataMember]
         public int? ScheduledByPersonAliasId { get; set; }
 
-        /// Gets or sets the data that was used to print the label
+        /// Gets or sets additional data associated with the Attendance, including LabelData
         /// </summary>
         /// <value>
         /// The label data.
         /// </value>
         [LavaInclude]
-        public virtual AttendanceLabelData LabelData { get; set; }
+        public virtual AttendanceData AttendanceData { get; set; }
 
         #endregion
 
@@ -838,7 +839,7 @@ namespace Rock.Model
             this.HasOptional( a => a.AttendanceCode ).WithMany( c => c.Attendances ).HasForeignKey( a => a.AttendanceCodeId ).WillCascadeOnDelete( false );
             this.HasOptional( a => a.DeclineReasonValue ).WithMany().HasForeignKey( a => a.DeclineReasonValueId ).WillCascadeOnDelete( false );
             this.HasOptional( a => a.ScheduledByPersonAlias ).WithMany().HasForeignKey( p => p.ScheduledByPersonAliasId ).WillCascadeOnDelete( false );
-            this.HasOptional( a => a.LabelData ).WithRequired().WillCascadeOnDelete();
+            this.HasOptional( a => a.AttendanceData ).WithRequired().WillCascadeOnDelete();
         }
     }
 
