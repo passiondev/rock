@@ -139,7 +139,7 @@
                                             Help="Determines if groups of this type should be allowed to manage tags." />
 
                                     </div>
-                                </div>
+                        </div>
                             </div>
                         </div>
                     </Rock:PanelWidget>

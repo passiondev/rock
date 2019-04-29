@@ -1487,9 +1487,9 @@ namespace Rock.Migrations.Migrations {
         ///	@FirstAndThirdSundayScheduleId INT,
         ///	@SecondAndFourthSundaySc [rest of string was truncated]&quot;;.
         /// </summary>
-        public static string _201904292025318_GroupScheduling_PopulateScheduleTemplates {
+        public static string _201904292248367_GroupScheduling_PopulateScheduleTemplates {
             get {
-                return ResourceManager.GetString("_201904292025318_GroupScheduling_PopulateScheduleTemplates", resourceCulture);
+                return ResourceManager.GetString("_201904292248367_GroupScheduling_PopulateScheduleTemplates", resourceCulture);
             }
         }
     }

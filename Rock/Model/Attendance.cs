@@ -191,7 +191,6 @@ namespace Rock.Model
         public string Note { get; set; }
 
         /// <summary>
-<<<<<<< HEAD
         /// Gets or sets if the <see cref="PersonAlias"/> person is scheduled (confirmed) to attend.
         /// </summary>
         /// <value>

@@ -532,7 +532,7 @@ namespace RockWeb.Blocks.Groups
         /// <returns></returns>
         protected string GetOccurrenceTime( Attendance attendance )
         {
-            return attendance.Occurrence.Schedule.GetCalenderEvent().DTStart.Value.TimeOfDay.ToTimeString();
+            return attendance.Occurrence.Schedule.GetCalendarEvent().DTStart.Value.TimeOfDay.ToTimeString();
         }
 
         /// <summary>

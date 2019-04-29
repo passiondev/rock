@@ -36,7 +36,7 @@ namespace Rock.Migrations
             RockMigrationHelper.UpdateDefinedValue( "70C9F9C4-20CC-43DD-888D-9243853A0E52", "On Vacation / Out of Town", "", "BB2F0712-5C57-40E9-83BF-68876890EC7A", false );
             RockMigrationHelper.UpdateDefinedValue( "70C9F9C4-20CC-43DD-888D-9243853A0E52", "Serving Elsewhere", "", "BBD314E2-B65A-4C23-8AE1-1ADFBD58C4B4", false );
 
-            Sql( MigrationSQL._201904292025318_GroupScheduling_PopulateScheduleTemplates );
+            Sql( MigrationSQL._201904292248367_GroupScheduling_PopulateScheduleTemplates );
 
             RockMigrationHelper.AddPage( true, "0B213645-FA4E-44A5-8E4C-B2D8EF054985", "D65F783D-87A9-4CC9-8110-E83466A0EADB", "Group Member Schedule Templates", "", "1F50B5C5-2486-4D8F-9435-27BDF8302683", "" ); // Site:Rock RMS
             RockMigrationHelper.AddPage( true, "1F50B5C5-2486-4D8F-9435-27BDF8302683", "D65F783D-87A9-4CC9-8110-E83466A0EADB", "Group Member Schedule Template Detail", "", "B7B0864D-91F2-4B24-A7B0-FC7BEE769FA0", "" ); // Site:Rock RMS
