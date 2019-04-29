@@ -302,6 +302,21 @@
                 });
 
 
+                $('.js-autoschedule').on('click', function (e) {
+                    // make sure the element that triggered this event isn't disabled
+                    if (e.currentTarget && e.currentTarget.disabled) {
+                        return false;
+                    }
+
+                    e.preventDefault();
+
+                    Rock.dialogs.confirm("Are you sure you want to Auto-Schedule for these locations?", function (result) {
+                        if (result) {
+                            window.location = e.target.href ? e.target.href : e.target.parentElement.href;
+                        }
+                    })
+                });
+
                 var schedulerControlId = '<%=pnlScheduler.ClientID%>';
 
                 Rock.controls.groupScheduler.initialize({
