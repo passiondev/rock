@@ -1156,6 +1156,9 @@ $('#{0}').tooltip();
                 .Select( s => s.First() )
                 .ToList();
 
+            // only show the Save button if there are schedules that can be signed up for
+            btnSave.Visible = availableSchedules.Any();
+
             foreach ( var availableSchedule in availableSchedules )
             {
                 if ( availableSchedule.GroupId != currentGroupId )

@@ -191,8 +191,8 @@
 
                 <%-- Sign-up --%>
                 <asp:Panel ID="pnlSignup" runat="server">
-                    <asp:PlaceHolder ID="phSignUpSchedules" runat="server"></asp:PlaceHolder>
-                    <a id="btnSave" class="btn btn-primary" onclick="SaveSignUps();">Save</a>
+                    <Rock:DynamicPlaceholder ID="phSignUpSchedules" runat="server"></Rock:DynamicPlaceholder>
+                    <a id="btnSave" runat="server" class="btn btn-primary js-signup-savebutton" onclick="SaveSignUps();">Save</a>
                 </asp:Panel>
             </div>
 
@@ -227,7 +227,7 @@
 
                 postbackArg = postbackArg.replace(/\|+$/, "")
                 if (postbackArg.length > 0 && isValid) {
-                    var jsPostback = "javascript:__doPostBack('" + <%=pnlSignup.ClientID%> + "','" + postbackArg + "');";
+                    var jsPostback = "javascript:__doPostBack('<%=upnlContent.ClientID%>','" + postbackArg + "');";
                     window.location = jsPostback;
                 }
             }
