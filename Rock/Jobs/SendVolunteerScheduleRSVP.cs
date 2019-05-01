@@ -27,7 +27,7 @@ namespace Rock.Jobs
 {
     [GroupField( "Group", "Only people in or under this group will receive the RSVP. ", false, order: 0 )]
     [SystemEmailField( "Schedule Update Email", "The system email that will be used to send the digest of rsvp / confirmation emails. Available Lava variables Attendance, Attendances", true, Rock.SystemGuid.SystemEmail.SCHEDULING_UPDATE, "", 1 )]
-    public class SendVolunteerScheduleReminder : IJob
+    public class SendVolunteerScheduleRSVP : IJob
     {
         #region Fields
 
