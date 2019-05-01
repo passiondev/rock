@@ -14,6 +14,7 @@
 // limitations under the License.
 // </copyright>
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.Entity;
 using System.Linq;
@@ -745,9 +746,7 @@ namespace RockWeb.Blocks.Groups
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnSendNow_Click( object sender, EventArgs e )
         {
-            // TODO
-
-            /* var rockContext = new RockContext();
+            var rockContext = new RockContext();
 
             var attendanceOccurrenceIdList = hfDisplayedOccurrenceIds.Value.SplitDelimitedValues().AsIntegerList();
             
@@ -769,14 +768,14 @@ namespace RockWeb.Blocks.Groups
             {
                 var emailMessage = new RockEmailMessage( systemEmail );
                 var recipient = sendConfirmationAttendance.PersonAlias.Person.Email;
+                var attendances = new Attendance[] { sendConfirmationAttendance };
 
                 var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
                 mergeFields.Add( "Attendance", sendConfirmationAttendance );
+                mergeFields.Add( "Attendances", attendances );
                 emailMessage.AddRecipient( new RecipientData( recipient, mergeFields ) );
                 emailMessage.Send();
             }
-
-    */
         }
 
         #endregion
