@@ -12,10 +12,21 @@
 
                 <div class="panel-labels">
                     <asp:HiddenField ID="hfDisplayedOccurrenceIds" runat="server" />
+                    <asp:LinkButton ID="btnSendNow" runat="server" CssClass="js-sendnow btn btn-default btn-xs" OnClick="btnSendNow_Click">
+                        <i class="fa fa-envelope"></i>
+                        Send Now
+                    </asp:LinkButton>
                     <asp:LinkButton ID="btnAutoSchedule" runat="server" CssClass="js-autoschedule btn btn-default btn-xs" OnClick="btnAutoSchedule_Click">
                         <i class="fa fa-magic"></i>
                         Auto Schedule
                     </asp:LinkButton>
+
+                    <button id="btnCopyToClipboard" runat="server" disabled="disabled"
+                        data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copy Report Link to Clipboard"
+                        class="btn btn-link padding-all-none btn-copy-to-clipboard"
+                        onclick="$(this).attr('data-original-title', 'Copied').tooltip('show').attr('data-original-title', 'Copy Link to Clipboard');return false;">
+                        <i class='fa fa-clipboard'></i>
+                    </button>
                 </div>
             </div>
 
@@ -87,13 +98,13 @@
                                                 <div class="resource-lastattendeddate pull-right">
                                                     <span class="js-resource-lastattendeddate"></span>
                                                 </div>
-                                                <div class="resource-scheduling-conflict pull-right">
+                                                <div class="js-resource-scheduling-conflict resource-scheduling-conflict pull-right" data-original-title="Scheduling Conflict">
                                                     <i class="fa fa-user-clock"></i>
                                                 </div>
-                                                <div class="resource-blackout-status pull-right">
+                                                <div class="js-resource-blackout-status resource-blackout-status pull-right" data-original-title="Blackout">
                                                     <i class="fa fa-user-times"></i>
                                                 </div>
-                                                <div class="resource-requirements-conflict pull-right">
+                                                <div class="js-resource-requirements-conflict resource-requirements-conflict pull-right" data-original-title="Group Requirements Not Met">
                                                     <i class="fa fa-exclamation-triangle"></i>
                                                 </div>
                                             </div>
@@ -122,14 +133,11 @@
 
 
                                                 <Rock:RockTextBox ID="sfResource" runat="server" CssClass="resource-search padding-all-sm js-resource-search" PrependText="<i class='fa fa-search'></i>" Placeholder="Search" />
-                                                <!-- <div class="scroll-container scroll-container-resourcelist">
-                                                <div class="scrollbar"> -->
                                                 <asp:Panel ID="pnlListTrack" runat="server" CssClass="track">
                                                     <div class="thumb">
                                                         <div class="end"></div>
                                                     </div>
                                                 </asp:Panel>
-                                                <!-- </div> -->
                                                 <asp:Panel ID="pnlListViewPort" runat="server" CssClass="viewport">
                                                     <div class="overview">
 
@@ -142,8 +150,6 @@
                                                         </asp:Panel>
                                                     </div>
                                                 </asp:Panel>
-                                                <!-- </div> -->
-
                                             </div>
                                         </div>
                                     </div>
@@ -171,15 +177,15 @@
                                                         <span class="js-resource-warning"></span>
                                                     </div>
 
-                                                    <div class="resource-scheduling-conflict pull-right">
+                                                    <div class="js-resource-scheduling-conflict resource-scheduling-conflict pull-right" data-original-title="Scheduling Conflict">
                                                         <i class="fa fa-user-clock"></i>
                                                     </div>
 
-                                                    <div class="resource-blackout-status pull-right">
+                                                    <div class="js-resource-blackout-status resource-blackout-status pull-right" data-original-title="Blackout">
                                                         <i class="fa fa-user-times"></i>
                                                     </div>
 
-                                                    <div class="resource-requirements-conflict pull-right">
+                                                    <div class="js-resource-requirements-conflict resource-requirements-conflict pull-right" data-original-title="Group Requirements Not Met">
                                                         <i class="fa fa-exclamation-triangle"></i>
                                                     </div>
 

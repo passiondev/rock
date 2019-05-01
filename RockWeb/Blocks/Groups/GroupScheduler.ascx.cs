@@ -22,9 +22,11 @@ using System.Web.UI.WebControls;
 
 using Rock;
 using Rock.Attribute;
+using Rock.Communication;
 using Rock.Data;
 using Rock.Model;
 using Rock.Security;
+using Rock.Web.Cache;
 using Rock.Web.UI;
 using Rock.Web.UI.Controls;
 
@@ -44,7 +46,6 @@ namespace RockWeb.Blocks.Groups
         DefaultValue = "6",
         Order = 0,
         Key = AttributeKeys.FutureWeeksToShow )]
-
     public partial class GroupScheduler : RockBlock
     {
         /// <summary>
@@ -57,6 +58,18 @@ namespace RockWeb.Blocks.Groups
             /// </summary>
             public const string FutureWeeksToShow = "FutureWeeksToShow";
         }
+
+        #region PageParameterKeys
+
+        /// <summary>
+        /// 
+        /// </summary>
+        protected static class PageParameterKey
+        {
+            public const string GroupId = "GroupId";
+        }
+
+        #endregion PageParameterKeys
 
         #region UserPreferenceKeys
 
@@ -124,6 +137,15 @@ namespace RockWeb.Blocks.Groups
             this.AddConfigurationUpdateTrigger( upnlContent );
 
             LoadDropDowns();
+
+            btnCopyToClipboard.Visible = true;
+            RockPage.AddScriptLink( this.Page, "~/Scripts/clipboard.js/clipboard.min.js" );
+            string script = string.Format( @"
+    new ClipboardJS('#{0}');
+    $('#{0}').tooltip();
+", btnCopyToClipboard.ClientID );
+            ScriptManager.RegisterStartupScript( btnCopyToClipboard, btnCopyToClipboard.GetType(), "share-copy", script, true );
+
         }
 
         /// <summary>
@@ -136,7 +158,7 @@ namespace RockWeb.Blocks.Groups
 
             if ( !Page.IsPostBack )
             {
-                LoadFilterFromUserPreferences();
+                LoadFilterFromUserPreferencesOrURL();
                 ApplyFilter();
             }
         }
@@ -213,6 +235,9 @@ namespace RockWeb.Blocks.Groups
                 {
                     pnlGroupScheduleLocations.Visible = true;
                     pnlScheduler.Visible = true;
+                    // if a schedule is already selected, set it as the selected schedule (if it still exists for this group)
+                    var selectedScheduleId = rblSchedule.SelectedValue.AsIntegerOrNull();
+
                     rblSchedule.Items.Clear();
                     foreach ( var schedule in groupSchedules )
                     {
@@ -227,6 +252,7 @@ namespace RockWeb.Blocks.Groups
                         }
 
                         listItem.Value = schedule.Id.ToString();
+                        listItem.Selected = selectedScheduleId.HasValue && selectedScheduleId.Value == schedule.Id;
                         rblSchedule.Items.Add( listItem );
                     }
                 }
@@ -251,11 +277,11 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// Loads the filter from user preferences.
+        /// Loads the filter from user preferences or the URL
         /// </summary>
-        private void LoadFilterFromUserPreferences()
+        private void LoadFilterFromUserPreferencesOrURL()
         {
-            var selectedSundayDate = this.GetBlockUserPreference( UserPreferenceKey.SelectedDate ).AsDateTime();
+            var selectedSundayDate = this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.SelectedDate ).AsDateTime();
             var selectedWeekItem = ddlWeek.Items.FindByValue( selectedSundayDate.ToISO8601DateString() );
             if ( selectedWeekItem != null )
             {
@@ -266,23 +292,49 @@ namespace RockWeb.Blocks.Groups
                 ddlWeek.SelectedIndex = 0;
             }
 
-            hfGroupId.Value = this.GetBlockUserPreference( UserPreferenceKey.SelectedGroupId );
-            gpGroup.SetValue( hfGroupId.Value.AsIntegerOrNull() );
+            int? pageParameterGroupID = this.PageParameter( PageParameterKey.GroupId ).AsIntegerOrNull();
+            if ( pageParameterGroupID.HasValue )
+            {
+                hfGroupId.Value = pageParameterGroupID.ToString();
+                gpGroup.SetValue( pageParameterGroupID );
+                gpGroup.Enabled = false;
+            }
+            else
+            {
+                hfGroupId.Value = this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.SelectedGroupId );
+                gpGroup.SetValue( hfGroupId.Value.AsIntegerOrNull() );
+            }
 
             UpdateScheduleList();
-            rblSchedule.SetValue( this.GetBlockUserPreference( UserPreferenceKey.SelectedScheduleId ).AsIntegerOrNull() );
+            rblSchedule.SetValue( this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.SelectedScheduleId ).AsIntegerOrNull() );
 
             UpdateGroupLocationList();
-            cblGroupLocations.SetValues( this.GetBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds ).SplitDelimitedValues().AsIntegerList() );
+            cblGroupLocations.SetValues( this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.SelectedGroupLocationIds ).SplitDelimitedValues().AsIntegerList() );
 
-            var resouceListSourceType = this.GetBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType ).ConvertToEnumOrNull<SchedulerResourceListSourceType>() ?? SchedulerResourceListSourceType.Group;
+            var resouceListSourceType = this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.SelectedResourceListSourceType ).ConvertToEnumOrNull<SchedulerResourceListSourceType>() ?? SchedulerResourceListSourceType.Group;
             bgResourceListSource.SetValue( resouceListSourceType.ConvertToInt() );
 
-            var groupMemberFilterType = this.GetBlockUserPreference( UserPreferenceKey.GroupMemberFilterType ).ConvertToEnumOrNull<SchedulerResourceGroupMemberFilterType>() ?? SchedulerResourceGroupMemberFilterType.ShowMatchingPreference;
+            var groupMemberFilterType = this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.GroupMemberFilterType ).ConvertToEnumOrNull<SchedulerResourceGroupMemberFilterType>() ?? SchedulerResourceGroupMemberFilterType.ShowMatchingPreference;
             rblGroupMemberFilter.SetValue( groupMemberFilterType.ConvertToInt() );
 
-            gpResourceListAlternateGroup.SetValue( this.GetBlockUserPreference( UserPreferenceKey.AlternateGroupId ).AsIntegerOrNull() );
-            dvpResourceListDataView.SetValue( this.GetBlockUserPreference( UserPreferenceKey.DataViewId ).AsIntegerOrNull() );
+            gpResourceListAlternateGroup.SetValue( this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.AlternateGroupId ).AsIntegerOrNull() );
+            dvpResourceListDataView.SetValue( this.GetUrlSettingOrBlockUserPreference( UserPreferenceKey.DataViewId ).AsIntegerOrNull() );
+        }
+
+        /// <summary>
+        /// Gets the URL setting (if there is one) or block user preference.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        /// <returns></returns>
+        private string GetUrlSettingOrBlockUserPreference( string key )
+        {
+            string setting = Request.QueryString[key];
+            if ( setting != null )
+            {
+                return setting;
+            }
+
+            return this.GetBlockUserPreference( key );
         }
 
         /// <summary>
@@ -322,6 +374,17 @@ namespace RockWeb.Blocks.Groups
                 InitResourceList();
                 BindAttendanceOccurrences();
             }
+
+            // Create URL for selected settings
+            var pageReference = CurrentPageReference;
+            foreach ( var setting in GetBlockUserPreferences())
+            { 
+                pageReference.Parameters.AddOrReplace( setting.Key, setting.Value );
+            }
+
+            Uri uri = new Uri( Request.Url.ToString() );
+            btnCopyToClipboard.Attributes["data-clipboard-text"] = uri.GetLeftPart( UriPartial.Authority ) + pageReference.BuildUrl();
+            btnCopyToClipboard.Disabled = false;
         }
 
         /// <summary>
@@ -358,16 +421,17 @@ namespace RockWeb.Blocks.Groups
 
                 var groupLocations = group.GroupLocations.OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
 
-                // get the selected group location ids just in case any of them are the same after repopulated
+                // get the location ids of the selected group locations so that we can keep the selected locations even if the group changes
                 var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
+                var selectedLocationIds = new GroupLocationService( new RockContext() ).GetByIds( selectedGroupLocationIds ).Select( a => a.LocationId ).ToList();
 
                 cblGroupLocations.Items.Clear();
                 foreach ( var groupLocation in groupLocations )
                 {
-                    cblGroupLocations.Items.Add( new ListItem( groupLocation.Location.ToString(), groupLocation.Id.ToString() ) );
+                    var groupLocationItem = new ListItem( groupLocation.Location.ToString(), groupLocation.Id.ToString() );
+                    groupLocationItem.Selected = selectedLocationIds.Contains( groupLocation.LocationId );
+                    cblGroupLocations.Items.Add( groupLocationItem  );
                 }
-
-                cblGroupLocations.SetValues( selectedGroupLocationIds );
             }
         }
 
@@ -672,6 +736,47 @@ namespace RockWeb.Blocks.Groups
             // AutoSchedule the occurrences that are shown
             attendanceService.SchedulePersonsAutomaticallyForAttendanceOccurrences( attendanceOccurrenceIdList, this.CurrentPersonAlias );
             rockContext.SaveChanges();
+        }
+
+        /// <summary>
+        /// Handles the Click event of the btnSendNow control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void btnSendNow_Click( object sender, EventArgs e )
+        {
+            // TODO
+
+            /* var rockContext = new RockContext();
+
+            var attendanceOccurrenceIdList = hfDisplayedOccurrenceIds.Value.SplitDelimitedValues().AsIntegerList();
+            
+            var groupTypeId = GetSelectedGroup().GroupTypeId;
+            var scheduledSystemEmailId = GroupTypeCache.Get( groupTypeId ).ScheduledSystemEmailId;
+
+            SystemEmail systemEmail = null;
+            if ( scheduledSystemEmailId.HasValue )
+            {
+                systemEmail = new SystemEmailService( rockContext ).GetNoTracking( scheduledSystemEmailId.Value );
+            }
+
+            var attendanceService = new AttendanceService( rockContext );
+            var sendConfirmationAttendanceList = attendanceService.GetPendingScheduledConfirmations()
+                .Where( a => attendanceOccurrenceIdList.Contains( a.OccurrenceId ) )
+                .Where( a => a.ScheduleConfirmationSent != true );
+
+            foreach( var sendConfirmationAttendance in sendConfirmationAttendanceList)
+            {
+                var emailMessage = new RockEmailMessage( systemEmail );
+                var recipient = sendConfirmationAttendance.PersonAlias.Person.Email;
+
+                var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
+                mergeFields.Add( "Attendance", sendConfirmationAttendance );
+                emailMessage.AddRecipient( new RecipientData( recipient, mergeFields ) );
+                emailMessage.Send();
+            }
+
+    */
         }
 
         #endregion

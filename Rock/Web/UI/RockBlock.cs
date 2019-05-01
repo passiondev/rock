@@ -1197,6 +1197,21 @@ namespace Rock.Web.UI
         }
 
         /// <summary>
+        /// Returns the preference values for the current user and the current block
+        /// </summary>
+        /// </summary>
+        /// <returns></returns>
+        public Dictionary<string, string> GetBlockUserPreferences()
+        {
+            var userPreferences = RockPage.GetUserPreferences( BlockUserPreferencePrefix );
+            int blockUserPreferencePrefixLength = BlockUserPreferencePrefix.Length;
+
+            // remove the block id prefix since we only want the key that the block knows about
+            var blockUserPreferences = userPreferences.ToDictionary( k => k.Key.Substring( blockUserPreferencePrefixLength ), v => v.Value );
+            return blockUserPreferences;
+        }
+
+        /// <summary>
         /// Sets a user preference for the current user and block with the specified key and value, and optionally save value to database
         /// </summary>
         /// <param name="key">A <see cref="System.String" /> that represents the key value that identifies the

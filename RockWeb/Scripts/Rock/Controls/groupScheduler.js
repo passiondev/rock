@@ -350,6 +350,10 @@
                 $resourceDiv.attr('data-has-blackout-conflict', schedulerResource.HasBlackoutConflict);
                 $resourceDiv.attr('data-has-requirements-conflict', schedulerResource.HasGroupRequirementsConflict);
 
+                $resourceDiv.find('.js-resource-scheduling-conflict').tooltip({ container: 'body' });
+                $resourceDiv.find('.js-resource-blackout-status').tooltip({ container: 'body' });
+                $resourceDiv.find('.js-resource-requirements-conflict').tooltip({ container: 'body' });
+
                 $resourceDiv.find('.js-resource-name').text(schedulerResource.PersonName);
                 if (schedulerResource.Note) {
                     $resourceDiv.find('.js-resource-note').text(schedulerResource.Note);
