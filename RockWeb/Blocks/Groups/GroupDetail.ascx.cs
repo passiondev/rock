@@ -326,15 +326,17 @@ namespace RockWeb.Blocks.Groups
             if ( groupId.HasValue && groupId.Value != 0 )
             {
                 var group = GetGroup( groupId.Value, rockContext );
+                if ( group != null )
+                {
+                    // Handle tags
+                    taglGroupTags.EntityTypeId = group.TypeId;
+                    taglGroupTags.EntityGuid = group.Guid;
+                    taglGroupTags.CategoryGuid = GetAttributeValue( "TagCategory" ).AsGuidOrNull();
+                    taglGroupTags.GetTagValues( null );
+                    taglGroupTags.Visible = GetAttributeValue( ENABLE_GROUP_TAGS ).AsBoolean() && group.GroupType.EnableGroupTag;
 
-                // Handle tags
-                taglGroupTags.EntityTypeId = group.TypeId;
-                taglGroupTags.EntityGuid = group.Guid;
-                taglGroupTags.CategoryGuid = GetAttributeValue( "TagCategory" ).AsGuidOrNull();
-                taglGroupTags.GetTagValues( null );
-                taglGroupTags.Visible = GetAttributeValue( ENABLE_GROUP_TAGS ).AsBoolean() && group.GroupType.EnableGroupTag;
-
-                FollowingsHelper.SetFollowing( group, pnlFollowing, this.CurrentPerson );
+                    FollowingsHelper.SetFollowing( group, pnlFollowing, this.CurrentPerson );
+                }
             }
         }
 
