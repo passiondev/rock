@@ -242,8 +242,8 @@ namespace Rock.Migrations
             AddColumn( "dbo.GroupType", "ScheduledSystemEmailId", c => c.Int() );
             AddColumn( "dbo.GroupType", "ScheduleReminderSystemEmailId", c => c.Int() );
             AddColumn( "dbo.GroupType", "ScheduleCancellationWorkflowTypeId", c => c.Int() );
-            AddColumn( "dbo.GroupType", "ScheduleConfirmationEmailOffsetDays", c => c.Int() );
-            AddColumn( "dbo.GroupType", "ScheduleReminderEmailOffsetDays", c => c.Int() );
+            AddColumn( "dbo.GroupType", "ScheduleConfirmationEmailOffsetDays", c => c.Int( defaultValue: 4 ) );
+            AddColumn( "dbo.GroupType", "ScheduleReminderEmailOffsetDays", c => c.Int( defaultValue: 2 ) );
             AddColumn( "dbo.GroupType", "RequiresReasonIfDeclineSchedule", c => c.Boolean( nullable: false ) );
             AddColumn( "dbo.GroupMember", "ScheduleTemplateId", c => c.Int() );
             AddColumn( "dbo.GroupMember", "ScheduleStartDate", c => c.DateTime( storeType: "date" ) );

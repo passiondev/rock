@@ -813,6 +813,28 @@ namespace Rock.Model
             }
         }
 
+        /// <summary>
+        /// Determines whether [is scheduled person confirmed].
+        /// </summary>
+        /// <returns>
+        ///   <c>true</c> if [is scheduled person confirmed]; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsScheduledPersonConfirmed()
+        {
+            return this.ScheduledToAttend == true && this.RSVP == RSVP.Yes;
+        }
+
+        /// <summary>
+        /// Determines whether [is scheduled person declined].
+        /// </summary>
+        /// <returns>
+        ///   <c>true</c> if [is scheduled person declined]; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsScheduledPersonDeclined()
+        {
+            return this.RSVP == RSVP.No;
+        }
+
         #endregion
     }
 
@@ -863,7 +885,7 @@ namespace Rock.Model
 
         /// <summary>
         /// Here's my number, call me Maybe.
-        /// Not used by by Group Volunteer Scheduler.
+        /// Not used by Group Volunteer Scheduler.
         /// </summary>
         Maybe = 2,
 

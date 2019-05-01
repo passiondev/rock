@@ -22,6 +22,7 @@ using System.Data.Entity.SqlServer;
 using System.Linq;
 
 using Rock.Chart;
+using Rock.Communication;
 using Rock.Data;
 
 namespace Rock.Model
@@ -631,6 +632,64 @@ namespace Rock.Model
             public Attendance Attendance { get; set; }
         }
 
+        /// <summary>
+        /// Sends the scheduled attendance update emails and marks ScheduleConfirmationSent = true, then returns the number of emails sent.
+        /// </summary>
+        /// <param name="sendConfirmationAttendancesQuery">The send confirmation attendances query.</param>
+        /// <returns></returns>
+        public int SendScheduledAttendanceUpdateEmails( IQueryable<Attendance> sendConfirmationAttendancesQuery )
+        {
+            int emailsSent = 0;
+            var sendConfirmationAttendancesQueryList = sendConfirmationAttendancesQuery.ToList();
+            var attendancesBySystemEmailTypeList = sendConfirmationAttendancesQueryList.GroupBy( a => a.Occurrence.Group.GroupType.ScheduledSystemEmailId ).Where( a => a.Key.HasValue ).Select( s => new
+            {
+                ScheduledSystemEmailId = s.Key.Value,
+                Attendances = s.ToList()
+            } ).ToList();
+
+            var rockContext = this.Context as RockContext;
+
+            foreach ( var attendancesBySystemEmailType in attendancesBySystemEmailTypeList )
+            {
+                var systemEmail = new SystemEmailService( rockContext ).GetNoTracking( attendancesBySystemEmailType.ScheduledSystemEmailId );
+
+                var attendancesByPersonList = attendancesBySystemEmailType.Attendances.GroupBy( a => a.PersonAlias.Person ).Select( s => new
+                {
+                    Person = s.Key,
+                    Attendances = s.ToList()
+                } );
+
+                foreach ( var attendancesByPerson in attendancesByPersonList )
+                {
+                    try
+                    {
+
+                        var emailMessage = new RockEmailMessage( systemEmail );
+                        var recipient = attendancesByPerson.Person.Email;
+                        var attendances = attendancesByPerson.Attendances;
+
+                        foreach ( var attendance in attendances )
+                        {
+                            attendance.ScheduleConfirmationSent = true;
+                        }
+
+                        var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( null );
+                        mergeFields.Add( "Attendance", attendances.FirstOrDefault() );
+                        mergeFields.Add( "Attendances", attendances );
+                        emailMessage.AddRecipient( new RecipientData( recipient, mergeFields ) );
+                        emailMessage.Send();
+                        emailsSent++;
+                    }
+                    catch ( Exception ex )
+                    {
+                        ExceptionLogService.LogException( new Exception( $"Exception occurred trying to send ScheduledAttendanceUpdateEmail to { attendancesByPerson.Person }", ex ) );
+                    }
+                }
+            }
+
+            return emailsSent;
+        }
+
         #region GroupScheduling Related
 
         /// <summary>
@@ -1204,7 +1263,7 @@ namespace Rock.Model
                     DidAttend = false,
                     RequestedToAttend = true,
                     ScheduledToAttend = false,
-                    RSVP = RSVP.Maybe
+                    RSVP = RSVP.Unknown
                 };
 
                 this.Add( scheduledAttendance );
@@ -1249,6 +1308,7 @@ namespace Rock.Model
             if ( scheduledAttendance != null )
             {
                 scheduledAttendance.ScheduledToAttend = true;
+                scheduledAttendance.RSVPDateTime = RockDateTime.Now;
                 scheduledAttendance.RSVP = RSVP.Yes;
             }
             else
@@ -1286,7 +1346,7 @@ namespace Rock.Model
             {
                 scheduledAttendance.RequestedToAttend = true;
                 scheduledAttendance.ScheduledToAttend = false;
-                scheduledAttendance.RSVP = RSVP.Maybe;
+                scheduledAttendance.RSVP = RSVP.Unknown;
             }
             else
             {
@@ -1305,6 +1365,7 @@ namespace Rock.Model
             if ( scheduledAttendance != null )
             {
                 scheduledAttendance.DeclineReasonValueId = declineReasonValueId;
+                scheduledAttendance.RSVPDateTime = RockDateTime.Now;
                 scheduledAttendance.RSVP = RSVP.No;
             }
             else
@@ -1328,23 +1389,8 @@ namespace Rock.Model
                 .Where( a => a.DeclineReasonValueId == null )
                 .Where( a => a.DidAttend != true )
                 .Where( a => a.Occurrence.OccurrenceDate >= occurrenceDate )
-                // RSVP.Maybe is not used by the Group Scheduler. In that context it means that the person has not responded.
+                // RSVP.Maybe is not used by the Group Scheduler. But, just in case, treat it as that the person has not responded.
                 .Where( a => a.RSVP == RSVP.Maybe || a.RSVP == RSVP.Unknown );
-        }
-
-        /// <summary>
-        /// Gets the attendance schedule status.
-        /// Grouped By Group
-        /// </summary>
-        /// <param name="endDate">The end date.</param>
-        /// <returns></returns>
-        public IQueryable<IGrouping<DateTime, Attendance>> GetAttendanceGroupedByDate( DateRange dateRange )
-        {
-            return Queryable().AsNoTracking()
-                .Where( a => ( a.StartDateTime >= dateRange.Start
-                && a.StartDateTime <= dateRange.End )
-                || dateRange.End == null ).OrderBy( x => x.StartDateTime )
-                .GroupBy( x => x.StartDateTime );
         }
 
         /// <summary>
@@ -1353,7 +1399,7 @@ namespace Rock.Model
         /// <returns></returns>
         public IQueryable<Attendance> GetConfirmedScheduled()
         {
-            return this.Queryable().Where( a => a.ScheduledToAttend == true && a.DeclineReasonValueId == null && a.DidAttend != true );
+            return this.Queryable().Where( a => a.ScheduledToAttend == true && a.RSVP != RSVP.No && a.DidAttend != true );
         }
 
         #endregion GroupScheduling Related

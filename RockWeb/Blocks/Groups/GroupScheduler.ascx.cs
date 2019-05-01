@@ -749,33 +749,14 @@ namespace RockWeb.Blocks.Groups
             var rockContext = new RockContext();
 
             var attendanceOccurrenceIdList = hfDisplayedOccurrenceIds.Value.SplitDelimitedValues().AsIntegerList();
-            
-            var groupTypeId = GetSelectedGroup().GroupTypeId;
-            var scheduledSystemEmailId = GroupTypeCache.Get( groupTypeId ).ScheduledSystemEmailId;
-
-            SystemEmail systemEmail = null;
-            if ( scheduledSystemEmailId.HasValue )
-            {
-                systemEmail = new SystemEmailService( rockContext ).GetNoTracking( scheduledSystemEmailId.Value );
-            }
 
             var attendanceService = new AttendanceService( rockContext );
-            var sendConfirmationAttendanceList = attendanceService.GetPendingScheduledConfirmations()
+            var sendConfirmationAttendancesQuery = attendanceService.GetPendingScheduledConfirmations()
                 .Where( a => attendanceOccurrenceIdList.Contains( a.OccurrenceId ) )
                 .Where( a => a.ScheduleConfirmationSent != true );
 
-            foreach( var sendConfirmationAttendance in sendConfirmationAttendanceList)
-            {
-                var emailMessage = new RockEmailMessage( systemEmail );
-                var recipient = sendConfirmationAttendance.PersonAlias.Person.Email;
-                var attendances = new Attendance[] { sendConfirmationAttendance };
-
-                var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
-                mergeFields.Add( "Attendance", sendConfirmationAttendance );
-                mergeFields.Add( "Attendances", attendances );
-                emailMessage.AddRecipient( new RecipientData( recipient, mergeFields ) );
-                emailMessage.Send();
-            }
+            attendanceService.SendScheduledAttendanceUpdateEmails( sendConfirmationAttendancesQuery );
+            rockContext.SaveChanges();
         }
 
         #endregion
