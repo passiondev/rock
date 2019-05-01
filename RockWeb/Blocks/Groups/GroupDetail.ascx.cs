@@ -57,7 +57,16 @@ namespace RockWeb.Blocks.Groups
     [BooleanField( "Show Location Addresses", "Determines if the location address should be shown when viewing the group details.", true, order: 13 )]
     [BooleanField( "Prevent Selecting Inactive Campus", "Should inactive campuses be excluded from the campus field when editing a group?.", false, "", 14 )]
     [LinkedPage( "Group History Page", "The page to display group history.", false, "", "", 15 )]
-    [BooleanField( "Enable Group Tags", "If enabled, the tags will be shown.", true, "", 16 )]
+
+
+    [LinkedPage( "Group Scheduler Page",
+        Key = "GroupSchedulerPage",
+        Description ="The page to schedule this group.",
+        IsRequired = false,
+        DefaultValue = "1815D8C6-7C4A-4C05-A810-CF23BA937477,D0F198E2-6111-4EC1-8D1D-55AC10E28D04",
+        Order = 16)]
+
+    [BooleanField( "Enable Group Tags", "If enabled, the tags will be shown.", true, "", 17 )]
     public partial class GroupDetail : RockBlock, IDetailBlock
     {
         #region Constants
@@ -1912,6 +1921,18 @@ namespace RockWeb.Blocks.Groups
             {
                 hlMap.Visible = false;
             }
+
+            string groupSchedulerUrl = LinkedPageUrl( "GroupSchedulerPage", pageParams );
+            if ( groupSchedulerUrl.IsNotNullOrWhiteSpace() )
+            {
+                hlGroupScheduler.Visible = groupType != null && groupType.IsSchedulingEnabled;
+                hlGroupScheduler.NavigateUrl = groupSchedulerUrl;
+            }
+            else
+            {
+                hlGroupScheduler.Visible = false;
+            }
+
 
             string groupHistoryUrl = LinkedPageUrl( "GroupHistoryPage", pageParams );
             mergeFields.Add( "GroupHistoryUrl", groupHistoryUrl );
