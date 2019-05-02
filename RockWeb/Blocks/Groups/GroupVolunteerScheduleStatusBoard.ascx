@@ -28,7 +28,7 @@
         <!-- Groups Picker Modal -->
         <Rock:ModalDialog ID="dlgGroups" runat="server" Title="Groups" OnSaveClick="dlgGroups_SaveClick"  Visible="false">
             <Content>
-                <Rock:GroupPicker ID="gpGroups" runat="server" Label="Select Group(s)" AllowMultiSelect="true" />
+                <Rock:GroupPicker ID="gpGroups" runat="server" Label="Select Group(s)" AllowMultiSelect="true" LimitToSchedulingEnabledGroups="true" />
             </Content>
         </Rock:ModalDialog>
         <!-- Date Range Picker Modal -->
