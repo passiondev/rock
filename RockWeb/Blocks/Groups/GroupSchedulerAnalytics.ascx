@@ -38,7 +38,7 @@
                             <label class="control-label">View By</label>
                             <div class="toggle-container">
                                 <div class="btn-group" data-toggle="view-btns" role="tablist" id="tablist">
-                                    <a href="#group" class="btn btn-default active" aria-controls="group" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "group");'>Group</a>
+                                    <a href="#group" class="btn btn-default" aria-controls="group" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "group");'>Group</a>
                                     <a href="#dataview" class="btn btn-default" aria-controls="dataview" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "dataview");'>Dataview</a>
                                     <a href="#person" class="btn btn-default" aria-controls="person" role="tab" data-toggle="tab" onclick='$("#<%= hfTabs.ClientID %>").attr( "value", "person");'>Person</a>
                                 </div>
@@ -50,14 +50,17 @@
                         <div class="tab-content" style="padding-bottom:20px">
                             <div role="tabpanel" class="tab-pane fade in active" id="group">
                                 <Rock:GroupPicker ID="gpGroups" runat="server" AllowMultiSelect="false" Label="Select Groups" LimitToSchedulingEnabledGroups="true" OnSelectItem="gpGroups_SelectItem" />
+                                <Rock:NotificationBox ID="nbGroupWarning" runat="server" NotificationBoxType="Warning" Text="Please select a group." Visible="false"/>
                                 <Rock:RockCheckBoxList ID="cblLocations" runat="server" Label="Locations" RepeatColumns="1" RepeatDirection="Vertical" OnSelectedIndexChanged="cblLocations_SelectedIndexChanged" AutoPostBack="true" Visible="false" ></Rock:RockCheckBoxList>
                                 <Rock:RockCheckBoxList ID="cblSchedules" runat="server" Label="Schedules" RepeatColumns="1" RepeatDirection="Vertical" Visible="false" ></Rock:RockCheckBoxList>
                             </div>
                             <div role="tabpanel" class="tab-pane fade" id="person">
                                 <Rock:PersonPicker ID="ppPerson" runat="server" Label="Person" OnSelectPerson="ppPerson_SelectPerson" />
+                                <Rock:NotificationBox ID="nbPersonWarning" runat="server" NotificationBoxType="Warning" Text="Please select a person." Visible="false"/>
                             </div>
                             <div role="tabpanel" class="tab-pane fade" id="dataview">
                                 <Rock:DataViewItemPicker ID="dvDataViews" runat="server" Label="Data View" OnSelectItem="dvDataViews_SelectItem" ></Rock:DataViewItemPicker>
+                                <Rock:NotificationBox ID="nbDataviewWarning" runat="server" NotificationBoxType="Warning" Text="Please select a Dataview." Visible="false"/>
                             </div>
                         </div>
 
@@ -111,17 +114,21 @@
             <script type="text/javascript">
                 $(document).ready(function () {
                     showTab();
-
-                    $('[data-toggle="view-btns"] .btn').on('click', function(){
-                        var $this = $(this);
-                        $this.parent().find('.active').removeClass('active');
-                        $this.addClass('active');
-                    });
                 });
 
                 function showTab() {
+
                     var tab = document.getElementById('<%= hfTabs.ClientID%>').value;
                     $('#tablist a[href="#' + tab + '"]').tab('show');
+
+                    // register the "on" event here else it will be lost on partial postback
+                    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                        // e.target is the activated tab
+                        if (e.target) {
+                            $(e.target).parent().find('.active').removeClass('active');
+                            $(e.target).addClass('active');
+                        }
+                    })
                 }
 
                 Sys.WebForms.PageRequestManager.getInstance().add_endRequest(showTab);

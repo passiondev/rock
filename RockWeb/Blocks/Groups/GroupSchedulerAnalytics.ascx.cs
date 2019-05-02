@@ -154,7 +154,8 @@ namespace RockWeb.Blocks.Groups
             if (!IsPostBack)
             {
                 hfTabs.Value = "group";
-                lSlidingDateRangeHelp.Text = SlidingDateRangePicker.GetHelpHtml( RockDateTime.Now );
+                lSlidingDateRangeHelp.Text = SlidingDateRangePicker.GetHelpHtml( RockDateTime.Now ) +
+                    "<h3>Doughnut Chart</h3><p>This chart represents the combined total of decline reasons that were selected.  In some cases, decline reasons are provided so this chart may be empty.</p>";
             }
         }
 
@@ -669,14 +670,15 @@ var barChart = new Chart(barCtx, {{
         /// <returns></returns>
         protected bool ValidateFilter()
         {
+            nbGroupWarning.Visible = nbPersonWarning.Visible = nbDataviewWarning.Visible = false;
             switch ( hfTabs.Value )
             {
                 case "group":
-                    return gpGroups.GroupId != null;
+                    return gpGroups.GroupId != null ? true : !( nbGroupWarning.Visible = true );
                 case "person":
-                    return ppPerson.PersonAliasId != null;
+                    return ppPerson.PersonAliasId != null ? true : !( nbPersonWarning.Visible = true );
                 case "dataview":
-                    return ( dvDataViews.SelectedValue != null && dvDataViews.SelectedValue != "0");
+                    return ( dvDataViews.SelectedValue != null && dvDataViews.SelectedValue != "0" ) ? true : !( nbDataviewWarning.Visible = true );
             }
 
             return false;
@@ -706,7 +708,7 @@ var barChart = new Chart(barCtx, {{
             }
             else
             {
-                DoughnutChartDeclineLabelsJSON = "['No data found']";
+                DoughnutChartDeclineLabelsJSON = "['No decline data found']";
                 DoughnutChartDeclineValuesJSON = "[1]";
             }
         }
