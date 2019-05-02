@@ -52,7 +52,7 @@ namespace RockWeb.Blocks.Groups
         "Scheduled",
         Description = "Choose the color to show the number of scheduled persons.",
         IsRequired = true,
-        DefaultValue = "66B2FF",
+        DefaultValue = "#66B2FF",
         Category = "Bar Chart Colors",
         Order = 1,
         Key = AttributeKeys.BarChartScheduledColor)]
@@ -61,7 +61,7 @@ namespace RockWeb.Blocks.Groups
         "No Response",
         Description = "Choose the color to show the number of schedule requests where the person did not respond.",
         IsRequired = true,
-        DefaultValue = "FFFF66",
+        DefaultValue = "#FFFF66",
         Category = "Bar Chart Colors",
         Order = 2,
         Key = AttributeKeys.BarChartNoResponseColor)]
@@ -70,7 +70,7 @@ namespace RockWeb.Blocks.Groups
         "Declines",
         Description = "Choose the color to show the number of schedule requests where the person declined.",
         IsRequired = true,
-        DefaultValue = "FFB266",
+        DefaultValue = "#FFB266",
         Category = "Bar Chart Colors",
         Order = 3,
         Key = AttributeKeys.BarChartDeclinesColor)]
@@ -79,7 +79,7 @@ namespace RockWeb.Blocks.Groups
         "Attended",
         Description = "Choose the color to show the number of schedule requests where the person attended.",
         IsRequired = true,
-        DefaultValue = "66FF66",
+        DefaultValue = "#66FF66",
         Category = "Bar Chart Colors",
         Order = 4,
         Key = AttributeKeys.BarChartAttendedColor)]
@@ -88,7 +88,7 @@ namespace RockWeb.Blocks.Groups
         "Commited No Show",
         Description = "Choose the color to show the number of schedule requests where the person committed but did not attend.",
         IsRequired = true,
-        DefaultValue = "FF6666",
+        DefaultValue = "#FF6666",
         Category = "Bar Chart Colors",
         Order = 5,
         Key = AttributeKeys.BarChartCommitedNoShowColor)]
