@@ -16,11 +16,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
+using System.Data.Entity;
 using System.Linq;
-using System.Linq.Dynamic;
 using System.Text;
-using System.Web.UI.WebControls;
 using Rock;
 using Rock.Attribute;
 using Rock.Data;
@@ -32,613 +30,350 @@ using Rock.Web.UI.Controls;
 [Category( "Groups" )]
 [Description( "Scheduler can see overview of current schedules by groups and dates." )]
 
-[SlidingDateRangeField(
-   "Date Range",
-   Description = "How many weeks into the future should be displayed.",
+[IntegerField(
+   "Number Of Weeks (Max 16)",
+    Key = AttributeKey.NumberOfWeeks,
+    Description = "How many weeks into the future should be displayed.",
    IsRequired = false,
-   DefaultValue = "Next|6|Week||",
-   EnabledSlidingDateRangeTypes = "Next,Upcoming,Current",
-   Order = 0,
-   Key = AttributeKeys.DateRange )]
+   DefaultIntegerValue = 2,
+   Order = 0 )]
 
 [GroupField(
-    "Groups",
+    "Parent Group",
+    Key = AttributeKey.ParentGroup,
     Description = "A parent group to start from when allowing someone to pick one or more groups to view.",
     IsRequired = false,
-    Order = 0,
-    Key = AttributeKeys.Groups )]
+    Order = 0 )]
 
 public partial class GroupVolunteerScheduleStatusBoard : RockBlock
 {
     #region Fields
-    protected static class AttributeKeys
+
+    protected static class AttributeKey
     {
-        public const string Groups = "Groups";
-        public const string DateRange = "DateRange";
+        public const string ParentGroup = "ParentGroup";
+        public const string NumberOfWeeks = "NumberOfWeeks";
     }
 
-    protected static class UserPreferenceKeys
+    protected static class UserPreferenceKey
     {
-        public const string VolunteerScheduleMaxWeeks = "volunteer-schedule-status-maxweeks";
-        public const string VolunteerScheduleStatusGroups = "volunteer-schedule-status-group";
+        public const string GroupIds = "GroupIds";
+        public const string NumberOfWeeks = "NumberOfWeeks";
     }
-
-    /// <summary>
-    /// Capicity deatail is use to bring results of Attendance Occurrence
-    /// Group Group Schedule Config into information required for support of rendering status
-    /// </summary>
-    public class CapacityDetail
-    {
-        public int ScheduleId { get; set; }
-        public int? CapcityMinimum { get; set; }
-        public int? CapacityDesired { get; set; }
-        public int? CapityMaximum { get; set; }
-    }
-
-    /// <summary>
-    /// Group Info is used bring results of Attendance Occurrence
-    /// record into information required to render header and header rows
-    /// </summary>
-    public class GroupInfo
-    {
-        internal DateTime DateTime;
-        public DateTime Occurancedate { get; set; }
-        public List<GroupInfoDetail> Groups { get; internal set; }
-    }
-
-    /// <summary>
-    /// Group info detail is used to bring results of the entity Attendance Occurrence
-    /// record into information required for support of rendering the body
-    /// </summary>
-    public class GroupInfoDetail
-    {
-        public int OccurrenceId { get; set; }
-        public string ScheduleName { get; set; }
-        public string GroupName { get; set; }
-        public string LocationName { get; set; }
-        public int? ScheduleId { get; internal set; }
-        public int? GroupId { get; internal set; }
-        public int? LocationId { get; internal set; }
-        public DateTime? SortDateTime { get; internal set; }
-        public Schedule Schedule { get; internal set; }
-        public List<List<CapacityDetail>> CapcityDetail { get; set; }
-    }
-
-    /// <summary>
-    /// Occurrence Person is used to bring person display information together
-    /// </summary>
-    private class OccurrencePerson
-    {
-        public string NickName { get; set; }
-        public string LastName { get; set; }
-        public RSVP RSVP { get; set; }
-    }
-
-    /// <summary>
-    /// Status Cell is used to bring together
-    /// the information of the Columns and Row into a single object
-    /// </summary>
-    private class StatusCell
-    {
-        public Guid Guid { get; set; }
-        public DateTime OccurrenceDate { get; set; }
-        public DateTime? SortDateTime { get; set; }
-        public string GroupName { get; set; }
-        public int? GroupId { get; set; }
-        public string LocationName { get; set; }
-        public int? LocationId { get; set; }
-        public string ScheduleName { get; set; }
-        public int? ScheduleId { get; set; }
-        public CapacityDetail CapacityDetail { get; set; }
-        public List<OccurrencePerson> OccurrencePersons { get; set; }
-    }
-
-    private List<StatusCell> _occurrenceScheduleCells = new List<StatusCell>();
-    private int? _numberOfWeeks = 0;
-    private DateRange _dateRange;
-
-    /// <summary>
-    /// Set by user preferences or default attribute
-    /// </summary>
-    private string[] _selectedGroupIds { get; set; }
 
     #endregion
 
-    #region Base Control Methods
-
     /// <summary>
-    /// Handles the Load event of the Page control.
+    /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
     /// </summary>
-    /// <param name="sender">The source of the event.</param>
-    /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
-    protected void Page_Load( object sender, EventArgs e )
+    /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+    protected override void OnLoad( EventArgs e )
     {
-        base.OnInit( e );
-        if ( !IsPostBack )
+        base.OnLoad( e );
+
+        if ( !this.IsPostBack )
         {
-            UpdateGroupAndDateRangeControls();
+            var rootGroupGuid = this.GetAttributeValue( AttributeKey.ParentGroup ).AsGuidOrNull();
+            if ( rootGroupGuid.HasValue )
+            {
+                gpGroups.RootGroupId = new GroupService( new RockContext() ).GetId( rootGroupGuid.Value );
+            }
+
+            BuildStatusBoard();
         }
     }
-    #endregion
-
-    #region Methods
 
     /// <summary>
-    /// Call get user preference and set the selected group. on Group Picker 
+    /// Builds the status board.
     /// </summary>
-    private void SetSelectedGroup()
+    private void BuildStatusBoard()
     {
+        lGroupStatusTableHTML.Text = string.Empty;
+
+        int numberOfWeeks = GetSelectedNumberOfWeeks();
+
+        List<int> selectedGroupIds = GetSelectedGroupIds();
+        var rockContext = new RockContext();
+        var groupsQuery = new GroupService( rockContext ).GetByIds( selectedGroupIds ).Where( a => a.GroupType.IsSchedulingEnabled == true );
+
         nbGroupsWarning.Visible = false;
-
-        _selectedGroupIds = this.GetUserPreference( UserPreferenceKeys.VolunteerScheduleStatusGroups ).SplitDelimitedValues( false );
-        //Set Root Group
-        using ( var rockContext = new RockContext() )
-        {
-            var groupGuid = this.GetAttributeValue( AttributeKeys.Groups ).AsGuidOrNull();
-            if ( groupGuid.HasValue )
-            {
-                var parentGroup = new GroupService( rockContext ).Get( groupGuid.Value );
-                gpGroups.RootGroupId = parentGroup.Id;
-            }
-        }
-
-        if ( _selectedGroupIds.Length == 0 )
-        {
-            nbGroupsWarning.Visible = true;
-            ltContentPlaceholer.Visible = false;
-        }
-        else
-        {
-            gpGroups.SetValues( _selectedGroupIds.ToList().AsIntegerList() );
-        }
-    }
-
-    /// <summary>
-    /// Call get user preference and set the  number of weeks
-    /// on the date picker
-    /// </summary>
-    private void SetSelectedNumberOfWeeks()
-    {
-        var dateRangeNumberOfWeeks = this.GetUserPreference( UserPreferenceKeys.VolunteerScheduleMaxWeeks ).AsIntegerOrNull();
-        // get default date range
-        var dateRangeAttributes = GetAttributeValue( AttributeKeys.DateRange );
-        var delimitedDateRange = dateRangeAttributes.SplitDelimitedValues( false );
-
-        if ( delimitedDateRange.Length > 2 )
-        {
-            // extract the number of weeks from the default date attribute value
-            var defaultWeeks = delimitedDateRange[1].AsInteger();
-            //use user preference if different;
-            if ( dateRangeNumberOfWeeks != null && dateRangeNumberOfWeeks != defaultWeeks )
-            {
-                dateRangeAttributes = string.Format( "Next|{0}|Week||", dateRangeNumberOfWeeks );
-                rsDateRange.SelectedValue = dateRangeNumberOfWeeks;
-            }
-            else
-            {
-                rsDateRange.SelectedValue = defaultWeeks;
-            }
-        }
-
-        // set date range 
-        _dateRange = SlidingDateRangePicker.CalculateDateRangeFromDelimitedValues( dateRangeAttributes ?? "-1||" );
-    }
-
-    /// <summary>
-    /// Gets the data using a context and then disconnect
-    /// </summary>
-    private void GetData()
-    {
-        this.ltContentPlaceholer.Text = string.Empty;
-        if ( _selectedGroupIds.Length != 0 )
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                int[] groupIds = _selectedGroupIds.AsIntegerList().ToArray();
-
-                // limit groups to 40
-                if ( groupIds.Count() > 40 )
-                {
-                    nbGroupsWarning.Text = "You have exceeded maximum number of groups. Please select less than 40 groups.";
-                    nbGroupsWarning.Visible = true;
-                    return;
-                }
-
-                // handle response when count exceeds 50000 which returns null from service
-                var occurrences = new AttendanceOccurrenceService( rockContext ).GetOccurrencesGroupedByGroupsAndDateRange( groupIds, _dateRange );
-                if ( occurrences == null )
-                {
-                    nbGroupsWarning.Text = "You have exceeded the maximum number of records. Please select fewer groups or reduce your date range.";
-                    nbGroupsWarning.Visible = true;
-                    return;
-                }
-                BuildDataSourceCells( occurrences );
-            }
-        }
-        else
+        if ( !groupsQuery.Any() )
         {
             nbGroupsWarning.Text = "Please select at least one group.";
+            nbGroupsWarning.NotificationBoxType = NotificationBoxType.Warning;
             nbGroupsWarning.Visible = true;
+            return;
         }
-    }
 
-    /// <summary>
-    /// Builds the data source cells.
-    /// Pass in the Occurrences that are grouped by date
-    /// fill list of data source Schedule Cells
-    /// </summary>
-    /// <param name="occurrences">The occurrences.</param>
-    private void BuildDataSourceCells( IQueryable<IGrouping<DateTime, AttendanceOccurrence>> occurrences )
-    {
-        List<StatusCell> cells = new List<StatusCell>();
-        var allDates = occurrences.Select( k => k.Key ).ToList();
+        var groupLocationService = new GroupLocationService( rockContext );
+        var groupLocationsQuery = groupLocationService.Queryable().Where( a => selectedGroupIds.Contains( a.GroupId ) && a.Group.GroupType.IsSchedulingEnabled == true );
 
-        List<Attendance> allAttendances = occurrences.SelectMany( a => a.Select( x => x.Attendees ) ).SelectMany( s => s ).ToList();
-        List<KeyValuePair<int, Attendance>> attendanceLookup = allAttendances
-            .Where( a => a.RequestedToAttend == true || a.ScheduledToAttend == true)
-            .Select( k => new KeyValuePair<int, Attendance>( k.OccurrenceId, k ) ).ToList();
-
-        var groupsInfos = occurrences.Select( a => new GroupInfo
+        // get all the schedules that are in use by at least one of the GroupLocations
+        var groupsScheduleList = groupLocationsQuery.SelectMany( a => a.Schedules ).Distinct().AsNoTracking().ToList();
+        if ( !groupsScheduleList.Any() )
         {
-            DateTime = a.Key,
-            Occurancedate = a.Key,
-            Groups = a.Select( x => new GroupInfoDetail
-            {
-                OccurrenceId = x.Id,
-                ScheduleId = x.ScheduleId,
-                ScheduleName = x.Schedule.Name,
-                GroupId = x.GroupId,
-                GroupName = x.Group.Name,
-                LocationName = x.Location.Name,
-                LocationId = x.LocationId,
-                Schedule = x.Schedule,
-                CapcityDetail = x.Group.GroupLocations
-                .Where( s => s.Schedules.Where( i => i.Id == x.ScheduleId ).Any() && s.GroupId == x.GroupId )
-                .Select( cnf => cnf.GroupLocationScheduleConfigs
-                .Select( r => new CapacityDetail
-                {
-                    ScheduleId = r.ScheduleId,
-                    CapcityMinimum = r.MinimumCapacity,
-                    CapacityDesired = r.DesiredCapacity,
-                    CapityMaximum = r.MaximumCapacity
-                } ) ).Select( r => r.ToList() ).ToList()
+            nbGroupsWarning.Text = "The selected groups don't have any location schedules configured.";
+            nbGroupsWarning.NotificationBoxType = NotificationBoxType.Warning;
+            nbGroupsWarning.Visible = true;
+            return;
+        }
 
+        // get the next N sundayDates
+        List<DateTime> sundayDateList = GetSundayDateList( numberOfWeeks );
+
+        // build the list of scheduled times for the next n weeks
+        List<ScheduleOccurrenceDate> scheduleOccurrenceDateList = new List<ScheduleOccurrenceDate>();
+        var currentDate = RockDateTime.Today;
+        foreach ( var sundayDate in sundayDateList )
+        {
+            foreach ( var schedule in groupsScheduleList )
+            {
+                var sundayWeekStart = sundayDate.AddDays( -6 );
+                var scheduledDateTime = schedule.GetNextStartDateTime( sundayWeekStart );
+                if ( scheduledDateTime.HasValue && scheduledDateTime.Value >= currentDate )
+                {
+                    scheduleOccurrenceDateList.Add( new ScheduleOccurrenceDate { Schedule = schedule, ScheduledDateTime = scheduledDateTime.Value } );
+                }
+            }
+        }
+
+        scheduleOccurrenceDateList = scheduleOccurrenceDateList.OrderBy( a => a.ScheduledDateTime ).ToList();
+
+        var latestOccurrenceDate = sundayDateList.Max();
+
+        var scheduledOccurrencesQuery = new AttendanceOccurrenceService( rockContext ).Queryable().Where( a => a.GroupId.HasValue && a.LocationId.HasValue && a.ScheduleId.HasValue && selectedGroupIds.Contains( a.GroupId.Value ) );
+        scheduledOccurrencesQuery = scheduledOccurrencesQuery.Where( a => a.OccurrenceDate >= currentDate && a.OccurrenceDate <= latestOccurrenceDate );
+
+        var occurrenceScheduledVolunteerAttendancesList = scheduledOccurrencesQuery.Select( ao => new
+        {
+            Occurrence = ao,
+            ScheduledAttendees = ao.Attendees.Where( a => a.RequestedToAttend == true || a.ScheduledToAttend == true ).Select( a => new
+            {
+                ScheduledPerson = a.PersonAlias.Person,
+                a.RequestedToAttend,
+                a.ScheduledToAttend,
+                a.RSVP
+            } )
+        } ).ToList();
+
+        StringBuilder sbTable = new StringBuilder();
+
+        // start of table
+        sbTable.AppendLine( "<table class='table schedule-status-board js-schedule-status-board'>" );
+
+        sbTable.AppendLine( "<thead class='schedule-status-board-header js-schedule-status-board-header'>" );
+        sbTable.AppendLine( "<tr>" );
+
+        var tableHeaderLavaTemplate = @"
+{%- comment -%}empty column for group/location names{%- endcomment -%}
+<th scope='col'></th>
+{% for scheduleOccurrenceDate in ScheduleOccurrenceDateList %}
+    <th scope='col'>
+        <span class='date'>{{ scheduleOccurrenceDate.ScheduledDateTime | Date:'MMM d, yyyy'  }}</span>
+        <br />
+        <span class='day-time'>{{ scheduleOccurrenceDate.Schedule.Name }}</span>
+    </th>
+{% endfor %}
+";
+
+        var headerMergeFields = new Dictionary<string, object> { { "ScheduleOccurrenceDateList", scheduleOccurrenceDateList } };
+        string tableHeaderHtml = tableHeaderLavaTemplate.ResolveMergeFields( headerMergeFields );
+        sbTable.Append( tableHeaderHtml );
+        sbTable.AppendLine( "</tr>" );
+        sbTable.AppendLine( "</thead>" );
+
+        var groupLocationsList = groupsQuery.Where( g => g.GroupLocations.Any() ).OrderBy( a => a.Order ).ThenBy( a => a.Name ).Select( g => new
+        {
+            Group = g,
+            LocationScheduleCapacitiesList = g.GroupLocations.OrderBy( gl => gl.Order ).ThenBy( gl => gl.Location.Name ).Select( a => new
+            {
+                ScheduleCapacitiesList = a.GroupLocationScheduleConfigs.Select( sc =>
+                     new ScheduleCapacities
+                     {
+                         ScheduleId = sc.ScheduleId,
+                         MinimumCapacity = sc.MinimumCapacity,
+                         DesiredCapacity = sc.DesiredCapacity,
+                         MaximumCapacity = sc.MaximumCapacity
+                     } ),
+                a.Location
             } ).ToList()
         } ).ToList();
 
-        foreach ( var date in allDates )
+        var columnsCount = scheduleOccurrenceDateList.Count() + 1;
+        foreach ( var groupLocations in groupLocationsList )
         {
-            GroupInfo currentGroupInfo = groupsInfos.Where( k => k.DateTime == date ).FirstOrDefault();
-            foreach ( var occurrenceGroup in currentGroupInfo.Groups )
+            var group = groupLocations.Group;
+            StringBuilder sbGroupLocations = new StringBuilder();
+            sbGroupLocations.AppendLine( string.Format( "<tbody class='group-locations js-group-locations' data-group-id='{0}' data-locations-expanded='1'>", group.Id ) );
+
+            // group header row
+            sbGroupLocations.AppendLine( "<tr class='group-heading js-group-header thead-dark clickable' >" );
+            sbGroupLocations.AppendLine( string.Format( "<th colspan='{0}'><i class='fa fa-chevron-down'></i> {1}</th>", columnsCount, group.Name ) );
+            sbGroupLocations.AppendLine( "</tr>" );
+
+            // group/schedule+locations
+            var locationScheduleCapacitiesList = groupLocations.LocationScheduleCapacitiesList;
+            foreach ( var locationScheduleCapacities in locationScheduleCapacitiesList )
             {
-                var occurrenceId = occurrenceGroup.OccurrenceId;
-                var cell = new StatusCell
+                var location = locationScheduleCapacities.Location;
+                var scheduleCapacitiesLookup = locationScheduleCapacities.ScheduleCapacitiesList.ToDictionary( k => k.ScheduleId, v => v );
+                sbGroupLocations.AppendLine( "<tr class='location-row js-location-row'>" );
+
+                sbGroupLocations.AppendLine( string.Format( "<td scope='row' data-location-id='{0}'>{1}</td>", location.Id, location.Name ) );
+
+                foreach ( var scheduleOccurrenceDate in scheduleOccurrenceDateList )
                 {
-                    Guid = Guid.NewGuid(),
-                    OccurrenceDate = currentGroupInfo.DateTime,
-                    GroupId = occurrenceGroup.GroupId,
-                    GroupName = occurrenceGroup.GroupName,
-                    LocationId = occurrenceGroup.LocationId,
-                    LocationName = occurrenceGroup.LocationName,
-                    OccurrencePersons = BuildListOfOccurencePersons( attendanceLookup, occurrenceId ),
-                    ScheduleId = occurrenceGroup.ScheduleId,
-                    ScheduleName = occurrenceGroup.ScheduleName,
-                    SortDateTime = occurrenceGroup.Schedule.GetNextStartDateTime( currentGroupInfo.DateTime ),
-                    CapacityDetail = GetCapacityDetail( occurrenceGroup.ScheduleId, occurrenceGroup.CapcityDetail.Select( c => c ) )
-                };
+                    var capacities = scheduleCapacitiesLookup.GetValueOrNull( scheduleOccurrenceDate.Schedule.Id ) ?? new ScheduleCapacities();
 
-                cells.Add( cell );
-            }
-        }
+                    var scheduleLocationStatusHtmlFormat =
+@"<ul class='location-scheduled-list' data-capacity-min='{1}' data-capacity-desired='{2}' data-capacity-max='{3}' data-scheduled-count='{4}'>
+    {0}
+</ul>";
+                    StringBuilder sbScheduledListHtml = new StringBuilder();
+                    var occurrenceScheduledVolunteerAttendances = occurrenceScheduledVolunteerAttendancesList
+                        .FirstOrDefault( ao =>
+                             ao.Occurrence.OccurrenceDate == scheduleOccurrenceDate.OccurrenceDate
+                             && ao.Occurrence.GroupId == groupLocations.Group.Id
+                             && ao.Occurrence.ScheduleId == scheduleOccurrenceDate.Schedule.Id
+                             && ao.Occurrence.LocationId == location.Id );
 
-        _occurrenceScheduleCells.AddRange( cells.OrderBy( ord => ord.SortDateTime ) );
-    }
+                    int scheduledCount = 0;
 
-    /// <summary>
-    /// Gets the capacity detail from IEnumerable<List<CapacityDetail>>
-    /// that match on scheduleId
-    /// </summary>
-    /// <param name="scheduleId">The schedule identifier.</param>
-    /// <param name="enumerable">The enumerable.</param>
-    /// <returns></returns>
-    private CapacityDetail GetCapacityDetail( int? scheduleId, IEnumerable<List<CapacityDetail>> enumerable )
-    {
-        return enumerable.FirstOrDefault().Where( cap => cap.ScheduleId == scheduleId ).FirstOrDefault();
-    }
-
-    /// <summary>
-    /// Selects the distinct groups.
-    /// </summary>
-    /// <returns></returns>
-    private List<StatusCell> SelectDistinctGroups()
-    {
-        List<StatusCell> returnList = new List<StatusCell>();
-        foreach ( var statusColumn in _occurrenceScheduleCells )
-        {
-            if ( !returnList.Where( l => l.GroupId == statusColumn.GroupId && l.LocationId == statusColumn.LocationId ).Any() )
-            {
-                returnList.Add( statusColumn );
-            }
-        }
-
-        var group = returnList.GroupBy( g => g.GroupId ).Select( g => g.FirstOrDefault() ).ToList();
-        return group;
-    }
-
-    /// <summary>
-    /// Builds the list of configurations by group locations.
-    /// </summary>
-    /// <param name="groupLocations">The group locations.</param>
-    /// <returns></returns>
-    private List<GroupLocationScheduleConfig> BuildListOfConfigurationsByGroupLocations( ICollection<GroupLocation> groupLocations )
-    {
-        List<GroupLocationScheduleConfig> groupLocationConfiguration = new List<GroupLocationScheduleConfig>();
-        foreach ( var location in groupLocations )
-        {
-            var configurations = location.GroupLocationScheduleConfigs.ToList();
-            groupLocationConfiguration.AddRange( configurations );
-        }
-        return groupLocationConfiguration;
-    }
-
-    /// <summary>
-    /// Builds the list of occurrence persons from Attendances.
-    /// </summary>
-    /// <param name="attendances">The attendances.</param>
-    /// <returns></returns>
-    private List<OccurrencePerson> BuildListOfOccurencePersons( List<KeyValuePair<int, Attendance>> attendances, int occurrenceId )
-    {
-        var attendies = attendances.Where( k => k.Key == occurrenceId ).Select( a => a.Value ).ToList();
-
-        List<OccurrencePerson> persons = new List<OccurrencePerson>();
-        foreach ( var attendance in attendies )
-        {
-            persons.Add( new OccurrencePerson
-            {
-                NickName = attendance.PersonAlias.Person.NickName,
-                LastName = attendance.PersonAlias.Person.LastName,
-                RSVP = attendance.RSVP,
-            } );
-        }
-        return persons;
-    }
-
-    #endregion
-
-    #region Render Methods
-
-    /// <summary>
-    /// Gets the data and calls render results.
-    /// </summary>
-    private void GetDataAndRenderResults()
-    {
-        GetData();
-        // if we have cells then render results 
-        if ( _occurrenceScheduleCells.Count() > 0 )
-        {
-            RenderResults();
-        }
-        else
-        {
-            ltContentPlaceholer.Visible = true;
-            ltContentPlaceholer.Text = "<i class='text-muted'>no data for the groups and dates selected</i>";
-        }
-    }
-
-    /// <summary>
-    /// Structure of Result:
-    ///  <table class='table'>
-    ///  <thead>
-    ///  <tr>
-    ///    <th scope = "col" ></ th >
-    ///    <th scope="col">
-    ///      <span class="date">Jul 8, 2018</span>
-    ///      <span class="day-time">Sunday 8am</span>
-    ///    </th>
-    ///  </thead>
-    ///  <tbody id = "groupid-###" >
-    ///  <tr class="group-heading thead-dark">
-    ///    <th colspan = "6" > Kids Volunteers</th>
-    ///  </tr>
-    ///  <tr class="location-row">
-    ///    <th scope = "row" > Bears Room</th>
-    ///    <td>
-    ///      <ul class="location-list">
-    ///        <li class="person attending">Ted Decker</li>
-    ///      </ul>
-    ///    </td>
-    ///  </tr>
-    /// </tbody>
-    /// </table>
-    /// </summary>
-    private void RenderResults()
-    {
-        List<Tuple<string, DateTime>> tupleHeaderDates = new List<Tuple<string, DateTime>>();
-        StringBuilder sbTable = new StringBuilder();
-        StringBuilder sbBody = new StringBuilder();
-
-        BuildHeader( tupleHeaderDates, sbTable );
-
-        var distinctGroups = SelectDistinctGroups();
-
-        foreach ( var group in distinctGroups )
-        {
-            BuildGroupAndLocationRowHeader( sbBody, group );
-            BuildBodyColumnsAndRows( sbBody, tupleHeaderDates, group );
-        }
-
-        sbTable.AppendLine( sbBody.ToString() );
-        sbTable.AppendLine( "</table>" );
-
-        this.ltContentPlaceholer.Text = sbTable.ToString();
-        this.ltContentPlaceholer.Visible = true;
-    }
-
-    /// <summary>
-    /// Builds the header.
-    /// </summary>
-    /// <param name="columnDateTimes">The column date times.</param>
-    /// <param name="sbTable">The table.</param>
-    private void BuildHeader( List<Tuple<string, DateTime>> columnScheduleDates, StringBuilder sbTable )
-    {
-        // Head
-        sbTable.AppendLine( "<table class='table'>" );
-        sbTable.AppendLine( "<thead>" );
-        sbTable.AppendLine( "<tr>" );
-        sbTable.AppendLine( "<th scope='col'></th>" );
-
-        int index = 0;
-
-        foreach ( var column in _occurrenceScheduleCells )
-        {
-            if ( !columnScheduleDates.Where( tup => tup.Item2 == column.OccurrenceDate && tup.Item1 == column.ScheduleName ).Any() )
-            {
-                columnScheduleDates.Add( new Tuple<string, DateTime>( column.ScheduleName, ( DateTime ) column.OccurrenceDate ) );
-            }
-        }
-
-        foreach ( var tupleHeaderDate in columnScheduleDates )
-        {
-            sbTable.AppendLine( "<th scope='col'>" );
-            sbTable.AppendLine( string.Format( "<span class='date'>{0}</span>", tupleHeaderDate.Item2.ToString( "MMMM dd, yyyy" ) ) );
-            sbTable.AppendLine( "</br>" );
-            sbTable.AppendLine( string.Format( "<span class='day-time'>{0}</span>", tupleHeaderDate.Item1 ) );
-            sbTable.AppendLine( "</th>" );
-            index++;
-        }
-
-        sbTable.AppendLine( "</tr>" );
-        sbTable.AppendLine( "</thead>" );
-    }
-
-    /// <summary>
-    /// Builds the body columns and rows.
-    /// </summary>
-    /// <param name="sbBody">The sb body.</param>
-    /// <param name="columnDate">The column date times.</param>
-    /// <param name="uniqueLocations">The unique location.</param>
-    private void BuildBodyColumnsAndRows( StringBuilder sbBody, List<Tuple<string, DateTime>> columnScheduleDates, StatusCell cell )
-    {
-        // list of locations based on a group
-        var grouplocations = _occurrenceScheduleCells
-             .Where( c => c.GroupId == cell.GroupId )
-             .Select( res => new { res.LocationId, res.LocationName, res.GroupId, res.GroupName } ).Distinct();
-        var distinctLocations = grouplocations.GroupBy( gl => gl.LocationId ).ToList();
-
-        foreach ( var groupLocation in distinctLocations )
-        {
-            var currentLocation = groupLocation.Select( l => l ).FirstOrDefault();
-            // build out row header of locations 
-            sbBody.AppendLine( "<tr class='location-row'>" );
-            sbBody.AppendLine( string.Format( "<th scope= 'row'>{0}</th>", currentLocation.LocationName ) );
-            var cellsByLocation = _occurrenceScheduleCells.Where( cel => cel.LocationId == currentLocation.LocationId );
-
-            // iterate through list of schedule names and associated date
-            foreach ( var scheduleDate in columnScheduleDates )
-            {
-                // cell by schedule name and occurrence date
-                var scheduleOccurrenceCell = cellsByLocation
-                     .Where( cel => cel.OccurrenceDate == scheduleDate.Item2 && cel.ScheduleName == scheduleDate.Item1 )
-                     .Select( cel => cel ).FirstOrDefault();
-                if ( scheduleOccurrenceCell != null )
-                {
-                    // get the capacities that have been defined for this schedule and date
-                    // if Desired has not been configured then use Minimum otherwise use 0 
-                    var capacityDetail = scheduleOccurrenceCell.CapacityDetail;
-                    var capacityRequested = capacityDetail == null ? 0 : capacityDetail.CapacityDesired != null ? capacityDetail.CapacityDesired : capacityDetail.CapcityMinimum;
-                    if ( scheduleOccurrenceCell != null && scheduleOccurrenceCell.OccurrencePersons != null && scheduleOccurrenceCell.OccurrencePersons.Count > 0 )
+                    if ( occurrenceScheduledVolunteerAttendances != null && occurrenceScheduledVolunteerAttendances.ScheduledAttendees.Any() )
                     {
-                        var neededPersons = capacityRequested - scheduleOccurrenceCell.OccurrencePersons.Count;
+                        var scheduledVolunteerList = occurrenceScheduledVolunteerAttendances
+                            .ScheduledAttendees
+                            .OrderBy( a => a.ScheduledToAttend == true )
+                            .ThenBy( a => a.RequestedToAttend ).ToList();
 
-                        var prepend = "Person".PluralizeIf( neededPersons != 1 );
-                        // build the list of scheduled persons
-                        sbBody.Append( "<td>" );
-                        sbBody.AppendLine( "<ul class='location-list'>" );
-
-                        foreach ( var attendance in scheduleOccurrenceCell.OccurrencePersons )
+                        foreach ( var scheduledVolunteer in scheduledVolunteerList )
                         {
-                            string status;
-                            switch ( attendance.RSVP )
+                            ScheduledAttendanceItemStatus status = ScheduledAttendanceItemStatus.Pending;
+                            if ( scheduledVolunteer.RSVP == RSVP.No )
                             {
-                                case RSVP.No:
-                                    status = "person declined";
-                                    break;
-                                case RSVP.Yes:
-                                    status = "person attending";
-                                    break;
-                                case RSVP.Maybe:
-                                    status = "person pending";
-                                    break;
-                                case RSVP.Unknown:
-                                    status = "person pending";
-                                    break;
-                                default:
-                                    status = "person pending";
-                                    break;
+                                status = ScheduledAttendanceItemStatus.Declined;
+                            }
+                            else if ( scheduledVolunteer.ScheduledToAttend == true )
+                            {
+                                status = ScheduledAttendanceItemStatus.Confirmed;
                             }
 
-                            sbBody.AppendLine( string.Format( "<li class='{0}'>{1} {2}</li>", status, attendance.NickName, attendance.LastName ) );
-                        };
-
-                        // if more are still needed
-                        if ( neededPersons > 0 )
-                        {
-                            sbBody.AppendLine( string.Format( "<li class='unassigned unassigned-meta'>{0} {1} Needed</li>", neededPersons, prepend ) );
+                            sbScheduledListHtml.AppendLine( string.Format( "<li class='person {0}' data-status='{0}'>{1}</li>", status.ConvertToString( false ).ToLower(), scheduledVolunteer.ScheduledPerson ) );
                         }
 
-                        sbBody.AppendLine( "</ul>" );
-                        sbBody.AppendLine( "</td>" );
+                        scheduledCount = scheduledVolunteerList.Where( a => a.RSVP != RSVP.No ).Count();
                     }
-                    else
+
+                    if ( capacities.DesiredCapacity.HasValue && scheduledCount < capacities.DesiredCapacity.Value )
                     {
-                        // no people scheduled handle capacity  
-                        if ( capacityRequested > 0 )
+                        var countNeeded = capacities.DesiredCapacity.Value - scheduledCount;
+                        sbScheduledListHtml.AppendLine( string.Format( "<li class='persons-needed'>{0} {1} needed</li>", countNeeded, "Person".PluralizeIf( countNeeded != 0 ) ) );
+
+                        // add empty slots if we are under the desired count (not including the slot for the 'persons-needed' li)
+                        var emptySlotsToAdd = countNeeded - 1;
+                        while ( emptySlotsToAdd > 0 )
                         {
-                            sbBody.Append( "<td>" );
-                            sbBody.AppendLine( "<ul class='location-list'>" );
-                            sbBody.AppendLine( string.Format( "<li class='unassigned unassigned-meta'>{0} {1} Needed</li>", capacityRequested, "People" ) );
-                            sbBody.AppendLine( "</ul>" );
-                            sbBody.AppendLine( "</td>" );
-                        }
-                        else
-                        {
-                            // no occurrence exists
-                            sbBody.AppendLine( "<td></td>" );
+                            sbScheduledListHtml.AppendLine( "<li class='person empty-slot'></li>" );
+                            emptySlotsToAdd--;
                         }
                     }
+
+                    var scheduledLocationsStatusHtml = string.Format( scheduleLocationStatusHtmlFormat, sbScheduledListHtml, capacities.MinimumCapacity, capacities.DesiredCapacity, capacities.MaximumCapacity, scheduledCount );
+
+                    sbGroupLocations.AppendLine( string.Format( "<td class='schedule-location js-schedule-location' data-schedule-id='{0}'>{1}</td>", scheduleOccurrenceDate.Schedule.Id, scheduledLocationsStatusHtml ) );
                 }
+
+                sbGroupLocations.AppendLine( "</tr>" );
+            }
+
+            sbGroupLocations.AppendLine( "</tbody>" );
+
+            sbTable.Append( sbGroupLocations.ToString() );
+        }
+
+        // closing divs for main header
+        sbTable.AppendLine( "</tr>" );
+        sbTable.AppendLine( "</thead>" );
+
+        // closing divs for table
+        sbTable.AppendLine( "</table>" );
+
+        lGroupStatusTableHTML.Text = sbTable.ToString();
+    }
+
+    /// <summary>
+    /// Gets the sunday date list.
+    /// </summary>
+    /// <param name="numberOfWeeks">The number of weeks.</param>
+    /// <returns></returns>
+    private static List<DateTime> GetSundayDateList( int numberOfWeeks )
+    {
+        var sundayDateList = new List<DateTime>();
+
+        // start with the current weeks Sunday date 
+        var sundayDate = RockDateTime.Now.Date.SundayDate();
+        while ( sundayDateList.Count < numberOfWeeks )
+        {
+            sundayDateList.Add( sundayDate );
+            sundayDate = sundayDate.AddDays( 7 );
+        }
+
+        return sundayDateList;
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    private class ScheduleOccurrenceDate : DotLiquid.Drop
+    {
+        public Schedule Schedule { get; set; }
+
+        public DateTime ScheduledDateTime { get; set; }
+
+        public DateTime OccurrenceDate
+        {
+            get
+            {
+                return ScheduledDateTime.Date;
             }
         }
     }
 
     /// <summary>
-    /// Builds the group and location row header.
+    /// Gets the selected groups from UserPreferences
     /// </summary>
-    /// <param name="sbBody">The table body of the table.</param>
-    /// <param name="groupLocation">The group location.</param>
-    private void BuildGroupAndLocationRowHeader( StringBuilder sbBody, StatusCell groupLocation )
+    /// <returns></returns>
+    private List<int> GetSelectedGroupIds()
     {
-        int colspan = _occurrenceScheduleCells.Count + 1;
-        sbBody.AppendLine( string.Format( "<tbody id='groupid-{0}'>", groupLocation.GroupId ) );
-        sbBody.AppendLine( "<tr class='group-heading thead-dark'>" );
-        sbBody.AppendLine( string.Format( "<th colspan='{0}'>{1}</th>", colspan, groupLocation.GroupName ) );
-        sbBody.AppendLine( "</tr>" );
+        return this.GetBlockUserPreference( UserPreferenceKey.GroupIds ).SplitDelimitedValues().AsIntegerList();
     }
 
     /// <summary>
-    /// Updates the group and date range controls.
-    /// and renders the results
+    /// Gets the number of weeks from UserPreferences or Block Settings
     /// </summary>
-    private void UpdateGroupAndDateRangeControls()
+    /// <returns></returns>
+    private int GetSelectedNumberOfWeeks()
     {
-        SetSelectedGroup();
-        SetSelectedNumberOfWeeks();
-        GetDataAndRenderResults();
+        // if there is a stored user preference, use that, otherwise use the value from block attributes
+        int? numberOfWeeks = this.GetBlockUserPreference( UserPreferenceKey.NumberOfWeeks ).AsIntegerOrNull();
+        if ( !numberOfWeeks.HasValue )
+        {
+            numberOfWeeks = this.GetAttributeValue( AttributeKey.NumberOfWeeks ).AsIntegerOrNull() ?? 2;
+        }
+
+        // limit number of weeks to 1-16, just in case it got outside of that
+        if ( numberOfWeeks > 16 )
+        {
+            numberOfWeeks = 16;
+        }
+
+        if ( numberOfWeeks < 1 )
+        {
+            numberOfWeeks = 1;
+        }
+
+        return numberOfWeeks ?? 2;
     }
-
-    #endregion
-
-    #region Events
 
     /// <summary>
     /// Handles the Click event of the btnGroups control.
@@ -647,6 +382,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
     protected void btnGroups_Click( object sender, EventArgs e )
     {
+        gpGroups.SetValues( GetSelectedGroupIds() );
         dlgGroups.Show();
     }
 
@@ -657,6 +393,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
     protected void btnDates_Click( object sender, EventArgs e )
     {
+        rsDateRange.SelectedValue = this.GetBlockUserPreference( UserPreferenceKey.NumberOfWeeks ).AsIntegerOrNull() ?? 2;
         dlgDateRangeSlider.Show();
     }
 
@@ -667,17 +404,10 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
     protected void dlgGroups_SaveClick( object sender, EventArgs e )
     {
-
         dlgGroups.Hide();
-        var groupsSelected = gpGroups.SelectedValues.ToList();
-        var delimitedGroups = groupsSelected.AsDelimited( "," );
-        if ( delimitedGroups != null && delimitedGroups != "0" )
-        {
-            this.SetUserPreference( UserPreferenceKeys.VolunteerScheduleStatusGroups, delimitedGroups.ToString() );
-            nbGroupsWarning.Visible = false;
-        }
-        _numberOfWeeks = rsDateRange.SelectedValue;
-        UpdateGroupAndDateRangeControls();
+        var selectedGroupIds = gpGroups.SelectedValues.ToList().AsIntegerList();
+        this.SetBlockUserPreference( UserPreferenceKey.GroupIds, selectedGroupIds.AsDelimited( "," ) );
+        BuildStatusBoard();
     }
 
     /// <summary>
@@ -687,16 +417,22 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
     protected void dlgDateRangeSlider_SaveClick( object sender, EventArgs e )
     {
-        _numberOfWeeks = rsDateRange.SelectedValue;
-
-        if ( _numberOfWeeks.HasValue )
-        {
-            this.SetUserPreference( UserPreferenceKeys.VolunteerScheduleMaxWeeks, _numberOfWeeks.ToString() );
-        }
-
-        UpdateGroupAndDateRangeControls();
         dlgDateRangeSlider.Hide();
+        this.SetBlockUserPreference( UserPreferenceKey.NumberOfWeeks, rsDateRange.SelectedValue.ToString() );
+        BuildStatusBoard();
     }
 
-    #endregion
+    /// <summary>
+    /// 
+    /// </summary>
+    public class ScheduleCapacities
+    {
+        public int ScheduleId { get; set; }
+
+        public int? MinimumCapacity { get; set; }
+
+        public int? DesiredCapacity { get; set; }
+
+        public int? MaximumCapacity { get; set; }
+    }
 }
