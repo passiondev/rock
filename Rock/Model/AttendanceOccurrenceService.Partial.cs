@@ -17,7 +17,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Entity;
 using System.Linq;
 
 using Rock.Data;
@@ -253,14 +252,24 @@ namespace Rock.Model
         /// <param name="locationId">The location identifier.</param>
         /// <param name="groupId">The group identifier.</param>
         /// <returns>AttendanceOccurrence</returns>
-        public AttendanceOccurrence GetOrCreateAttendanceOccurrence( DateTime occurrenceDate, int scheduleId, int locationId, int groupId )
+        public AttendanceOccurrence GetOrCreateAttendanceOccurrence( DateTime occurrenceDate, int scheduleId, int? locationId, int groupId )
         {
             // There is a unique constraint on OccurrenceDate, ScheduleId, LocationId and GroupId. So there is at most one record.
-            var attendanceOccurrence = this.Queryable().Where( a =>
+            var attendanceOccurrenceQuery = this.Queryable().Where( a =>
                      a.OccurrenceDate == occurrenceDate.Date
                      && a.ScheduleId.HasValue && a.ScheduleId == scheduleId
-                     && a.LocationId.HasValue && a.LocationId == locationId
-                     && a.GroupId.HasValue && a.GroupId == groupId ).FirstOrDefault();
+                     && a.GroupId.HasValue && a.GroupId == groupId );
+
+            if ( locationId.HasValue )
+            {
+                attendanceOccurrenceQuery = attendanceOccurrenceQuery.Where( a => a.LocationId.HasValue && a.LocationId.Value == locationId.Value );
+            }
+            else
+            {
+                attendanceOccurrenceQuery = attendanceOccurrenceQuery.Where( a => a.LocationId.HasValue == false );
+            }
+
+            var attendanceOccurrence = attendanceOccurrenceQuery.FirstOrDefault();
 
             if ( attendanceOccurrence != null )
             {
@@ -342,7 +351,7 @@ namespace Rock.Model
             var attendanceOccurrencesQuery = this.Queryable()
                 .Where( a => a.GroupId.HasValue
                         && a.LocationId.HasValue
-                        && groupLocationQuery.Any( gl => gl.GroupId == a.GroupId && gl.LocationId == gl.LocationId )
+                        && groupLocationQuery.Any( gl => gl.GroupId == a.GroupId && gl.LocationId == a.LocationId )
                         && a.ScheduleId == scheduleId
                         && a.OccurrenceDate == occurrenceDate );
 

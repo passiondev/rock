@@ -24,8 +24,6 @@ using System.Text;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 
-using DDay.iCal;
-
 using Rock;
 using Rock.Attribute;
 using Rock.Data;
@@ -61,8 +59,6 @@ namespace RockWeb.Blocks.Groups
         protected const string ALL_GROUPS_STRING = "All Groups";
 
         private readonly List<GroupScheduleToolboxTab> _tabs = Enum.GetValues( typeof( GroupScheduleToolboxTab ) ).Cast<GroupScheduleToolboxTab>().ToList();
-
-        private List<PersonScheduleSignup> availableGroupLocationSchedules;
 
         /// <summary>
         /// Tab menu options
@@ -165,6 +161,21 @@ $('#{0}').tooltip();
                 btnCopyToClipboard.ClientID );
 
             ScriptManager.RegisterStartupScript( btnCopyToClipboard, btnCopyToClipboard.GetType(), "share-copy", script, true );
+
+            this.SetSelectedPerson();
+        }
+
+        /// <summary>
+        /// Restores the view-state information from a previous user control request that was saved by the <see cref="M:System.Web.UI.UserControl.SaveViewState" /> method.
+        /// </summary>
+        /// <param name="savedState">An <see cref="T:System.Object" /> that represents the user control state to be restored.</param>
+        protected override void LoadViewState( object savedState )
+        {
+            base.LoadViewState( savedState );
+
+            List<PersonScheduleSignup> availableGroupLocationSchedules = ( this.ViewState["availableGroupLocationSchedulesJSON"] as string ).FromJsonOrNull<List<PersonScheduleSignup>>() ?? new List<PersonScheduleSignup>();
+
+            CreateDynamicSignupControls( availableGroupLocationSchedules );
         }
 
         /// <summary>
@@ -174,69 +185,29 @@ $('#{0}').tooltip();
         protected override void OnLoad( EventArgs e )
         {
             base.OnLoad( e );
-            List<string> errors = new List<string>();
-
-            string postbackArgs = Request.Params["__EVENTARGUMENT"];
-            if ( !string.IsNullOrWhiteSpace( postbackArgs ) )
-            {
-                string previousAssetSelected = string.Empty;
-
-                string[] occurrences = postbackArgs.Split( new char[] { '|' } );
-                foreach ( string occurrence in occurrences )
-                {
-                    int groupId;
-                    int locationId;
-                    int scheduleId;
-                    DateTime occurrenceDate;
-
-                    try
-                    {
-                        string[] props = occurrence.Split( new char[] { ',' } );
-                        groupId = props[0].AsInteger();
-                        locationId = props[1].AsInteger();
-                        scheduleId = props[2].AsInteger();
-                        occurrenceDate = props[3].AsDateTime().Value.Date;
-
-                        using ( var rockContext = new RockContext() )
-                        {
-                            AttendanceOccurrence attendanceOccurrence = new AttendanceOccurrenceService( rockContext ).GetOrCreateAttendanceOccurrence( occurrenceDate, scheduleId, locationId, groupId );
-                            var attendanceService = new AttendanceService( rockContext );
-                            var attendance = attendanceService.ScheduledPersonAddPending( this.SelectedPersonId, attendanceOccurrence.Id, CurrentPersonAlias );
-                            rockContext.SaveChanges();
-
-                            attendanceService.ScheduledPersonConfirm( attendance.Id );
-                            rockContext.SaveChanges();
-                        }
-                    }
-                    catch ( Exception ex )
-                    {
-                        // If there is a problem then log it and move on to the next schedule
-                        errors.Add( string.Format( "There was a problem signing up for one or more schedules." ) );
-                        ExceptionLogService.LogException( ex );
-                        continue;
-                    }
-                }
-
-                // After the save is complete rebuild the signup controls
-                CreateSignupControls();
-            }
 
             if ( !Page.IsPostBack )
             {
-                var targetPerson = this.ContextEntity<Person>();
-                if ( targetPerson != null )
-                {
-                    lTitle.Text = "Schedule Toolbox - " + targetPerson.FullName;
-                    this.SelectedPersonId = targetPerson.Id;
-                }
-                else
-                {
-                    lTitle.Text = "Schedule Toolbox";
-                    this.SelectedPersonId = this.CurrentPersonId ?? 0;
-                }
-
                 BindTabs();
                 ShowSelectedTab();
+            }
+        }
+
+        /// <summary>
+        /// Sets the selected person.
+        /// </summary>
+        private void SetSelectedPerson()
+        {
+            var targetPerson = this.ContextEntity<Person>();
+            if ( targetPerson != null )
+            {
+                lTitle.Text = "Schedule Toolbox - " + targetPerson.FullName;
+                this.SelectedPersonId = targetPerson.Id;
+            }
+            else
+            {
+                lTitle.Text = "Schedule Toolbox";
+                this.SelectedPersonId = this.CurrentPersonId ?? 0;
             }
         }
 
@@ -274,23 +245,6 @@ $('#{0}').tooltip();
         }
 
         /// <summary>
-        /// Gets the data for all tabs. May need to use this for page load if the tab switching is too slow.
-        /// </summary>
-        private void LoadAllTabs()
-        {
-            // My Schedule
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
-
-            // Preferences
-            BindBlackoutDates();
-            BindGroupPreferencesRepeater();
-
-            // Signup
-            CreateSignupControls();
-        }
-
-        /// <summary>
         /// Get the class for the tab's selection state. Empty string if not the current tab, "active" if it is the current tab.
         /// </summary>
         /// <param name="property">The property.</param>
@@ -323,15 +277,17 @@ $('#{0}').tooltip();
             switch ( CurrentTab )
             {
                 case GroupScheduleToolboxTab.MySchedule:
-                    BindPendingConfirmations();
-                    BindUpcomingSchedules();
+                    UpdateMySchedulesTab();
                     break;
                 case GroupScheduleToolboxTab.Preferences:
                     BindBlackoutDates();
                     BindGroupPreferencesRepeater();
                     break;
                 case GroupScheduleToolboxTab.SignUp:
-                    CreateSignupControls();
+                    List<PersonScheduleSignup> availableGroupLocationSchedules = GetScheduleData();
+                    this.ViewState["availableGroupLocationSchedulesJSON"] = availableGroupLocationSchedules.ToJson();
+                    phSignUpSchedules.Controls.Clear();
+                    CreateDynamicSignupControls( availableGroupLocationSchedules );
                     break;
                 default:
                     break;
@@ -432,8 +388,7 @@ $('#{0}').tooltip();
                 rockContext.SaveChanges();
             }
 
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
+            UpdateMySchedulesTab();
         }
 
         /// <summary>
@@ -452,8 +407,7 @@ $('#{0}').tooltip();
                 rockContext.SaveChanges();
             }
 
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
+            UpdateMySchedulesTab();
         }
 
         /// <summary>
@@ -476,14 +430,23 @@ $('#{0}').tooltip();
                 rockContext.SaveChanges();
             }
 
-            BindPendingConfirmations();
-            BindUpcomingSchedules();
+            UpdateMySchedulesTab();
+        }
+
+        /// <summary>
+        /// Updates my schedules tab.
+        /// </summary>
+        private void UpdateMySchedulesTab()
+        {
+            BindPendingConfirmationsGrid();
+            BindUpcomingSchedulesGrid();
+            nbNoUpcomingSchedules.Visible = pnlPendingConfirmations.Visible == false && pnlUpcomingSchedules.Visible == false;
         }
 
         /// <summary>
         /// Binds the Upcoming Schedules grid.
         /// </summary>
-        private void BindUpcomingSchedules()
+        private void BindUpcomingSchedulesGrid()
         {
             var currentDateTime = RockDateTime.Now;
             var rockContext = new RockContext();
@@ -493,7 +456,11 @@ $('#{0}').tooltip();
                 .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
-            rptUpcomingSchedules.DataSource = qryPendingConfirmations.ToList();
+            var pendingConfirmationsList = qryPendingConfirmations.ToList();
+
+            pnlUpcomingSchedules.Visible = pendingConfirmationsList.Any();
+
+            rptUpcomingSchedules.DataSource = pendingConfirmationsList;
             rptUpcomingSchedules.DataBind();
 
             var personAliasService = new PersonAliasService( rockContext );
@@ -513,9 +480,9 @@ $('#{0}').tooltip();
         /// <summary>
         /// Binds the Pending Confirmations grid.
         /// </summary>
-        private void BindPendingConfirmations()
+        private void BindPendingConfirmationsGrid()
         {
-            lPendingConfirmations.Visible = false;
+            pnlPendingConfirmations.Visible = false;
 
             using ( var rockContext = new RockContext() )
             {
@@ -526,7 +493,7 @@ $('#{0}').tooltip();
 
                 if ( pendingConfirmations.Any() )
                 {
-                    lPendingConfirmations.Visible = true;
+                    pnlPendingConfirmations.Visible = true;
                     rptPendingConfirmations.DataSource = pendingConfirmations;
                     rptPendingConfirmations.DataBind();
                 }
@@ -538,25 +505,29 @@ $('#{0}').tooltip();
         #region Preferences Tab
 
         /// <summary>
-        /// Binds the group preferences repeater with a list of groups where the GroupType has scheduling enabled.
+        /// Binds the group preferences repeater with a list of groups that the selected person is an active member of and have SchedulingEnabled and have at least one location with a schedule
         /// </summary>
         protected void BindGroupPreferencesRepeater()
         {
             using ( var rockContext = new RockContext() )
             {
-                var groupMemberService = new GroupMemberService( rockContext );
-                var groups = groupMemberService
+                var groupService = new GroupService( rockContext );
+
+                // get groups that the selected person is an active member of and have SchedulingEnabled and have at least one location with a schedule
+                var groups = groupService
                     .Queryable()
                     .AsNoTracking()
-                    .Where( x => x.PersonId == this.SelectedPersonId )
-                    .Where( x => x.Group.GroupType.IsSchedulingEnabled == true )
-                    .Select( x => x.Group )
-                    .OrderBy( x => x.Name )
-                    .Distinct() // if they are in the group twice with different roles we only want one record.
+                    .Where( x => x.Members.Any( m => m.PersonId == this.SelectedPersonId && m.IsArchived == false && m.GroupMemberStatus == GroupMemberStatus.Active ) )
+                    .Where( x => x.IsActive == true && x.IsArchived == false && x.GroupType.IsSchedulingEnabled == true )
+                    .Where( x => x.GroupLocations.Any( gl => gl.Schedules.Any() ) )
+                    .OrderBy( x => new { x.Order, x.Name } )
+                    .AsNoTracking()
                     .ToList();
 
                 rptGroupPreferences.DataSource = groups;
                 rptGroupPreferences.DataBind();
+
+                nbNoScheduledGroups.Visible = groups.Any() == false;
             }
         }
 
@@ -598,7 +569,7 @@ $('#{0}').tooltip();
         /// <summary>
         /// Handles the SelectedIndexChanged event of the ddlGroupMemberScheduleTemplate control.
         /// Saves the ScheduleTemplateId for each GroupMember that matches the Group/Person.
-        /// In most cases taht will be one GroupMember unless the person has multiple roles in the group
+        /// In most cases that will be one GroupMember unless the person has multiple roles in the group
         /// (e.g. Leader and Member)
         /// </summary>
         /// <param name="sender">The source of the event.</param>
@@ -1095,6 +1066,11 @@ $('#{0}').tooltip();
             BindBlackoutDates();
         }
 
+        /// <summary>
+        /// Shows the dialog.
+        /// </summary>
+        /// <param name="dialog">The dialog.</param>
+        /// <param name="setValues">if set to <c>true</c> [set values].</param>
         private void ShowDialog( string dialog, bool setValues = false )
         {
             hfActiveDialog.Value = dialog.ToUpper().Trim();
@@ -1139,25 +1115,23 @@ $('#{0}').tooltip();
 
         #endregion Preferences Tab
 
-        #region Signup Tab
+        #region Sign-up Tab
 
         /// <summary>
         /// Creates the dynamic controls for the sign-up tab.
         /// </summary>
-        protected void CreateSignupControls()
+        protected void CreateDynamicSignupControls( List<PersonScheduleSignup> availableGroupLocationSchedules )
         {
             int currentGroupId = -1;
             DateTime currentOccurrenceDate = DateTime.MinValue;
             int currentScheduleId = -1;
 
-            availableGroupLocationSchedules = GetScheduleData().OrderBy( s => s.GroupId ).ThenBy( s => s.OccurrenceDate.Date ).ToList();
             var availableSchedules = availableGroupLocationSchedules
-                .GroupBy( s => new { s.GroupId, s.ScheduleId, s.OccurrenceDate.Date } )
+                .GroupBy( s => new { s.GroupId, ScheduleId = s.ScheduleId, s.ScheduledDateTime.Date } )
                 .Select( s => s.First() )
                 .ToList();
 
-            // only show the Save button if there are schedules that can be signed up for
-            btnSave.Visible = availableSchedules.Any();
+            nbNoSignupsAvailable.Visible = availableSchedules.Any() == false;
 
             foreach ( var availableSchedule in availableSchedules )
             {
@@ -1167,19 +1141,19 @@ $('#{0}').tooltip();
                     CreateGroupHeader( availableSchedule.GroupName );
                 }
 
-                if ( availableSchedule.OccurrenceDate.Date != currentOccurrenceDate.Date )
+                if ( availableSchedule.ScheduledDateTime.Date != currentOccurrenceDate.Date )
                 {
                     if ( currentScheduleId != -1 )
                     {
                         phSignUpSchedules.Controls.Add( new LiteralControl( "</div>" ) );
                     }
 
-                    currentOccurrenceDate = availableSchedule.OccurrenceDate.Date;
-                    CreateDateHeader( availableSchedule.OccurrenceDate );
+                    currentOccurrenceDate = availableSchedule.ScheduledDateTime.Date;
+                    CreateDateHeader( currentOccurrenceDate );
                 }
 
                 currentScheduleId = availableSchedule.ScheduleId;
-                CreateScheduleRow( availableSchedule );
+                CreateScheduleSignUpRow( availableSchedule, availableGroupLocationSchedules );
             }
         }
 
@@ -1204,67 +1178,154 @@ $('#{0}').tooltip();
             StringBuilder sb = new StringBuilder();
             sb.AppendLine( "<div class='form-control-group'>" );
             sb.AppendLine( string.Format( "<label class='control-label'>{0}&nbsp;({1})</label><br /><br />", date, dayOfWeek ) );
-            phSignUpSchedules.Controls.Add( new LiteralControl( sb.ToStringSafe() ) );
+            phSignUpSchedules.Controls.Add( new LiteralControl( sb.ToString() ) );
         }
 
         /// <summary>
         /// Creates a row for a schedule with a checkbox for the time and a dll to select a location.
         /// </summary>
         /// <param name="personScheduleSignup">The person schedule signup.</param>
-        private void CreateScheduleRow( PersonScheduleSignup personScheduleSignup )
+        /// <param name="availableGroupLocationSchedules">The available group location schedules.</param>
+        private void CreateScheduleSignUpRow( PersonScheduleSignup personScheduleSignup, List<PersonScheduleSignup> availableGroupLocationSchedules )
         {
-            var container = new HtmlGenericContainer();
-            container.Attributes.Add( "class", "row" );
-            container.AddCssClass( "js-person-schedule-signup-row" );
-            container.AddCssClass( "margin-b-sm" );
+            var scheduleSignUpRowItem = new HtmlGenericContainer();
+            phSignUpSchedules.Controls.Add( scheduleSignUpRowItem );
 
-            var cbContainer = new HtmlGenericContainer();
-            cbContainer.Attributes.Add( "class", "col-md-1" );
+            var scheduleSignUpContainer = new HtmlGenericContainer();
+            scheduleSignUpContainer.Attributes.Add( "class", "row" );
+            scheduleSignUpContainer.AddCssClass( "js-person-schedule-signup-row" );
+            scheduleSignUpContainer.AddCssClass( "margin-b-sm" );
 
-            var cb = new RockCheckBox();
-            cb.ID = "dbSignupSchedule";
-            cb.Text = personScheduleSignup.OccurrenceDate.ToString( "hh:mm tt" );
-            cb.ToolTip = personScheduleSignup.ScheduleName;
-            cb.AddCssClass( "js-person-schedule-signup-checkbox" );
-            cb.Checked = false;
-            cbContainer.Controls.Add( cb );
+            var hfGroupId = new HiddenField { ID = "hfGroupId", Value = personScheduleSignup.GroupId.ToString() };
+            var hfScheduleId = new HiddenField { ID = "hfScheduleId", Value = personScheduleSignup.ScheduleId.ToString() };
+            var hfOccurrenceDate = new HiddenField { ID = "hfOccurrenceDate", Value = personScheduleSignup.ScheduledDateTime.Date.ToISO8601DateString() };
+            var hfAttendanceId = new HiddenField { ID = "hfAttendanceId" };
+            scheduleSignUpContainer.Controls.Add( hfGroupId );
+            scheduleSignUpContainer.Controls.Add( hfScheduleId );
+            scheduleSignUpContainer.Controls.Add( hfOccurrenceDate );
+            scheduleSignUpContainer.Controls.Add( hfAttendanceId );
+
+            var pnlCheckboxCol = new Panel();
+            pnlCheckboxCol.Attributes.Add( "class", "col-md-1" );
+
+            var cbSignupSchedule = new RockCheckBox();
+            cbSignupSchedule.ID = "cbSignupSchedule";
+            cbSignupSchedule.Text = personScheduleSignup.ScheduledDateTime.ToString( "hh:mm tt" );
+            cbSignupSchedule.ToolTip = personScheduleSignup.ScheduleName;
+            cbSignupSchedule.AddCssClass( "js-person-schedule-signup-checkbox" );
+            cbSignupSchedule.Checked = false;
+            cbSignupSchedule.AutoPostBack = true;
+            cbSignupSchedule.CheckedChanged += CbSignupSchedule_CheckedChanged;
+            pnlCheckboxCol.Controls.Add( cbSignupSchedule );
 
             var locations = availableGroupLocationSchedules
                 .Where( x => x.GroupId == personScheduleSignup.GroupId )
                 .Where( x => x.ScheduleId == personScheduleSignup.ScheduleId )
-                .Where( x => x.OccurrenceDate.Date == personScheduleSignup.OccurrenceDate.Date )
-                .Select( x => new { Text = x.LocationName, Value = x.GroupId + "," + x.LocationId + "," + x.ScheduleId + "," + x.OccurrenceDate + "|" } )
+                .Where( x => x.ScheduledDateTime.Date == personScheduleSignup.ScheduledDateTime.Date )
+                .Select( x => new { Name = x.LocationName, Id = x.LocationId } )
                 .ToList();
 
-            var ddl = new RockDropDownList();
-            ddl.ID = "ddlSignupLocations";
-            ddl.DataSource = locations;
-            ddl.DataTextField = "Text";
-            ddl.DataValueField = "Value";
-            ddl.DataBind();
-            ddl.AddCssClass( "js-person-schedule-signup-ddl" );
-            ddl.AddCssClass( "input-width-xl" );
-            ddl.Items.Insert( 0, new ListItem( string.Empty, string.Empty ) );
+            var ddlSignupLocations = new RockDropDownList();
+            ddlSignupLocations.ID = "ddlSignupLocations";
+            ddlSignupLocations.Enabled = false;
 
-            var ddlContainer = new HtmlGenericContainer();
-            ddlContainer.Attributes.Add( "class", "col-md-11" );
-            ddlContainer.Controls.Add( ddl );
+            ddlSignupLocations.AddCssClass( "js-person-schedule-signup-ddl" );
+            ddlSignupLocations.AddCssClass( "input-width-xl" );
+            ddlSignupLocations.Items.Insert( 0, new ListItem( "No Preference", string.Empty ) );
+            foreach ( var location in locations )
+            {
+                ddlSignupLocations.Items.Add( new ListItem( location.Name, location.Id.ToString() ) );
+            }
 
-            var notificationLabel = new Label();
-            notificationLabel.Style.Add( "display", "none" );
-            notificationLabel.AddCssClass( "label label-warning margin-l-sm" );
-            notificationLabel.AddCssClass( "js-person-schedule-signup-notification" );
-            notificationLabel.Text = "The time checkbox must be checked and a location selected in order to signup";
-            ddlContainer.Controls.Add( notificationLabel );
+            ddlSignupLocations.AutoPostBack = true;
+            ddlSignupLocations.SelectedIndexChanged += DdlSignupLocations_SelectedIndexChanged;
 
-            container.Controls.Add( cbContainer );
-            container.Controls.Add( ddlContainer );
-            phSignUpSchedules.Controls.Add( container );
+            var pnlLocationCol = new Panel();
+            pnlLocationCol.Attributes.Add( "class", "col-md-11" );
+            pnlLocationCol.Controls.Add( ddlSignupLocations );
+
+            var hlSignUpSaved = new HighlightLabel { ID = "hlSignUpSaved", LabelType = LabelType.Success, Text = "<i class='fa fa-check-square'></i> Saved" };
+            hlSignUpSaved.Visible = false;
+            pnlLocationCol.Controls.Add( hlSignUpSaved );
+
+            scheduleSignUpContainer.Controls.Add( pnlCheckboxCol );
+            scheduleSignUpContainer.Controls.Add( pnlLocationCol );
+            scheduleSignUpRowItem.Controls.Add( scheduleSignUpContainer );
+        }
+
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the DdlSignupLocations control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        private void DdlSignupLocations_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            UpdateScheduleSignUp( sender as Control );
+        }
+
+        /// <summary>
+        /// Handles the CheckedChanged event of the CbSignupSchedule control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        private void CbSignupSchedule_CheckedChanged( object sender, EventArgs e )
+        {
+            UpdateScheduleSignUp( sender as Control );
+        }
+
+        /// <summary>
+        /// Updates the schedule sign up.
+        /// </summary>
+        /// <param name="senderControl">The sender control.</param>
+        private void UpdateScheduleSignUp( Control senderControl )
+        {
+            HtmlGenericContainer scheduleSignUpContainer = senderControl.FindFirstParentWhere( a => ( a is HtmlGenericContainer ) && ( a as HtmlGenericContainer ).CssClass.Contains( "js-person-schedule-signup-row" ) ) as HtmlGenericContainer;
+            if ( scheduleSignUpContainer != null )
+            {
+                var hfGroupId = scheduleSignUpContainer.FindControl( "hfGroupId" ) as HiddenField;
+                var hfScheduleId = scheduleSignUpContainer.FindControl( "hfScheduleId" ) as HiddenField;
+                var hfOccurrenceDate = scheduleSignUpContainer.FindControl( "hfOccurrenceDate" ) as HiddenField;
+                var hfAttendanceId = scheduleSignUpContainer.FindControl( "hfAttendanceId" ) as HiddenField;
+                var ddlSignupLocations = scheduleSignUpContainer.FindControl( "ddlSignupLocations" ) as RockDropDownList;
+                var cbSignupSchedule = scheduleSignUpContainer.FindControl( "cbSignupSchedule" ) as RockCheckBox;
+                var hlSignUpSaved = scheduleSignUpContainer.FindControl( "hlSignUpSaved" ) as HighlightLabel;
+                ddlSignupLocations.Enabled = cbSignupSchedule.Checked;
+
+                using ( var rockContext = new RockContext() )
+                {
+                    var occurrenceDate = hfOccurrenceDate.Value.AsDateTime().Value.Date;
+                    var scheduleId = hfScheduleId.Value.AsInteger();
+                    var locationId = ddlSignupLocations.SelectedValue.AsIntegerOrNull();
+                    var groupId = hfGroupId.Value.AsInteger();
+                    var attendanceId = hfAttendanceId.Value.AsIntegerOrNull();
+                    AttendanceOccurrence attendanceOccurrence = new AttendanceOccurrenceService( rockContext ).GetOrCreateAttendanceOccurrence( occurrenceDate, scheduleId, locationId, groupId );
+                    var attendanceService = new AttendanceService( rockContext );
+
+                    if ( attendanceId.HasValue )
+                    {
+                        // if there is an attendanceId, this is an attendance that they just signed up for, but they might have either unselected it, or changed the location, so remove it
+                        attendanceService.ScheduledPersonRemove( attendanceId.Value );
+                    }
+
+                    if ( cbSignupSchedule.Checked )
+                    {
+                        var attendance = attendanceService.ScheduledPersonAddPending( this.SelectedPersonId, attendanceOccurrence.Id, CurrentPersonAlias );
+                        rockContext.SaveChanges();
+                        hfAttendanceId.Value = attendance.Id.ToString();
+                        attendanceService.ScheduledPersonConfirm( attendance.Id );
+                        rockContext.SaveChanges();
+                    }
+
+                    hlSignUpSaved.Visible = true;
+                    rockContext.SaveChanges();
+                }
+            }
         }
 
         /// <summary>
         /// Gets a list of available schedules for the group the current person belongs to.
         /// </summary>
+        /// <param name="includeScheduledItems">if set to <c>true</c> [include scheduled items].</param>
         /// <returns></returns>
         protected List<PersonScheduleSignup> GetScheduleData()
         {
@@ -1279,51 +1340,47 @@ $('#{0}').tooltip();
                 var attendanceService = new AttendanceService( rockContext );
                 var personScheduleExclusionService = new PersonScheduleExclusionService( rockContext );
 
-                // Get a list of schedules that a person can sign up for
-                var schedules = scheduleService.GetAvailableScheduleSignupsForPerson( this.SelectedPersonId )
-                    .Tables[0]
-                    .AsEnumerable()
-                    .Select( s => new PersonScheduleSignup
-                    {
-                        GroupId = s.Field<int>( "GroupId" ),
-                        GroupName = s.Field<string>( "GroupName" ),
-                        LocationId = s.Field<int>( "LocationId" ),
-                        LocationName = s.Field<string>( "LocationName" ),
-                        ScheduleId = s.Field<int>( "ScheduleId" ),
-                        ScheduleName = s.Field<string>( "ScheduleName" ),
-                        ICalendarContent = s.Field<string>( "ICalendarContent" ),
-                        Occurrences = scheduleService.Get( s.Field<int>( "ScheduleId" ) ).GetOccurrences( startDate, endDate )
-                    } )
-                    .ToList();
+                var groupLocationService = new GroupLocationService( rockContext );
+                var personGroupLocationQry = groupLocationService.Queryable();
 
-                foreach ( PersonScheduleSignup schedule in schedules )
+                // get GroupLocations that are for Groups that the person is an active member of
+                personGroupLocationQry = personGroupLocationQry.Where( a => a.Group.GroupType.IsSchedulingEnabled == true && a.Group.Members.Any( m => m.PersonId == this.SelectedPersonId && m.IsArchived == false && m.GroupMemberStatus == GroupMemberStatus.Active ) );
+
+                var personGroupLocationList = personGroupLocationQry.ToList();
+
+                foreach ( var personGroupLocation in personGroupLocationList )
                 {
-                    foreach ( var occurrence in schedule.Occurrences )
+                    foreach ( var schedule in personGroupLocation.Schedules )
                     {
-                        if ( attendanceService.IsScheduled( occurrence.Period.StartTime.Value, schedule.ScheduleId, this.SelectedPersonId ) )
+                        var startDateTimeList = schedule.GetScheduledStartTimes( startDate, endDate );
+                        foreach ( var startDateTime in startDateTimeList )
                         {
-                            // If the person is scheduled for any group/location for this date/schedule then do not include in the sign-up list.
-                            continue;
-                        }
+                            var occurrenceDate = startDateTime.Date;
+                            bool alreadyScheduled = attendanceService.IsScheduled( occurrenceDate, schedule.Id, this.SelectedPersonId );
+                            if ( alreadyScheduled )
+                            {
+                                continue;
+                            }
 
-                        if ( personScheduleExclusionService.IsExclusionDate( this.SelectedPersonId, schedule.GroupId, occurrence.Period.StartTime.Value ) )
-                        {
-                            // Don't show dates they have blacked out
-                            continue;
-                        }
+                            if ( personScheduleExclusionService.IsExclusionDate( this.SelectedPersonId, personGroupLocation.GroupId, occurrenceDate ) )
+                            {
+                                // Don't show dates they have blacked out
+                                continue;
+                            }
 
-                        // Add to master list personScheduleSignups
-                        personScheduleSignups.Add( new PersonScheduleSignup
-                        {
-                            GroupId = schedule.GroupId,
-                            GroupName = schedule.GroupName,
-                            LocationId = schedule.LocationId,
-                            LocationName = schedule.LocationName,
-                            ScheduleId = schedule.ScheduleId,
-                            ScheduleName = schedule.ScheduleName,
-                            ICalendarContent = schedule.ICalendarContent,
-                            OccurrenceDate = occurrence.Period.StartTime.Value
-                        } );
+                            // Add to master list personScheduleSignups
+                            personScheduleSignups.Add( new PersonScheduleSignup
+                            {
+                                GroupId = personGroupLocation.Group.Id,
+                                GroupOrder = personGroupLocation.Group.Order,
+                                GroupName = personGroupLocation.Group.Name,
+                                LocationId = personGroupLocation.Location.Id,
+                                LocationName = personGroupLocation.Location.Name,
+                                ScheduleId = schedule.Id,
+                                ScheduleName = schedule.Name,
+                                ScheduledDateTime = startDateTime,
+                            } );
+                        }
                     }
                 }
 
@@ -1331,84 +1388,19 @@ $('#{0}').tooltip();
             }
         }
 
-        /// <summary>
-        /// POCO class to hold data created from the iCal object in the schedule table and group by date
-        /// </summary>
         protected class PersonScheduleSignup
         {
-            /// <summary>
-            /// Gets or sets the group identifier.
-            /// </summary>
-            /// <value>
-            /// The group identifier.
-            /// </value>
             public int GroupId { get; set; }
-
-            /// <summary>
-            /// Gets or sets the name of the group.
-            /// </summary>
-            /// <value>
-            /// The name of the group.
-            /// </value>
+            public int GroupOrder { get; set; }
             public string GroupName { get; set; }
-
-            /// <summary>
-            /// Gets or sets the location identifier.
-            /// </summary>
-            /// <value>
-            /// The location identifier.
-            /// </value>
             public int LocationId { get; set; }
-
-            /// <summary>
-            /// Gets or sets the name of the location.
-            /// </summary>
-            /// <value>
-            /// The name of the location.
-            /// </value>
-            public string LocationName { get; set; }
-
-            /// <summary>
-            /// Gets or sets the schedule identifier.
-            /// </summary>
-            /// <value>
-            /// The schedule identifier.
-            /// </value>
             public int ScheduleId { get; set; }
-
-            /// <summary>
-            /// Gets or sets the name of the schedule.
-            /// </summary>
-            /// <value>
-            /// The name of the schedule.
-            /// </value>
+            public DateTime ScheduledDateTime { get; set; }
             public string ScheduleName { get; set; }
-
-            /// <summary>
-            /// Gets or sets the string representation of iCal object
-            /// </summary>
-            /// <value>
-            /// The content of the i calendar.
-            /// </value>
-            public string ICalendarContent { get; set; }
-
-            /// <summary>
-            /// Gets or sets the occurrence date.
-            /// </summary>
-            /// <value>
-            /// The occurrence date.
-            /// </value>
-            public DateTime OccurrenceDate { get; set; }
-
-            /// <summary>
-            /// Gets or sets the let of Occurrences calculated from the iCal object.
-            /// </summary>
-            /// <value>
-            /// The occurrences.
-            /// </value>
-            public IList<Occurrence> Occurrences { get; set; }
+            public string LocationName { get; set; }
         }
 
-        #endregion Signup Tab
+
+        #endregion Sign-up Tab
     }
 }

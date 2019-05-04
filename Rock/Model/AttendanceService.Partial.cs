@@ -211,8 +211,9 @@ namespace Rock.Model
                 .Where( a =>
                      a.Occurrence.OccurrenceDate == date.Date &&
                      a.Occurrence.ScheduleId == scheduleId &&
+                     ( a.ScheduledToAttend == true || a.RequestedToAttend == true ) &&
+                     a.RSVP != RSVP.No &&
                      a.PersonAlias.PersonId == personId )
-                .ToList()
                 .Any();
         }
 
@@ -1273,6 +1274,12 @@ namespace Rock.Model
                 if ( scheduledAttendance.RequestedToAttend != true )
                 {
                     scheduledAttendance.RequestedToAttend = true;
+                }
+
+                // if they previously declined, set RSVP back to Unknown if they are added as pending again
+                if ( scheduledAttendance.RSVP == RSVP.No )
+                {
+                    scheduledAttendance.RSVP = RSVP.Unknown;
                 }
             }
 
