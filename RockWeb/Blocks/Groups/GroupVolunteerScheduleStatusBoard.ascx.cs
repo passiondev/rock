@@ -208,7 +208,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
 
             // group header row
             sbGroupLocations.AppendLine( "<tr class='group-heading js-group-header thead-dark clickable' >" );
-            sbGroupLocations.AppendLine( string.Format( "<th colspan='{0}'><i class='fa fa-chevron-down'></i> {1}</th>", columnsCount, group.Name ) );
+            sbGroupLocations.AppendLine( string.Format( "<th></th><th colspan='{0}'><i class='fa fa-chevron-down'></i> {1}</th>", columnsCount-1, group.Name ) );
             sbGroupLocations.AppendLine( "</tr>" );
 
             // group/schedule+locations
@@ -219,7 +219,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
                 var scheduleCapacitiesLookup = locationScheduleCapacities.ScheduleCapacitiesList.ToDictionary( k => k.ScheduleId, v => v );
                 sbGroupLocations.AppendLine( "<tr class='location-row js-location-row'>" );
 
-                sbGroupLocations.AppendLine( string.Format( "<td scope='row' data-location-id='{0}'>{1}</td>", location.Id, location.Name ) );
+                sbGroupLocations.AppendLine( string.Format( "<td class='location' scope='row' data-location-id='{0}'><div>{1}</div></td>", location.Id, location.Name ) );
 
                 foreach ( var scheduleOccurrenceDate in scheduleOccurrenceDateList )
                 {
@@ -258,7 +258,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
                                 status = ScheduledAttendanceItemStatus.Confirmed;
                             }
 
-                            sbScheduledListHtml.AppendLine( string.Format( "<li class='person {0}' data-status='{0}'>{1}</li>", status.ConvertToString( false ).ToLower(), scheduledVolunteer.ScheduledPerson ) );
+                            sbScheduledListHtml.AppendLine( string.Format( "<li class='slot person {0}' data-status='{0}'><i class='status-icon'></i><span class='person-name'>{1}</span></li>", status.ConvertToString( false ).ToLower(), scheduledVolunteer.ScheduledPerson ) );
                         }
 
                         scheduledCount = scheduledVolunteerList.Where( a => a.RSVP != RSVP.No ).Count();
@@ -267,20 +267,20 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
                     if ( capacities.DesiredCapacity.HasValue && scheduledCount < capacities.DesiredCapacity.Value )
                     {
                         var countNeeded = capacities.DesiredCapacity.Value - scheduledCount;
-                        sbScheduledListHtml.AppendLine( string.Format( "<li class='persons-needed'>{0} {1} needed</li>", countNeeded, "Person".PluralizeIf( countNeeded != 0 ) ) );
+                        sbScheduledListHtml.AppendLine( string.Format( "<li class='slot persons-needed empty-slot'>{0} {1} needed</li>", countNeeded, "Person".PluralizeIf( countNeeded != 0 ) ) );
 
                         // add empty slots if we are under the desired count (not including the slot for the 'persons-needed' li)
                         var emptySlotsToAdd = countNeeded - 1;
                         while ( emptySlotsToAdd > 0 )
                         {
-                            sbScheduledListHtml.AppendLine( "<li class='person empty-slot'></li>" );
+                            sbScheduledListHtml.AppendLine( "<li class='slot empty-slot'></li>" );
                             emptySlotsToAdd--;
                         }
                     }
 
                     var scheduledLocationsStatusHtml = string.Format( scheduleLocationStatusHtmlFormat, sbScheduledListHtml, capacities.MinimumCapacity, capacities.DesiredCapacity, capacities.MaximumCapacity, scheduledCount );
 
-                    sbGroupLocations.AppendLine( string.Format( "<td class='schedule-location js-schedule-location' data-schedule-id='{0}'>{1}</td>", scheduleOccurrenceDate.Schedule.Id, scheduledLocationsStatusHtml ) );
+                    sbGroupLocations.AppendLine( string.Format( "<td class='schedule-location js-schedule-location' data-schedule-id='{0}'><div>{1}</div></td>", scheduleOccurrenceDate.Schedule.Id, scheduledLocationsStatusHtml ) );
                 }
 
                 sbGroupLocations.AppendLine( "</tr>" );
@@ -310,7 +310,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     {
         var sundayDateList = new List<DateTime>();
 
-        // start with the current weeks Sunday date 
+        // start with the current weeks Sunday date
         var sundayDate = RockDateTime.Now.Date.SundayDate();
         while ( sundayDateList.Count < numberOfWeeks )
         {
@@ -322,7 +322,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     }
 
     /// <summary>
-    /// 
+    ///
     /// </summary>
     private class ScheduleOccurrenceDate : DotLiquid.Drop
     {
@@ -423,7 +423,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     }
 
     /// <summary>
-    /// 
+    ///
     /// </summary>
     public class ScheduleCapacities
     {

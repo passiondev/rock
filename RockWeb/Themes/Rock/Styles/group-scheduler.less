@@ -3,8 +3,8 @@
 */
 
 @import (reference) "../../../Styles/FontAwesome/fontawesome.less";
-@import '../../../Styles/Bootstrap/variables.less';
-@import '../../../Styles/_rock-variables.less';
+@import "../../../Styles/Bootstrap/variables.less";
+@import "../../../Styles/_rock-variables.less";
 @import "_variables.less";
 @import "_variable-overrides.less";
 
@@ -84,8 +84,8 @@
   }
 
   .resource-blackout-status {
-    margin-left: 5px;
     display: none;
+    margin-left: 5px;
   }
 
   &[data-has-blackout-conflict="true"] {
@@ -95,8 +95,8 @@
   }
 
   .resource-requirements-conflict {
-    margin-left: 5px;
     display: none;
+    margin-left: 5px;
   }
 
   &[data-has-requirements-conflict="true"] {
@@ -106,8 +106,8 @@
   }
 
   .resource-scheduling-conflict {
-    margin-left: 5px;
     display: none;
+    margin-left: 5px;
   }
 
   &[data-has-scheduling-conflict="true"] {
@@ -164,9 +164,9 @@
 
 .group-scheduler-resourcelist .panel-heading,
 .location .panel-heading {
-  background-color: fade(@panel-heading-bg, 60%);
-  padding: 12px;
   height: 48px;
+  padding: 12px;
+  background-color: fade(@panel-heading-bg, 60%);
 
   .panel-title {
     line-height: 24px;
@@ -176,8 +176,8 @@
 .location .panel-body {
   padding: 0;
   > .dropzone {
-    padding: @panel-body-padding;
     min-height: 82px;
+    padding: @panel-body-padding;
   }
 }
 
@@ -362,7 +362,7 @@
 
 /* Is added to the mirror image. It handles fixed positioning and z-index (and removes any prior margins on the element). Note
 that the mirror image is appended to the mirrorContainer, not to its initial container. Keep that in mind when styling your
-elements with nested rules, like .list .item { padding: 10px; }.*/
+elements with nested rules, like .list .item { padding: 10px; }. */
 .gu-mirror {
   position: fixed !important;
   z-index: 9999 !important;
@@ -390,7 +390,7 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
   user-select: none !important;
 }
 
-/* Is added to the source element when its mirror image is dragged. It just adds opacity to it.*/
+/* Is added to the source element when its mirror image is dragged. It just adds opacity to it. */
 .gu-transit {
   box-sizing: border-box;
   //display: block;
@@ -412,3 +412,141 @@ elements with nested rules, like .list .item { padding: 10px; }.*/
 .gu-transit .container {
   display: none;
 }
+
+.scrollable {
+  overflow-x: auto;
+  overflow-y: auto;
+  position: relative;
+}
+
+.schedule-status-board {
+  width: inherit;
+  table-layout: fixed;
+  min-width: 100%;
+
+  > tbody > tr > td {
+    padding: 0;
+  }
+
+  .location-row {
+    transition: max-height .3s;
+  }
+
+  .hidden-row {
+    max-height: 0;
+    overflow: hidden;
+  }
+
+  td.location {
+    min-width: 100px;
+    font-size: 14px;
+    font-weight: @font-weight-semibold;
+    text-align: right;
+
+    > div {
+      padding: 4px 8px !important;
+      height: 100%;
+    }
+  }
+
+  td.schedule-location {
+    min-width: 160px;
+    padding: 0 !important;
+    margin: 0;
+    overflow: hidden;
+    border-left: 1px solid @panel-default-border;
+  }
+}
+
+
+
+.location-scheduled-list {
+  padding: 0;
+  margin: 0;
+  font-size: 11px;
+  list-style: none;
+
+  .slot {
+    height: 24px;
+    padding: 4px;
+    border-bottom: 1px solid @panel-default-border;
+  }
+
+  .person {
+    background-color: #fff;
+
+    &.pending {
+      .person-name{
+        color: @text-muted;
+      }
+    }
+
+    &.declined {
+      .person-name{
+        color: #aaa;
+        text-decoration: line-through;
+      }
+    }
+
+  }
+
+  .empty-slot {
+    font-weight: @font-weight-semibold;
+    color: @state-warning-text;
+    background-color: @state-warning-bg;
+  }
+}
+
+.status-icon {
+  position: relative;
+  margin: 0 3px 0 0;
+  &::before {
+    font-family: "FontAwesome";
+    font-style: normal;
+    font-weight: 900;
+    color: @brand-warning;
+    content: "\f059";
+  }
+
+  .declined &::before {
+    color: @brand-danger;
+    content: "\f057";
+  }
+
+  .confirmed &::before {
+    color: @brand-success;
+    content: "\f058";
+  }
+}
+
+
+
+
+
+// .declined {
+//   position: relative;
+// }
+
+//   .declined:before {
+//       content: "\f057";
+//       font-family: 'FontAwesome';
+//       font-weight: 900;
+//       left: -24px;
+//       color: #992222;
+//       position: absolute;
+//       top: 0;
+//   }
+
+// .confirmed {
+//   position: relative;
+// }
+
+//   .confirmed:before {
+//       content: "\f058";
+//       font-family: 'FontAwesome';
+//       font-weight: 900;
+//       left: -24px;
+//       color: #22aa22;
+//       position: absolute;
+//       top: 0;
+//   }
