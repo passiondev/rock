@@ -14,7 +14,6 @@
 // limitations under the License.
 // </copyright>
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.Entity;
 using System.Linq;
@@ -23,11 +22,9 @@ using System.Web.UI.WebControls;
 
 using Rock;
 using Rock.Attribute;
-using Rock.Communication;
 using Rock.Data;
 using Rock.Model;
 using Rock.Security;
-using Rock.Web.Cache;
 using Rock.Web.UI;
 using Rock.Web.UI.Controls;
 
@@ -44,7 +41,7 @@ namespace RockWeb.Blocks.Groups
         "Number of Weeks To Show",
         Description = "The number of weeks out that can scheduled.",
         IsRequired = true,
-        DefaultValue = "6",
+        DefaultIntegerValue = 6,
         Order = 0,
         Key = AttributeKeys.FutureWeeksToShow )]
     public partial class GroupScheduler : RockBlock
@@ -378,8 +375,8 @@ namespace RockWeb.Blocks.Groups
 
             // Create URL for selected settings
             var pageReference = CurrentPageReference;
-            foreach ( var setting in GetBlockUserPreferences())
-            { 
+            foreach ( var setting in GetBlockUserPreferences() )
+            {
                 pageReference.Parameters.AddOrReplace( setting.Key, setting.Value );
             }
 
@@ -431,7 +428,7 @@ namespace RockWeb.Blocks.Groups
                 {
                     var groupLocationItem = new ListItem( groupLocation.Location.ToString(), groupLocation.Id.ToString() );
                     groupLocationItem.Selected = selectedLocationIds.Contains( groupLocation.LocationId );
-                    cblGroupLocations.Items.Add( groupLocationItem  );
+                    cblGroupLocations.Items.Add( groupLocationItem );
                 }
             }
         }
@@ -545,6 +542,23 @@ namespace RockWeb.Blocks.Groups
                         MaximumCapacity = a.GroupLocationScheduleConfig.MaximumCapacity
                     }
                 } ).ToList();
+
+            var groupId = hfGroupId.Value.AsInteger();
+
+            var unassignedLocationOccurrence = attendanceOccurrenceService.Queryable()
+                .Where( a => a.OccurrenceDate == occurrenceDate && a.ScheduleId == scheduleId.Value && a.GroupId == groupId && a.LocationId.HasValue == false )
+                .Where( a => a.Attendees.Any( x => x.RequestedToAttend == true || x.ScheduledToAttend == true ) )
+                .FirstOrDefault();
+
+            if ( unassignedLocationOccurrence != null )
+            {
+                attendanceOccurrencesOrderedList.Insert( 0, new AttendanceOccurrenceRowItem
+                {
+                    LocationName = "(Not Specified)",
+                    AttendanceOccurrenceId = unassignedLocationOccurrence.Id,
+                    CapacityInfo = new CapacityInfo()
+                } );
+            }
 
             rptAttendanceOccurrences.DataSource = attendanceOccurrencesOrderedList;
             rptAttendanceOccurrences.DataBind();
