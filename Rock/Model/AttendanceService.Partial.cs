@@ -704,7 +704,7 @@ namespace Rock.Model
             var rockContext = this.Context as RockContext;
             var personScheduleExclusionQueryForOccurrence = new PersonScheduleExclusionService( rockContext ).Queryable()
                 .Where( a => !a.GroupId.HasValue || ( a.GroupId.Value == groupId ) )
-                    .Where( a => a.StartDate >= occurrenceDate && occurrenceDate < a.EndDate );
+                    .Where( a => occurrenceDate >= a.StartDate && occurrenceDate <= a.EndDate );
 
             return personScheduleExclusionQueryForOccurrence;
         }

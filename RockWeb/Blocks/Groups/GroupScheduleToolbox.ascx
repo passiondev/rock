@@ -15,8 +15,6 @@
                 </div>
             </div>
 
-            
-
             <asp:Panel ID="pnlToolbox" CssClass="panel-body" runat="server">
 
                 <div class="margin-b-md">
@@ -219,14 +217,17 @@
 
         <asp:HiddenField ID="hfActiveDialog" runat="server" />
 
+        <%-- BlackoutDates Modal  --%>
         <Rock:ModalDialog ID="mdAddBlackoutDates" runat="server" Title="Add Blackout Dates" OnSaveClick="mdAddBlackoutDates_SaveClick" OnCancelScript="clearActiveDialog();" ValidationGroup="AddBlackOutDates">
             <Content>
                 <p>
                     <label>Choose the dates, group, and people who will be unavailable</label>
                 </p>
                 <asp:ValidationSummary ID="valSummaryAddBlackoutDates" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="AddBlackOutDates" />
-
+                
                 <Rock:DateRangePicker ID="drpBlackoutDateRange" runat="server" Label="Date Range" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="Date Range is required" />
+                <Rock:RockTextBox ID="tbBlackoutDateDescription" runat="server" Label="Description" MaxLength="100" Help="A short description of why you'll be unavailable" />
+
                 <Rock:RockDropDownList ID="ddlBlackoutGroups" runat="server" Label="Group" />
                 <Rock:RockCheckBoxList ID="cblBlackoutPersons" runat="server" RepeatDirection="Vertical" RepeatColumns="1" Label="Individual" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="At least one person must be selected" />
 

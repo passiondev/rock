@@ -1008,6 +1008,11 @@ $('#{0}').tooltip();
                 cblBlackoutPersons.DataValueField = "Value";
                 cblBlackoutPersons.DataTextField = "Text";
                 cblBlackoutPersons.DataBind();
+
+                cblBlackoutPersons.Items[0].Selected = true;
+
+                // if there is only one person in the family, don't show the checkbox list since it'll always just be the individual 
+                cblBlackoutPersons.Visible = cblBlackoutPersons.Items.Count > 1;
             }
         }
 
@@ -1034,6 +1039,7 @@ $('#{0}').tooltip();
 
             int? parentId = null;
 
+
             foreach ( ListItem item in cblBlackoutPersons.Items )
             {
                 if ( !item.Selected )
@@ -1047,6 +1053,7 @@ $('#{0}').tooltip();
                     StartDate = dateRange.Start.Value.Date,
                     EndDate = dateRange.End.Value.Date,
                     GroupId = ddlBlackoutGroups.SelectedValueAsId(),
+                    Title = tbBlackoutDateDescription.Text,
                     ParentPersonScheduleExclusionId = parentId
                 };
 
@@ -1088,6 +1095,7 @@ $('#{0}').tooltip();
                 case "MDADDBLACKOUTDATES":
                     mdAddBlackoutDates.Show();
                     drpBlackoutDateRange.DelimitedValues = string.Empty;
+                    tbBlackoutDateDescription.Text = string.Empty;
                     mdAddBlackoutDates_ddlBlackoutGroups_Bind();
                     mdAddBlackoutDates_cblBlackoutPersons_Bind();
                     break;
