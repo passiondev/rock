@@ -1145,6 +1145,11 @@ $('#{0}').tooltip();
             var availableSchedules = availableGroupLocationSchedules
                 .GroupBy( s => new { s.GroupId, ScheduleId = s.ScheduleId, s.ScheduledDateTime.Date } )
                 .Select( s => s.First() )
+                .OrderBy( a => a.GroupOrder )
+                .ThenBy( a => a.GroupName )
+                .ThenBy( a => a.ScheduledDateTime )
+                .ThenBy( a => a.LocationOrder )
+                .ThenBy( a => a.LocationName )
                 .ToList();
 
             nbNoSignupsAvailable.Visible = availableSchedules.Any() == false;
@@ -1392,6 +1397,7 @@ $('#{0}').tooltip();
                                 GroupName = personGroupLocation.Group.Name,
                                 LocationId = personGroupLocation.Location.Id,
                                 LocationName = personGroupLocation.Location.Name,
+                                LocationOrder = personGroupLocation.Order,
                                 ScheduleId = schedule.Id,
                                 ScheduleName = schedule.Name,
                                 ScheduledDateTime = startDateTime,
@@ -1414,6 +1420,7 @@ $('#{0}').tooltip();
             public DateTime ScheduledDateTime { get; set; }
             public string ScheduleName { get; set; }
             public string LocationName { get; set; }
+            public int LocationOrder { get; internal set; }
         }
 
 

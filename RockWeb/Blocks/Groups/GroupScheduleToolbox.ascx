@@ -205,10 +205,6 @@
                 <asp:Panel ID="pnlSignup" runat="server">
 
                     <Rock:NotificationBox ID="nbNoSignupsAvailable" runat="server" Visible="false" Text="No sign-ups available." NotificationBoxType="Info" />
-
-                    <%-- Comma Delimited List of Schedule,Date,Locations that the person just signed up for --%>
-                    <asp:HiddenField ID="hfJustSignedUpList" runat="server" />
-
                     <Rock:DynamicPlaceholder ID="phSignUpSchedules" runat="server" />
                 </asp:Panel>
 
