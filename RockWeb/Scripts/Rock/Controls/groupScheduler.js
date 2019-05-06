@@ -95,23 +95,32 @@
                         else {
                             // deal with the resource that was dragged into an scheduled occurrence (location)
                             var scheduledPersonAddPendingUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonAddPending';
+                            var scheduledPersonAddConfirmedUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonAddConfirmed';
                             var $scheduledResource = $(el);
                             $scheduledResource.attr('data-state', 'scheduled');
                             var personId = $scheduledResource.attr('data-person-id')
                             var attendanceOccurrenceId = $(target).closest('.js-scheduled-occurrence').find('.js-attendanceoccurrence-id').val();
                             var $occurrence = $(el).closest('.js-scheduled-occurrence');
+                            var scheduledPersonAddUrl = scheduledPersonAddPendingUrl;
 
                             // if they were dragged from another occurrence, unschedule from that first
                             if (source.classList.contains('js-scheduler-target-container')) {
 
                                 var attendanceId = $scheduledResource.attr('data-attendance-id')
-                                self.removeResource(attendanceId, $occurrence);
+
+                                // if getting dragged from one to another, and they were confirmed already, add them as confirmed to the other occurrence
+                                var sourceConfirmationStatus = $scheduledResource.attr('data-state');
+                                if (sourceConfirmationStatus == 'scheduled') {
+                                    scheduledPersonAddUrl = scheduledPersonAddConfirmedUrl;
+                                }
+                                var $sourceOccurrence = $(source).closest('.js-scheduled-occurrence');
+                                self.removeResource(attendanceId, $sourceOccurrence);
                             }
 
-                            // add as pending to target occurrence
+                            // add as pending (or confirmed if already confirmed) to target occurrence
                             $.ajax({
                                 method: "PUT",
-                                url: scheduledPersonAddPendingUrl + '?personId=' + personId + '&attendanceOccurrenceId=' + attendanceOccurrenceId
+                                url: scheduledPersonAddUrl + '?personId=' + personId + '&attendanceOccurrenceId=' + attendanceOccurrenceId
                             }).done(function (scheduledAttendance) {
                                 // after adding a resource, repopulate the list of resources for the occurrence
                                 self.populateScheduledOccurrence($occurrence);
@@ -125,8 +134,6 @@
 
                 this.trimSourceContainer();
                 this.initializeEventHandlers();
-
-                debugger
 
                 self.populateSchedulerResources(self.$resourceList);
 
@@ -190,6 +197,15 @@
                     var totalPending = 0;
                     var totalConfirmed = 0;
                     var totalDeclined = 0;
+
+                    // hide the scheduled occurrence when it is empty if is the one that doesn't have a Location assigned
+                    if ($occurrence.data('has-location') == 0) {
+                        if (scheduledAttendanceItems.length == 0) {
+                            $occurrence.hide();
+                        } else {
+                            $occurrence.show();
+                        }
+                    }
 
                     $.each(scheduledAttendanceItems, function (i) {
                         var scheduledAttendanceItem = scheduledAttendanceItems[i];
@@ -340,7 +356,7 @@
                     console.log('fail');
                     $loadingNotification.hide();
                 });
-
+                
             },
             /**  populates the resource element (both scheduled and unscheduled) */
             populateResourceDiv: function ($resourceDiv, schedulerResource, state) {
@@ -365,6 +381,7 @@
 
                 if (schedulerResource.LastAttendanceDateTime) {
                     var $lastAttendedDate = $resourceDiv.find('.js-resource-lastattendeddate');
+                    $lastAttendedDate.tooltip({ container: 'body' });
                     $lastAttendedDate.attr('data-datetime', schedulerResource.LastAttendanceDateTime);
                     $lastAttendedDate.text(schedulerResource.LastAttendanceDateTimeFormatted);
                 }

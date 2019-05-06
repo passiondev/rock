@@ -115,6 +115,10 @@
       display: block;
     }
   }
+
+  .resource-lastattendeddate {
+    margin-left: 5px;
+  }
 }
 
 
@@ -175,6 +179,7 @@
 
 .location .panel-body {
   padding: 0;
+
   > .dropzone {
     min-height: 82px;
     padding: @panel-body-padding;
@@ -253,7 +258,6 @@
 /* Resource List */
 .group-scheduler-resourcelist {
   // width: 350px;
-
   /* Resource List Scroller */
   .scroll-container-resourcelist {
     width: 320px;
@@ -476,18 +480,17 @@ elements with nested rules, like .list .item { padding: 10px; }. */
     background-color: #fff;
 
     &.pending {
-      .person-name{
+      .person-name {
         color: @text-muted;
       }
     }
 
     &.declined {
-      .person-name{
+      .person-name {
         color: #aaa;
         text-decoration: line-through;
       }
     }
-
   }
 
   .empty-slot {
@@ -500,6 +503,7 @@ elements with nested rules, like .list .item { padding: 10px; }. */
 .status-icon {
   position: relative;
   margin: 0 3px 0 0;
+
   &::before {
     font-family: "FontAwesome";
     font-style: normal;

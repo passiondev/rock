@@ -14,6 +14,7 @@
 // limitations under the License.
 // </copyright>
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.Entity;
 using System.Linq;
@@ -223,6 +224,7 @@ namespace RockWeb.Blocks.Groups
             if ( group != null )
             {
                 var groupLocations = group.GroupLocations.ToList();
+
                 var groupSchedules = groupLocations.SelectMany( a => a.Schedules ).DistinctBy( a => a.Guid ).ToList();
                 if ( !groupSchedules.Any() )
                 {
@@ -237,7 +239,13 @@ namespace RockWeb.Blocks.Groups
                     var selectedScheduleId = rblSchedule.SelectedValue.AsIntegerOrNull();
 
                     rblSchedule.Items.Clear();
-                    foreach ( var schedule in groupSchedules )
+
+                    // Calculate the Next Start Date Time based on the start of the week so that schedule columns are in the correct order
+                    var occurrenceDate = RockDateTime.Now.SundayDate().AddDays( 1 );
+
+                    List<Schedule> sortedScheduleList = groupSchedules.OrderBy( a => a.GetNextStartDateTime( occurrenceDate ) ).ToList();
+
+                    foreach ( var schedule in sortedScheduleList )
                     {
                         var listItem = new ListItem();
                         if ( schedule.Name.IsNotNullOrWhiteSpace() )
@@ -534,6 +542,7 @@ namespace RockWeb.Blocks.Groups
                 .Select( a => new AttendanceOccurrenceRowItem
                 {
                     LocationName = a.AttendanceOccurrence.Location.Name,
+                    LocationId = a.AttendanceOccurrence.LocationId,
                     AttendanceOccurrenceId = a.AttendanceOccurrence.Id,
                     CapacityInfo = new CapacityInfo
                     {
@@ -555,6 +564,7 @@ namespace RockWeb.Blocks.Groups
                 attendanceOccurrencesOrderedList.Insert( 0, new AttendanceOccurrenceRowItem
                 {
                     LocationName = "(Not Specified)",
+                    LocationId = null,
                     AttendanceOccurrenceId = unassignedLocationOccurrence.Id,
                     CapacityInfo = new CapacityInfo()
                 } );
@@ -623,7 +633,16 @@ namespace RockWeb.Blocks.Groups
             /// <value>
             /// The name of the location.
             /// </value>
-            public string LocationName { get; internal set; }
+            public string LocationName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the location identifier.
+            /// NOTE: There should only be one that doesn't have a LocationId, and it should only be shown if there are assignments in it
+            /// </summary>
+            /// <value>
+            /// The location identifier.
+            /// </value>
+            public int? LocationId { get; set; }
         }
 
         /// <summary>
@@ -635,6 +654,16 @@ namespace RockWeb.Blocks.Groups
         {
             var attendanceOccurrenceRowItem = e.Item.DataItem as AttendanceOccurrenceRowItem;
             var attendanceOccurrenceId = attendanceOccurrenceRowItem.AttendanceOccurrenceId;
+            var pnlScheduledOccurrence = e.Item.FindControl( "pnlScheduledOccurrence" ) as Panel;
+            var pnlStatusLabels = e.Item.FindControl( "pnlStatusLabels" ) as Panel;
+
+            // hide the scheduled occurrence when it is empty if is the one that doesn't have a Location assigned
+            bool hasLocation = attendanceOccurrenceRowItem.LocationId.HasValue;
+            pnlScheduledOccurrence.Attributes["data-has-location"] = hasLocation.Bit().ToString();
+
+            // hide the status labels if is the one that doesn't have a Location assigned
+            pnlStatusLabels.Visible = hasLocation;
+
             var hfAttendanceOccurrenceId = e.Item.FindControl( "hfAttendanceOccurrenceId" ) as HiddenField;
             var hfLocationScheduleMinimumCapacity = e.Item.FindControl( "hfLocationScheduleMinimumCapacity" ) as HiddenField;
             var hfLocationScheduleDesiredCapacity = e.Item.FindControl( "hfLocationScheduleDesiredCapacity" ) as HiddenField;
@@ -680,11 +709,11 @@ namespace RockWeb.Blocks.Groups
         }
 
         /// <summary>
-        /// Handles the SelectedIndexChanged event of the cblSchedule control.
+        /// Handles the SelectedIndexChanged event of the rblSchedule control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void cblSchedule_SelectedIndexChanged( object sender, EventArgs e )
+        protected void rblSchedule_SelectedIndexChanged( object sender, EventArgs e )
         {
             UpdateGroupLocationList();
             ApplyFilter();

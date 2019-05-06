@@ -43,7 +43,7 @@
 
                         <Rock:NotificationBox ID="nbGroupWarning" runat="server" NotificationBoxType="Warning" />
                         <asp:Panel ID="pnlGroupScheduleLocations" runat="server">
-                            <Rock:RockRadioButtonList ID="rblSchedule" runat="server" Label="Schedule" AutoPostBack="true" OnSelectedIndexChanged="cblSchedule_SelectedIndexChanged" />
+                            <Rock:RockRadioButtonList ID="rblSchedule" runat="server" Label="Schedule" AutoPostBack="true" OnSelectedIndexChanged="rblSchedule_SelectedIndexChanged" />
                             <Rock:RockCheckBoxList ID="cblGroupLocations" runat="server" Label="Locations" AutoPostBack="true" OnSelectedIndexChanged="cblGroupLocations_SelectedIndexChanged" />
                         </asp:Panel>
 
@@ -95,8 +95,8 @@
                                                 <div class="resource-warning pull-left">
                                                     <span class="js-resource-warning"></span>
                                                 </div>
-                                                <div class="resource-lastattendeddate pull-right">
-                                                    <span class="js-resource-lastattendeddate"></span>
+                                                <div class="resource-lastattendeddate pull-right" >
+                                                    <span class="js-resource-lastattendeddate" data-original-title="Last Attended"></span>
                                                 </div>
                                                 <div class="js-resource-scheduling-conflict resource-scheduling-conflict pull-right" data-original-title="Scheduling Conflict">
                                                     <i class="fa fa-user-clock"></i>
@@ -213,7 +213,7 @@
                                         <asp:Repeater ID="rptAttendanceOccurrences" runat="server" OnItemDataBound="rptAttendanceOccurrences_ItemDataBound">
                                             <ItemTemplate>
 
-                                                <div class="location js-scheduled-occurrence">
+                                                <asp:Panel ID="pnlScheduledOccurrence" runat="server" CssClass="location js-scheduled-occurrence" data-hide-if-empty="0">
                                                     <Rock:HiddenFieldWithClass ID="hfAttendanceOccurrenceId" runat="server" CssClass="js-attendanceoccurrence-id" />
                                                     <Rock:HiddenFieldWithClass ID="hfLocationScheduleMinimumCapacity" runat="server" CssClass="js-minimum-capacity" />
                                                     <Rock:HiddenFieldWithClass ID="hfLocationScheduleDesiredCapacity" runat="server" CssClass="js-desired-capacity" />
@@ -223,7 +223,7 @@
                                                             <h1 class="panel-title">
                                                                 <asp:Literal ID="lLocationTitle" runat="server" />
                                                             </h1>
-                                                            <div class="panel-labels">
+                                                            <asp:Panel ID="pnlStatusLabels" runat="server" CssClass="panel-labels">
                                                                 <div class="scheduling-status js-scheduling-status pull-right">
                                                                     <div class="scheduling-status-progress">
                                                                         <div class="progress js-scheduling-progress">
@@ -249,13 +249,13 @@
                                                                 <div class="autoscheduler-warning js-autoscheduler-warning pull-right margin-r-md" data-original-title="Auto Schedule requires that a desired capacity is configured for this location.">
                                                                     <i class="fa fa-exclamation-triangle"></i>
                                                                 </div>
-                                                            </div>
+                                                            </asp:Panel>
                                                         </div>
                                                         <div class="panel-body">
                                                             <div class="scheduler-target-container js-scheduler-target-container dropzone"></div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </asp:Panel>
                                             </ItemTemplate>
                                         </asp:Repeater>
                                     </div>

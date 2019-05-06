@@ -113,6 +113,33 @@ namespace Rock.Rest.Controllers
         }
 
         /// <summary>
+        /// Schedules a person to an attendance and immediately marks them as confirmed
+        /// </summary>
+        /// <param name="personId">The person identifier.</param>
+        /// <param name="attendanceOccurrenceId">The attendance occurrence identifier.</param>
+        /// <returns></returns>
+        [Authenticate, Secured]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonAddConfirmed" )]
+        [HttpPut]
+        public Attendance ScheduledPersonAddConfirmed( int personId, int attendanceOccurrenceId )
+        {
+            var rockContext = new RockContext();
+            var attendanceService = new AttendanceService( rockContext );
+
+            var currentPersonAlias = this.GetPersonAlias();
+
+            var result = attendanceService.ScheduledPersonAddPending( personId, attendanceOccurrenceId, currentPersonAlias );
+            rockContext.SaveChanges();
+            var attendanceId = result.Id;
+
+            attendanceService.ScheduledPersonConfirm( attendanceId );
+
+            rockContext.SaveChanges();
+
+            return result;
+        }
+
+        /// <summary>
         /// Sets a person's status to pending for the scheduled attendance
         /// </summary>
         /// <param name="attendanceId">The attendance identifier.</param>
