@@ -550,19 +550,14 @@ $('#{0}').tooltip();
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMembers = groupMemberService
-                    .Queryable()
-                    .Where( x => x.GroupId == groupId )
-                    .Where( x => x.PersonId == this.SelectedPersonId )
-                    .ToList();
 
-                // in most cases the will be only one unless the person has multiple roles in the group (e.g. leader and member)
-                foreach ( var groupMember in groupMembers )
+                // if the person is in the group more than once (for example, as a leader and as a member), just get one of the member records, but prefer the record where they have a leader role
+                var groupMember = groupMemberService.GetByGroupIdAndPersonId( groupId, this.SelectedPersonId ).OrderBy( a => a.GroupRole.IsLeader ).FirstOrDefault();
+                if ( groupMember != null )
                 {
                     groupMember.ScheduleReminderEmailOffsetDays = days;
+                    rockContext.SaveChanges();
                 }
-
-                rockContext.SaveChanges();
             }
         }
 
@@ -580,16 +575,18 @@ $('#{0}').tooltip();
             var repeaterItem = ( ( DropDownList ) sender ).BindingContainer as RepeaterItem;
             var hfGroupId = repeaterItem.FindControl( "hfPreferencesGroupId" ) as HiddenField;
             var groupId = hfGroupId.ValueAsInt();
+            int? scheduleTemplateId = ( ( DropDownList ) sender ).SelectedValueAsInt( true );
 
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMembers = groupMemberService.GetByGroupIdAndPersonId( groupId, this.SelectedPersonId ).ToList();
 
-                // In most cases there will be only one unless the person has multiple roles in the group (e.g. Leader and Member)
-                foreach ( var groupMember in groupMembers )
+                // if the person is in the group more than once (for example, as a leader and as a member), just get one of the member records, but prefer the record where they have a leader role
+                var groupMember = groupMemberService.GetByGroupIdAndPersonId( groupId, this.SelectedPersonId ).OrderBy( a => a.GroupRole.IsLeader ).FirstOrDefault();
+
+                if ( groupMember != null )
                 {
-                    groupMember.ScheduleTemplateId = ( ( DropDownList ) sender ).SelectedValueAsInt( true );
+                    groupMember.ScheduleTemplateId = scheduleTemplateId;
 
                     // make sure there is a StartDate so the schedule can be based off of something
                     var currentDate = RockDateTime.Now.Date;
@@ -597,10 +594,13 @@ $('#{0}').tooltip();
                     {
                         groupMember.ScheduleStartDate = currentDate;
                     }
-                }
 
-                rockContext.SaveChanges();
+                    rockContext.SaveChanges();
+                }
             }
+
+            var pnlGroupPreferenceAssignment = repeaterItem.FindControl( "pnlGroupPreferenceAssignment" ) as Panel;
+            pnlGroupPreferenceAssignment.Visible = scheduleTemplateId.HasValue;
         }
 
         /// <summary>
@@ -669,15 +669,16 @@ $('#{0}').tooltip();
 
             var rockContext = new RockContext();
 
-            // TODO: If the person has multiple roles in the Group the same settings will be saved for each of those group members so we only need to get the first one
-            int groupMemberId = new GroupMemberService( rockContext )
+            // if the person is in the group more than once (for example, as a leader and as a member), just get one of the member records, but prefer the record where they have a leader role
+            int? groupMemberId = new GroupMemberService( rockContext )
                 .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), this.SelectedPersonId )
                 .AsNoTracking()
-                .Select( gm => gm.Id )
+                .OrderBy( a => a.GroupRole.IsLeader )
+                .Select( gm => ( int? ) gm.Id )
                 .FirstOrDefault();
 
             var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
-            var groupmemberAssignment = groupMemberAssignmentService
+            GroupMemberAssignment groupmemberAssignment = groupMemberAssignmentService
                 .Queryable()
                 .AsNoTracking()
                 .Where( x => x.GroupMemberId == groupMemberId )
@@ -724,32 +725,31 @@ $('#{0}').tooltip();
             ddlGroupPreferenceAssignmentLocation.Enabled = scheduleCheckBox.Checked;
             ddlGroupPreferenceAssignmentLocation.Items[0].Text = scheduleCheckBox.Checked ? "No Location Preference" : string.Empty;
 
-            var repeaterItemGroup = repeaterItemSchedule.Parent.Parent as RepeaterItem;
+            var repeaterItemGroup = repeaterItemSchedule.FindFirstParentWhere( p => p is RepeaterItem );
             var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
 
             using ( var rockContext = new RockContext() )
             {
-                List<int> groupMemberIds = new GroupMemberService( rockContext )
-                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), this.SelectedPersonId )
-                    .AsNoTracking()
-                    .Select( gm => gm.Id )
-                    .ToList();
+                // if the person is in the group more than once (for example, as a leader and as a member), just get one of the member records, but prefer the record where they have a leader role
+                var groupId = hfPreferencesGroupId.ValueAsInt();
+                var groupMemberId = new GroupMemberService( rockContext ).GetByGroupIdAndPersonId( groupId, this.SelectedPersonId ).OrderBy( a => a.GroupRole.IsLeader ).Select( a => ( int? ) a.Id ).FirstOrDefault();
 
                 var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
 
-                foreach ( var groupMemberId in groupMemberIds )
+                if ( groupMemberId.HasValue )
                 {
                     if ( scheduleCheckBox.Checked )
                     {
-                        groupMemberAssignmentService.AddOrUpdate( groupMemberId, hfScheduleId.ValueAsInt() );
+                        groupMemberAssignmentService.AddOrUpdate( groupMemberId.Value, hfScheduleId.ValueAsInt() );
                     }
                     else
                     {
-                        groupMemberAssignmentService.DeleteByGroupMemberAndSchedule( groupMemberId, hfScheduleId.ValueAsInt() );
+                        groupMemberAssignmentService.DeleteByGroupMemberAndSchedule( groupMemberId.Value, hfScheduleId.ValueAsInt() );
                     }
-
-                    rockContext.SaveChanges();
                 }
+
+                rockContext.SaveChanges();
+
             }
         }
 
@@ -764,22 +764,19 @@ $('#{0}').tooltip();
             var repeaterItemSchedule = locationDropDownList.BindingContainer as RepeaterItem;
             var hfScheduleId = ( HiddenField ) repeaterItemSchedule.FindControl( "hfScheduleId" );
 
-            var repeaterItemGroup = repeaterItemSchedule.Parent.Parent as RepeaterItem;
+            var repeaterItemGroup = repeaterItemSchedule.FindFirstParentWhere( p => p is RepeaterItem );
             var hfPreferencesGroupId = ( HiddenField ) repeaterItemGroup.FindControl( "hfPreferencesGroupId" );
+            int groupId = hfPreferencesGroupId.ValueAsInt();
 
             using ( var rockContext = new RockContext() )
             {
-                List<int> groupMemberIds = new GroupMemberService( rockContext )
-                    .GetByGroupIdAndPersonId( hfPreferencesGroupId.ValueAsInt(), this.SelectedPersonId )
-                    .AsNoTracking()
-                    .Select( gm => gm.Id )
-                    .ToList();
+                var groupMemberId = new GroupMemberService( rockContext ).GetByGroupIdAndPersonId( groupId, this.SelectedPersonId ).OrderBy( a => a.GroupRole.IsLeader ).Select( a => ( int? ) a.Id ).FirstOrDefault();
 
                 var groupMemberAssignmentService = new GroupMemberAssignmentService( rockContext );
 
-                foreach ( var groupMemberId in groupMemberIds )
+                if ( groupMemberId.HasValue )
                 {
-                    groupMemberAssignmentService.AddOrUpdate( groupMemberId, hfScheduleId.ValueAsInt(), locationDropDownList.SelectedValueAsInt() );
+                    groupMemberAssignmentService.AddOrUpdate( groupMemberId.Value, hfScheduleId.ValueAsInt(), locationDropDownList.SelectedValueAsInt() );
                 }
 
                 rockContext.SaveChanges();
@@ -796,11 +793,20 @@ $('#{0}').tooltip();
         {
             var ddlGroupMemberScheduleTemplate = e.Item.FindControl( "ddlGroupMemberScheduleTemplate" ) as RockDropDownList;
             var ddlSendRemindersDaysOffset = e.Item.FindControl( "ddlSendRemindersDaysOffset" ) as RockDropDownList;
+            var pnlGroupPreferenceAssignment = e.Item.FindControl( "pnlGroupPreferenceAssignment" ) as Panel;
 
             using ( var rockContext = new RockContext() )
             {
                 var groupMemberService = new GroupMemberService( rockContext );
-                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, this.SelectedPersonId ).FirstOrDefault();
+
+                // if the person is in the group more than once (for example, as a leader and as a member), just get one of the member records, but prefer the record where they have a leader role
+                var groupMember = groupMemberService.GetByGroupIdAndPersonId( group.Id, this.SelectedPersonId ).OrderBy( a => a.GroupRole.IsLeader ).FirstOrDefault();
+
+                if ( groupMember == null )
+                {
+                    // shouldn't happen, but just in case
+                    return;
+                }
 
                 // The items for this are hard coded in the markup, so just set the selected value.
                 ddlSendRemindersDaysOffset.SelectedValue = groupMember.ScheduleReminderEmailOffsetDays == null ? string.Empty : groupMember.ScheduleReminderEmailOffsetDays.ToString();
@@ -820,7 +826,9 @@ $('#{0}').tooltip();
                 ddlGroupMemberScheduleTemplate.DataValueField = "Value";
                 ddlGroupMemberScheduleTemplate.DataTextField = "Text";
                 ddlGroupMemberScheduleTemplate.DataBind();
+
                 ddlGroupMemberScheduleTemplate.SelectedValue = groupMember.ScheduleTemplateId == null ? string.Empty : groupMember.ScheduleTemplateId.ToString();
+                pnlGroupPreferenceAssignment.Visible = groupMember.ScheduleTemplateId.HasValue;
             }
         }
 
@@ -1239,7 +1247,7 @@ $('#{0}').tooltip();
 
             ddlSignupLocations.AddCssClass( "js-person-schedule-signup-ddl" );
             ddlSignupLocations.AddCssClass( "input-width-xl" );
-            ddlSignupLocations.Items.Insert( 0, new ListItem( "No Preference", string.Empty ) );
+            ddlSignupLocations.Items.Insert( 0, new ListItem( "No Location Preference", string.Empty ) );
             foreach ( var location in locations )
             {
                 ddlSignupLocations.Items.Add( new ListItem( location.Name, location.Id.ToString() ) );

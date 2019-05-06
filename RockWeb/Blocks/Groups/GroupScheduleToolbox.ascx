@@ -144,30 +144,31 @@
                                         </div>
                                     </div>
 
+                                    <asp:Panel ID="pnlGroupPreferenceAssignment" runat="server" Visible="false">
 
+                                        <span class="control-label">
+                                            <asp:Literal runat="server" ID="lGroupPreferenceAssignmentLabel" Text="Assignment" />
+                                        </span>
+                                        <p>
+                                            <asp:Literal runat="server" ID="lGroupPreferenceAssignmentHelp" Text="Please select a time and optional location that you would like to be scheduled for." />
+                                        </p>
 
-                                    <span class="control-label">
-                                        <asp:Literal runat="server" ID="lGroupPreferenceAssignmentLabel" Text="Assignment" />
-                                    </span>
-                                    <p>
-                                        <asp:Literal runat="server" ID="lGroupPreferenceAssignmentHelp" Text="Please select a time and optional location that you would like to be scheduled for." />
-                                    </p>
-
-                                    <asp:Repeater ID="rptGroupPreferenceAssignments" runat="server" OnItemDataBound="rptGroupPreferenceAssignments_ItemDataBound">
-                                        <ItemTemplate>
-                                            <div class="row js-person-schedule-preferences-row margin-b-sm">
-                                                <asp:HiddenField ID="hfGroupMemberId" runat="server" />
-                                                <asp:HiddenField ID="hfScheduleId" runat="server" />
-                                                <div class="col-md-4">
-                                                    <Rock:RockCheckBox ID="cbGroupPreferenceAssignmentScheduleTime" runat="server" AutoPostBack="true" OnCheckedChanged="cbGroupPreferenceAssignmentScheduleTime_CheckedChanged" />
+                                        <asp:Repeater ID="rptGroupPreferenceAssignments" runat="server" OnItemDataBound="rptGroupPreferenceAssignments_ItemDataBound">
+                                            <ItemTemplate>
+                                                <div class="row js-person-schedule-preferences-row margin-b-sm">
+                                                    <asp:HiddenField ID="hfGroupMemberId" runat="server" />
+                                                    <asp:HiddenField ID="hfScheduleId" runat="server" />
+                                                    <div class="col-md-4">
+                                                        <Rock:RockCheckBox ID="cbGroupPreferenceAssignmentScheduleTime" runat="server" AutoPostBack="true" OnCheckedChanged="cbGroupPreferenceAssignmentScheduleTime_CheckedChanged" />
+                                                    </div>
+                                                    <div class="col-md-8">
+                                                        <Rock:RockDropDownList ID="ddlGroupPreferenceAssignmentLocation" runat="server" OnSelectedIndexChanged="ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged" AutoPostBack="true" />
+                                                    </div>
                                                 </div>
-                                                <div class="col-md-8">
-                                                    <Rock:RockDropDownList ID="ddlGroupPreferenceAssignmentLocation" runat="server" OnSelectedIndexChanged="ddlGroupPreferenceAssignmentLocation_SelectedIndexChanged" AutoPostBack="true" />
-                                                </div>
-                                            </div>
-                                        </ItemTemplate>
-                                    </asp:Repeater>
-                                    <br />
+                                            </ItemTemplate>
+                                        </asp:Repeater>
+                                        <br />
+                                    </asp:Panel>
                                 </ItemTemplate>
                             </asp:Repeater>
                         </div>
@@ -224,7 +225,7 @@
                     <label>Choose the dates, group, and people who will be unavailable</label>
                 </p>
                 <asp:ValidationSummary ID="valSummaryAddBlackoutDates" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="AddBlackOutDates" />
-                
+
                 <Rock:DateRangePicker ID="drpBlackoutDateRange" runat="server" Label="Date Range" ValidationGroup="AddBlackOutDates" Required="true" RequiredErrorMessage="Date Range is required" />
                 <Rock:RockTextBox ID="tbBlackoutDateDescription" runat="server" Label="Description" MaxLength="100" Help="A short description of why you'll be unavailable" />
 
