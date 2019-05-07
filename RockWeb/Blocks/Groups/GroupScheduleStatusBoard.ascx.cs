@@ -26,7 +26,7 @@ using Rock.Model;
 using Rock.Web.UI;
 using Rock.Web.UI.Controls;
 
-[DisplayName( "Group Volunteer Schedule Status Board" )]
+[DisplayName( "Group Schedule Status Board" )]
 [Category( "Groups" )]
 [Description( "Scheduler can see overview of current schedules by groups and dates." )]
 
@@ -45,7 +45,7 @@ using Rock.Web.UI.Controls;
     IsRequired = false,
     Order = 0 )]
 
-public partial class GroupVolunteerScheduleStatusBoard : RockBlock
+public partial class GroupScheduleStatusBoard : RockBlock
 {
     #region Fields
 
@@ -144,7 +144,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
         var scheduledOccurrencesQuery = new AttendanceOccurrenceService( rockContext ).Queryable().Where( a => a.GroupId.HasValue && a.LocationId.HasValue && a.ScheduleId.HasValue && selectedGroupIds.Contains( a.GroupId.Value ) );
         scheduledOccurrencesQuery = scheduledOccurrencesQuery.Where( a => a.OccurrenceDate >= currentDate && a.OccurrenceDate <= latestOccurrenceDate );
 
-        var occurrenceScheduledVolunteerAttendancesList = scheduledOccurrencesQuery.Select( ao => new
+        var occurrenceScheduledAttendancesList = scheduledOccurrencesQuery.Select( ao => new
         {
             Occurrence = ao,
             ScheduledAttendees = ao.Attendees.Where( a => a.RequestedToAttend == true || a.ScheduledToAttend == true ).Select( a => new
@@ -230,7 +230,7 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
     {0}
 </ul>";
                     StringBuilder sbScheduledListHtml = new StringBuilder();
-                    var occurrenceScheduledVolunteerAttendances = occurrenceScheduledVolunteerAttendancesList
+                    var occurrenceScheduledAttendances = occurrenceScheduledAttendancesList
                         .FirstOrDefault( ao =>
                              ao.Occurrence.OccurrenceDate == scheduleOccurrenceDate.OccurrenceDate
                              && ao.Occurrence.GroupId == groupLocations.Group.Id
@@ -239,29 +239,29 @@ public partial class GroupVolunteerScheduleStatusBoard : RockBlock
 
                     int scheduledCount = 0;
 
-                    if ( occurrenceScheduledVolunteerAttendances != null && occurrenceScheduledVolunteerAttendances.ScheduledAttendees.Any() )
+                    if ( occurrenceScheduledAttendances != null && occurrenceScheduledAttendances.ScheduledAttendees.Any() )
                     {
-                        var scheduledVolunteerList = occurrenceScheduledVolunteerAttendances
+                        var scheduledPersonList = occurrenceScheduledAttendances
                             .ScheduledAttendees
                             .OrderBy( a => a.ScheduledToAttend == true )
                             .ThenBy( a => a.RequestedToAttend ).ToList();
 
-                        foreach ( var scheduledVolunteer in scheduledVolunteerList )
+                        foreach ( var scheduledPerson in scheduledPersonList )
                         {
                             ScheduledAttendanceItemStatus status = ScheduledAttendanceItemStatus.Pending;
-                            if ( scheduledVolunteer.RSVP == RSVP.No )
+                            if ( scheduledPerson.RSVP == RSVP.No )
                             {
                                 status = ScheduledAttendanceItemStatus.Declined;
                             }
-                            else if ( scheduledVolunteer.ScheduledToAttend == true )
+                            else if ( scheduledPerson.ScheduledToAttend == true )
                             {
                                 status = ScheduledAttendanceItemStatus.Confirmed;
                             }
 
-                            sbScheduledListHtml.AppendLine( string.Format( "<li class='slot person {0}' data-status='{0}'><i class='status-icon'></i><span class='person-name'>{1}</span></li>", status.ConvertToString( false ).ToLower(), scheduledVolunteer.ScheduledPerson ) );
+                            sbScheduledListHtml.AppendLine( string.Format( "<li class='slot person {0}' data-status='{0}'><i class='status-icon'></i><span class='person-name'>{1}</span></li>", status.ConvertToString( false ).ToLower(), scheduledPerson.ScheduledPerson ) );
                         }
 
-                        scheduledCount = scheduledVolunteerList.Where( a => a.RSVP != RSVP.No ).Count();
+                        scheduledCount = scheduledPersonList.Where( a => a.RSVP != RSVP.No ).Count();
                     }
 
                     if ( capacities.DesiredCapacity.HasValue && scheduledCount < capacities.DesiredCapacity.Value )

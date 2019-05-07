@@ -1,4 +1,4 @@
-﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="GroupVolunteerScheduleStatusBoard.ascx.cs" Inherits="GroupVolunteerScheduleStatusBoard" %>
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="GroupScheduleStatusBoard.ascx.cs" Inherits="GroupScheduleStatusBoard" %>
 
 <asp:UpdatePanel ID="upScheduleStatusBoard" runat="server">
     <ContentTemplate>
