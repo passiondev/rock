@@ -424,15 +424,34 @@ namespace RockWeb.Blocks.Groups
                 }
 
                 pnlScheduler.Visible = true;
+                int scheduleId = rblSchedule.SelectedValue.AsInteger();
 
-                var groupLocations = group.GroupLocations.OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
+                var rockContext = new RockContext();
+                var groupLocationsQuery = new GroupLocationService( rockContext ).Queryable()
+                    .Where( a => a.GroupId == group.Id && a.Schedules.Any( s => s.Id == scheduleId ) )
+                    .OrderBy(a => new { a.Order, a.Location.Name } )
+                    .AsNoTracking();
+
+                var groupLocationsList = groupLocationsQuery.ToList();
+
+                if (!groupLocationsList.Any())
+                {
+                    nbGroupWarning.Text = "Group does not have any locations for the selected schedule";
+                    nbGroupWarning.Visible = true;
+                }
+                else
+                {
+                    nbGroupWarning.Visible = false;
+                }
+
+                //var groupLocations = group.GroupLocations.OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
 
                 // get the location ids of the selected group locations so that we can keep the selected locations even if the group changes
                 var selectedGroupLocationIds = cblGroupLocations.SelectedValuesAsInt;
                 var selectedLocationIds = new GroupLocationService( new RockContext() ).GetByIds( selectedGroupLocationIds ).Select( a => a.LocationId ).ToList();
 
                 cblGroupLocations.Items.Clear();
-                foreach ( var groupLocation in groupLocations )
+                foreach ( var groupLocation in groupLocationsList )
                 {
                     var groupLocationItem = new ListItem( groupLocation.Location.ToString(), groupLocation.Id.ToString() );
                     groupLocationItem.Selected = selectedLocationIds.Contains( groupLocation.LocationId );
