@@ -37,7 +37,7 @@ namespace Rock.Migrations
             RockMigrationHelper.UpdateDefinedValue( "70C9F9C4-20CC-43DD-888D-9243853A0E52", "On Vacation / Out of Town", "", "BB2F0712-5C57-40E9-83BF-68876890EC7A", false );
             RockMigrationHelper.UpdateDefinedValue( "70C9F9C4-20CC-43DD-888D-9243853A0E52", "Serving Elsewhere", "", "BBD314E2-B65A-4C23-8AE1-1ADFBD58C4B4", false );
 
-            Sql( MigrationSQL._201905072353076_GroupScheduling_PopulateScheduleTemplates );
+            Sql( MigrationSQL._201905081957016_GroupScheduling_PopulateScheduleTemplates );
 
             PagesBlocksUp();
 
@@ -181,8 +181,8 @@ WHERE [Guid] = '2C42B2D4-1C5F-4AD5-A9AD-08631B872AC4'" );
                VALUES ( 
                   0
                   ,1
-                  ,'Send Group Schedule Confirmation and Reminder Emails'
-                  ,'Sends Group Scheduling Confirmation and Reminder emails to people that haven't been notified yet.'
+                  ,'Send Group Schedule Notifications'
+                  ,'Sends Group Scheduling Confirmation and Reminder emails to people that haven''t been notified yet.'
                   ,'Rock.Jobs.SendGroupScheduleNotifications'
                   ,'0 0 16 1/1 * ? *'
                   ,1
@@ -190,9 +190,6 @@ WHERE [Guid] = '2C42B2D4-1C5F-4AD5-A9AD-08631B872AC4'" );
                   );
             END" );
             RockMigrationHelper.UpdateEntityAttribute( "Rock.Model.ServiceJob", "F4399CEF-827B-48B2-A735-F7806FCFE8E8", "Class", "Rock.Jobs.SendGroupScheduleNotifications", "Group", "Only people in or under this group will receive the schedule notifications emails.", 0, @"", "3BAA9243-1AAD-46A4-9363-BC6BD63B31B6", "RootGroup" );
-
-
-
 
             RockMigrationHelper.UpdateFieldType( "Value Filter", "", "Rock", "Rock.Field.Types.ValueFilterFieldType", "80ED0575-8FAE-4BC4-A51F-CAC211DD104F" );
         }
