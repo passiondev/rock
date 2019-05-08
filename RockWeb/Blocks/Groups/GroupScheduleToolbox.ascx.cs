@@ -34,7 +34,7 @@ using Rock.Web.UI.Controls;
 namespace RockWeb.Blocks.Groups
 {
     /// <summary>
-    /// A block for a person to use to manage their group volunteer scheduling. View schedule, change preferences, and sign-up for available needs
+    /// A block for a person to use to manage their group scheduling. View schedule, change preferences, and sign-up for available needs
     /// </summary>
     [DisplayName( "Group Schedule Toolbox" )]
     [Category( "Groups" )]
@@ -636,10 +636,7 @@ $('#{0}').tooltip();
                     .Distinct()
                     .ToList();
 
-                // Calculate the Next Start Date Time based on the start of the week so that schedule columns are in the correct order
-                var occurrenceDate = RockDateTime.Now.SundayDate().AddDays( 1 );
-
-                List<Schedule> sortedScheduleList = scheduleList.OrderBy( a => a.GetNextStartDateTime( occurrenceDate ) ).ToList();
+                List<Schedule> sortedScheduleList = scheduleList.OrderByNextScheduledDateTime();
 
                 rptGroupPreferenceAssignments.DataSource = sortedScheduleList;
                 rptGroupPreferenceAssignments.DataBind();

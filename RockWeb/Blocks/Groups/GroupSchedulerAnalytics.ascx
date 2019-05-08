@@ -102,7 +102,7 @@
                                     <Rock:RockBoundField DataField="NoResponse" HeaderText="No Response"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="Declines" HeaderText="Declines"></Rock:RockBoundField>
                                     <Rock:RockBoundField DataField="Attended" HeaderText="Attended"></Rock:RockBoundField>
-                                    <Rock:RockBoundField DataField="CommitedNoShow" HeaderText="Commited No Show"></Rock:RockBoundField>
+                                    <Rock:RockBoundField DataField="CommittedNoShow" HeaderText="Committed No Show"></Rock:RockBoundField>
                                 </Columns>
                             </Rock:Grid>
                                 </div>

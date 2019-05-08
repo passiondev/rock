@@ -634,17 +634,17 @@ namespace Rock.Model
         }
 
         /// <summary>
-        /// Sends the scheduled attendance update emails and marks ScheduleConfirmationSent = true, then returns the number of emails sent.
+        /// Sends the scheduled attendance confirmation emails and marks ScheduleConfirmationSent = true, then returns the number of emails sent.
         /// </summary>
         /// <param name="sendConfirmationAttendancesQuery">The send confirmation attendances query.</param>
         /// <returns></returns>
-        public int SendScheduledAttendanceUpdateEmails( IQueryable<Attendance> sendConfirmationAttendancesQuery )
+        public int SendScheduleConfirmationSystemEmails( IQueryable<Attendance> sendConfirmationAttendancesQuery )
         {
             int emailsSent = 0;
             var sendConfirmationAttendancesQueryList = sendConfirmationAttendancesQuery.ToList();
-            var attendancesBySystemEmailTypeList = sendConfirmationAttendancesQueryList.GroupBy( a => a.Occurrence.Group.GroupType.ScheduledSystemEmailId ).Where( a => a.Key.HasValue ).Select( s => new
+            var attendancesBySystemEmailTypeList = sendConfirmationAttendancesQueryList.GroupBy( a => a.Occurrence.Group.GroupType.ScheduleConfirmationSystemEmailId ).Where( a => a.Key.HasValue ).Select( s => new
             {
-                ScheduledSystemEmailId = s.Key.Value,
+                ScheduleConfirmationSystemEmailId = s.Key.Value,
                 Attendances = s.ToList()
             } ).ToList();
 
@@ -652,7 +652,7 @@ namespace Rock.Model
 
             foreach ( var attendancesBySystemEmailType in attendancesBySystemEmailTypeList )
             {
-                var systemEmail = new SystemEmailService( rockContext ).GetNoTracking( attendancesBySystemEmailType.ScheduledSystemEmailId );
+                var scheduleConfirmationSystemEmail = new SystemEmailService( rockContext ).GetNoTracking( attendancesBySystemEmailType.ScheduleConfirmationSystemEmailId );
 
                 var attendancesByPersonList = attendancesBySystemEmailType.Attendances.GroupBy( a => a.PersonAlias.Person ).Select( s => new
                 {
@@ -665,7 +665,7 @@ namespace Rock.Model
                     try
                     {
 
-                        var emailMessage = new RockEmailMessage( systemEmail );
+                        var emailMessage = new RockEmailMessage( scheduleConfirmationSystemEmail );
                         var recipient = attendancesByPerson.Person.Email;
                         var attendances = attendancesByPerson.Attendances;
 
@@ -683,7 +683,7 @@ namespace Rock.Model
                     }
                     catch ( Exception ex )
                     {
-                        ExceptionLogService.LogException( new Exception( $"Exception occurred trying to send ScheduledAttendanceUpdateEmail to { attendancesByPerson.Person }", ex ) );
+                        ExceptionLogService.LogException( new Exception( $"Exception occurred trying to send ScheduleConfirmationSystemEmailId to { attendancesByPerson.Person }", ex ) );
                     }
                 }
             }
@@ -1047,7 +1047,7 @@ namespace Rock.Model
         /// The assignments will be done in random order until all available spots have been filled (in case there are a limited number of spots available).
         /// Starting with the first scheduled occurrence, each location (sorted by GroupLocation.Order, then by Name) will get filled up to the minimum capacity before filling spots for the next Location.
         /// For example, if the first occurrence is on Friday, the automatic assignment will fill the first location on Friday first before moving onto the next location.
-        /// So, in the case of a shortage of assigned volunteers, the automatic assignment will try to fully staffing the first occurrence(s) instead leaving all the occurrences as short.
+        /// So, in the case of a shortage of assigned people, the automatic assignment will try to fully staffing the first occurrence(s) instead leaving all the occurrences as short.
         /// Any remaining understaffed occurrences can be filled manually using the group scheduler tool by a human that knows how they want to take care of shortages.
         /// </summary>
         /// <param name="groupId">The group identifier.</param>
@@ -1149,6 +1149,42 @@ namespace Rock.Model
                 return;
             }
 
+            // get the count of people that are either pending or confirmed for this occurrence so that we know how close we are to the desired count
+            // start with the number of people in the database, and add as we auto-schedule (so we don't have to re-query)
+            int currentScheduledCount = this.Queryable().Where( a => a.OccurrenceId == attendanceOccurrence.Id && ( a.ScheduledToAttend == true || a.RequestedToAttend == true ) && ( a.RSVP != RSVP.No ) ).Count();
+
+            if ( currentScheduledCount >= desiredCapacity )
+            {
+                // already have enough people assigned
+                return;
+            }
+
+
+            // First, get any attendance records for members that signed up for an unspecified location for selected Group and Schedule
+            var unspecifiedLocationResourceAttendanceList = this.Queryable().Where( a =>
+                 a.Occurrence.ScheduleId == attendanceOccurrence.ScheduleId
+                 && a.Occurrence.GroupId == attendanceOccurrence.GroupId
+                 && a.Occurrence.OccurrenceDate == attendanceOccurrence.OccurrenceDate
+                && a.Occurrence.LocationId == null ).ToList();
+
+//##TODO## test
+
+            if ( unspecifiedLocationResourceAttendanceList.Any() )
+            {
+                foreach ( var attendanceWithNoLocation in unspecifiedLocationResourceAttendanceList )
+                {
+                    // move the attendance from the No-Location occurrence to this occurrence
+                    attendanceWithNoLocation.OccurrenceId = attendanceOccurrence.Id;
+                    currentScheduledCount++;
+
+                    if ( currentScheduledCount >= desiredCapacity )
+                    {
+                        // Have enough people assigned not, so done
+                        return;
+                    }
+                }
+            }
+
             // get all available resources (group members that have a schedule template matching the occurrence date and schedule)
             var schedulerResourceParameters = new SchedulerResourceParameters
             {
@@ -1162,6 +1198,7 @@ namespace Rock.Model
             var schedulerResources = this.GetSchedulerResources( schedulerResourceParameters );
 
             // only grab resources that haven't been scheduled already, and don't have a conflict (blackout or scheduled for some other group)
+            // Also, only include resources that have a GroupMemberId since those would be the only ones that would be auto-schedulable
             var scheduleResourcesGroupMemberIds = schedulerResources
                 .Where( a => a.GroupMemberId.HasValue && a.IsAlreadyScheduledForGroup == false && a.HasConflict == false )
                 .Select( a => a.GroupMemberId ).ToList();
@@ -1182,12 +1219,12 @@ namespace Rock.Model
             // Exclude GroupMemberAssignments that don't have a schedule or location set (since that means they don't want to be auto-scheduled)
             groupMemberAssignmentsQuery = groupMemberAssignmentsQuery.Where( a => a.LocationId.HasValue || a.ScheduleId.HasValue );
 
-            var groupMemberAssignmentsList = groupMemberAssignmentsQuery.Select( a => new
+            var groupMemberAssignmentsList = groupMemberAssignmentsQuery.Select( a => new GroupMemberAssignmentInfo
             {
                 GroupMemberId = a.GroupMember.Id,
                 PersonId = a.GroupMember.PersonId,
-                a.LocationId,
-                a.ScheduleId,
+                LocationId = a.LocationId,
+                ScheduleId = a.ScheduleId,
                 SpecificLocationAndSchedule = ( a.LocationId.HasValue && a.ScheduleId.HasValue ),
                 SpecificScheduleOnly = ( !a.LocationId.HasValue && a.ScheduleId.HasValue ),
                 SpecificLocationOnly = ( !a.LocationId.HasValue && !a.ScheduleId.HasValue ),
@@ -1199,9 +1236,7 @@ namespace Rock.Model
                 return;
             }
 
-            // get the count of people that are either pending or confirmed for this occurrence so that we know how close we are to the desired count
-            // start with the number of people in the database, and add as we auto-schedule (so we don't have to re-query)
-            int currentScheduledCount = this.Queryable().Where( a => a.OccurrenceId == attendanceOccurrence.Id && ( a.ScheduledToAttend == true || a.RequestedToAttend == true ) && ( a.RSVP != RSVP.No ) ).Count();
+
 
             // randomize order of group member assignments
             groupMemberAssignmentsList = groupMemberAssignmentsList.OrderBy( a => Guid.NewGuid() ).ToList();
@@ -1407,6 +1442,17 @@ namespace Rock.Model
         public IQueryable<Attendance> GetConfirmedScheduled()
         {
             return this.Queryable().Where( a => a.ScheduledToAttend == true && a.RSVP != RSVP.No && a.DidAttend != true );
+        }
+
+        private class GroupMemberAssignmentInfo
+        {
+            public int GroupMemberId { get; set; }
+            public int PersonId { get; set; }
+            public bool SpecificLocationAndSchedule { get; set; }
+            public bool SpecificScheduleOnly { get; set; }
+            public bool SpecificLocationOnly { get; set; }
+            public int? LocationId { get; internal set; }
+            public int? ScheduleId { get; internal set; }
         }
 
         #endregion GroupScheduling Related

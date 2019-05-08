@@ -2417,9 +2417,14 @@ namespace RockWeb.Blocks.Groups
                 }
             }
 
-            rptGroupLocationScheduleCapacities.DataSource = currentgroupLocationScheduleConfigs.OrderBy( s => s.ScheduleId );
+            // Calculate the Next Start Date Time based on the start of the week so that schedules are in the correct order
+            var occurrenceDate = RockDateTime.Now.SundayDate().AddDays( 1 );
+
+            rptGroupLocationScheduleCapacities.DataSource = currentgroupLocationScheduleConfigs.OrderBy( s => s.Schedule.GetNextStartDateTime( occurrenceDate ));
             rptGroupLocationScheduleCapacities.Visible = true;
             rptGroupLocationScheduleCapacities.DataBind();
+
+            rcwGroupLocationScheduleCapacities.Visible = currentgroupLocationScheduleConfigs.Any();
         }
 
         /// <summary>
@@ -2609,7 +2614,7 @@ namespace RockWeb.Blocks.Groups
             rptLocationTypes.DataSource = _tabs;
             rptLocationTypes.DataBind();
 
-            rptGroupLocationScheduleCapacities.Visible = groupType.IsSchedulingEnabled;
+            rcwGroupLocationScheduleCapacities.Visible = groupType.IsSchedulingEnabled;
             if ( groupType.IsSchedulingEnabled )
             {
                 var schedules = new ScheduleService( rockContext ).GetByIds( spSchedules.SelectedValuesAsInt().ToList() );
@@ -2641,6 +2646,8 @@ namespace RockWeb.Blocks.Groups
 
                 rptGroupLocationScheduleCapacities.DataSource = groupLocationScheduleConfigList.OrderBy( s => s.ScheduleId );
                 rptGroupLocationScheduleCapacities.DataBind();
+
+                rcwGroupLocationScheduleCapacities.Visible = groupLocationScheduleConfigList.Any();
             }
 
             ShowSelectedPane();

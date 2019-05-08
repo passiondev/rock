@@ -85,13 +85,13 @@ namespace RockWeb.Blocks.Groups
         Key = AttributeKeys.BarChartAttendedColor)]
 
     [ColorField(
-        "Commited No Show",
+        "Committed No Show",
         Description = "Choose the color to show the number of schedule requests where the person committed but did not attend.",
         IsRequired = true,
         DefaultValue = "#FF6666",
         Category = "Bar Chart Colors",
         Order = 5,
-        Key = AttributeKeys.BarChartCommitedNoShowColor)]
+        Key = AttributeKeys.BarChartCommittedNoShowColor)]
 
     public partial class GroupSchedulerAnalytics : RockBlock
     {
@@ -102,7 +102,7 @@ namespace RockWeb.Blocks.Groups
             public const string BarChartNoResponseColor = "BarChartNoResponseColor";
             public const string BarChartDeclinesColor = "BarChartDeclinesColor";
             public const string BarChartAttendedColor = "BarChartAttendedColor";
-            public const string BarChartCommitedNoShowColor = "BarChartCommitedNoShowColor";
+            public const string BarChartCommittedNoShowColor = "BarChartCommittedNoShowColor";
         }
 
         #region Properties
@@ -114,7 +114,7 @@ namespace RockWeb.Blocks.Groups
         protected string BarChartNoResponseJSON { get; set; }
         protected string BarChartDeclinesJSON { get; set; }
         protected string BarChartAttendedJSON { get; set; }
-        protected string BarChartCommitedNoShowJSON { get; set; }
+        protected string BarChartCommittedNoShowJSON { get; set; }
         protected int? BarChartMaxValue { get; set; }
 
         protected string DoughnutChartDeclineLabelsJSON { get; set; }
@@ -299,8 +299,8 @@ var barChart = new Chart(barCtx, {{
             BarChartDeclinesJSON,
             GetAttributeValue(AttributeKeys.BarChartAttendedColor),
             BarChartAttendedJSON,
-            GetAttributeValue(AttributeKeys.BarChartCommitedNoShowColor),
-            BarChartCommitedNoShowJSON,
+            GetAttributeValue(AttributeKeys.BarChartCommittedNoShowColor),
+            BarChartCommittedNoShowJSON,
             steps
             );
 
@@ -505,7 +505,7 @@ var barChart = new Chart(barCtx, {{
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
                     Attended = a.Count( aa => aa.DidAttend == true ),
-                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
+                    CommittedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
                 } )
                 .ToList();
 
@@ -528,8 +528,8 @@ var barChart = new Chart(barCtx, {{
                             NoResponse = d.Sum( a => a.NoResponse ),
                             Declines = d.Sum( a => a.Declines ),
                             Attended = d.Sum( a => a.Attended ),
-                            CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
-                            Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommitedNoShow )
+                            CommittedNoShow = d.Sum( a => a.CommittedNoShow ),
+                            Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommittedNoShow )
                         }
                     );
 
@@ -547,7 +547,7 @@ var barChart = new Chart(barCtx, {{
                 BarChartNoResponseJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.NoResponse ).ToJson();
                 BarChartDeclinesJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Declines ).ToJson();
                 BarChartAttendedJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.Attended ).ToJson();
-                BarChartCommitedNoShowJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.CommitedNoShow ).ToJson();
+                BarChartCommittedNoShowJSON = groupedByMonth.OrderBy(a => a.Year).ThenBy( a => a.Month).Select( d => d.CommittedNoShow ).ToJson();
         }
 
         /// <summary>
@@ -566,7 +566,7 @@ var barChart = new Chart(barCtx, {{
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
                     Attended = a.Count( aa => aa.DidAttend == true ),
-                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
+                    CommittedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
                 } )
                 .ToList();
 
@@ -586,8 +586,8 @@ var barChart = new Chart(barCtx, {{
                         NoResponse = d.Sum( a => a.NoResponse ),
                         Declines = d.Sum( a => a.Declines ),
                         Attended = d.Sum( a => a.Attended ),
-                        CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
-                        Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommitedNoShow )
+                        CommittedNoShow = d.Sum( a => a.CommittedNoShow ),
+                        Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommittedNoShow )
                     }
                 );
 
@@ -604,7 +604,7 @@ var barChart = new Chart(barCtx, {{
             BarChartNoResponseJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.NoResponse ).ToJson();
             BarChartDeclinesJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Declines ).ToJson();
             BarChartAttendedJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Attended ).ToJson();
-            BarChartCommitedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommitedNoShow ).ToJson();
+            BarChartCommittedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommittedNoShow ).ToJson();
         }
 
         /// <summary>
@@ -623,7 +623,7 @@ var barChart = new Chart(barCtx, {{
                     NoResponse = a.Count( aa => aa.RSVP == RSVP.Unknown ),
                     Declines = a.Count( aa => aa.RSVP == RSVP.No ),
                     Attended = a.Count( aa => aa.DidAttend == true ),
-                    CommitedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
+                    CommittedNoShow = a.Count( aa => aa.RSVP == RSVP.Yes && aa.DidAttend == false )
                 } )
                 .ToList();
 
@@ -643,8 +643,8 @@ var barChart = new Chart(barCtx, {{
                         NoResponse = d.Sum( a => a.NoResponse ),
                         Declines = d.Sum( a => a.Declines ),
                         Attended = d.Sum( a => a.Attended ),
-                        CommitedNoShow = d.Sum( a => a.CommitedNoShow ),
-                        Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommitedNoShow )
+                        CommittedNoShow = d.Sum( a => a.CommittedNoShow ),
+                        Total = d.Sum( a => a.Scheduled ) + d.Sum( a => a.NoResponse ) + d.Sum( a => a.Declines ) + d.Sum( a => a.Attended ) + d.Sum( a => a.CommittedNoShow )
                     }
                 );
 
@@ -661,7 +661,7 @@ var barChart = new Chart(barCtx, {{
             BarChartNoResponseJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.NoResponse ).ToJson();
             BarChartDeclinesJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Declines ).ToJson();
             BarChartAttendedJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.Attended ).ToJson();
-            BarChartCommitedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommitedNoShow ).ToJson();
+            BarChartCommittedNoShowJSON = groupedByDate.OrderBy(a => a.Date).Select( d => d.CommittedNoShow ).ToJson();
         }
 
         /// <summary>
@@ -733,7 +733,7 @@ var barChart = new Chart(barCtx, {{
                     schedulerGroupMember.NoResponse = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.Unknown ).Count();
                     schedulerGroupMember.Declines = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.No).Count();
                     schedulerGroupMember.Attended = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.DidAttend == true ).Count();
-                    schedulerGroupMember.CommitedNoShow = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.Yes && a.DidAttend == false ).Count();
+                    schedulerGroupMember.CommittedNoShow = attendances.Where( a => a.PersonAliasId == personAliasId.Value && a.RSVP == RSVP.Yes && a.DidAttend == false ).Count();
 
                     schedulerGroupMembers.Add( schedulerGroupMember );
                 }
@@ -830,7 +830,7 @@ var barChart = new Chart(barCtx, {{
             public int NoResponse { get; set; }
             public int Declines { get; set; }
             public int Attended { get; set; }
-            public int CommitedNoShow { get; set; }
+            public int CommittedNoShow { get; set; }
         }
     }
 }

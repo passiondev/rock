@@ -31,21 +31,21 @@ namespace RockWeb.Blocks.Groups
 {
     [DisplayName( "Group Schedule Confirmation" )]
     [Category( "Groups" )]
-    [Description( "Allows a volunteer to confirm a schedule RSVP and view pending schedules." )]
+    [Description( "Allows a person to confirm a schedule RSVP and view pending schedules." )]
 
-    [CodeEditorField( "Confirm Heading Template", "Text to display when volunteer confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
+    [CodeEditorField( "Confirm Heading Template", "Text to display when person confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
     @"<h2 class='margin-t-none'>You’re confirmed to serve</h2><p>Thanks for letting us know.  You’re confirmed for:</p><p>{{ Group.Name }}<br>{{ ScheduledItem.Location.Name }} {{ScheduledItem.Schedule.Name }}<br></p>
 <p>Thanks again!</p>
 <p>{{ Group.Scheduler.FullName }}<br>{{ 'Global' | Attribute:'OrganizationName' }}</p>", "", 1, "ConfirmHeadingTemplate" )]
 
-    [CodeEditorField( "Decline Heading Template", "Text to display when volunteer confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
-    @"<h2 class='margin-t-none'>Can’t make it?</h2><p>Thanks for letting us know.  We’ll try to schedule another volunteer for:</p>
+    [CodeEditorField( "Decline Heading Template", "Text to display when person confirms a schedule RSVP. <span class='tip tip-lava'></span>", Rock.Web.UI.Controls.CodeEditorMode.Lava, Rock.Web.UI.Controls.CodeEditorTheme.Rock, 200, false,
+    @"<h2 class='margin-t-none'>Can’t make it?</h2><p>Thanks for letting us know.  We’ll try to schedule another person for:</p>
 <p>{{ Group.Name }}<br>
 {{ ScheduledItem.Location.Name }} {{ ScheduledItem.Schedule.Name }}<br></p>", "", 2, "DeclineHeadingTemplate" )]
 
     [BooleanField( "Scheduler Receive Confirmation Emails", "If checked, the scheduler will receive an email response for each confirmation or decline.", false, "", 3 )]
-    [BooleanField( "Require Decline Reasons", "If checked, a volunteer must choose one of the ‘Decline Reasons’ to submit their decline status.", true, "", 4 )]
-    [BooleanField( "Enable Decline Note", "If checked, a note will be shown for the volunteer to elaborate on why they cannot attend.", false, "", 5 )]
+    [BooleanField( "Require Decline Reasons", "If checked, a person must choose one of the ‘Decline Reasons’ to submit their decline status.", true, "", 4 )]
+    [BooleanField( "Enable Decline Note", "If checked, a note will be shown for the person to elaborate on why they cannot attend.", false, "", 5 )]
     [BooleanField( "Require Decline Note", "If checked, a custom note response will be required in order to save their decline status.", false, "", 6 )]
 
     [TextField( "Decline Note Title", "A custom title for the decline elaboration note.", false, "Please elaborate on why you cannot attend.", "", 7 )]
@@ -186,8 +186,8 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void LoadDeclineReasons()
         {
-            var defineTypeVolunteerScheduleReason = DefinedTypeCache.Get( Rock.SystemGuid.DefinedType.VOLUNTEER_SCHEDULE_DECLINE_REASON );
-            var definedValues = defineTypeVolunteerScheduleReason.DefinedValues;
+            var defineTypeGroupScheduleReason = DefinedTypeCache.Get( Rock.SystemGuid.DefinedType.GROUP_SCHEDULE_DECLINE_REASON );
+            var definedValues = defineTypeGroupScheduleReason.DefinedValues;
 
             ddlDeclineReason.DataSource = definedValues;
             ddlDeclineReason.DataBind();
@@ -244,7 +244,7 @@ namespace RockWeb.Blocks.Groups
             lResponse.Visible = false;
             nbError.Title = "Thank you";
             nbError.NotificationBoxType = Rock.Web.UI.Controls.NotificationBoxType.Success;
-            nbError.Text = string.Format( "Thanks for letting us know. We’ll try to schedule another volunteer for: {0}", attendance.Occurrence.Group.Name );
+            nbError.Text = string.Format( "Thanks for letting us know. We’ll try to schedule another person for: {0}", attendance.Occurrence.Group.Name );
             nbError.Visible = true;
 
             DetermineRecipientAndSendResponseEmail( attendance );

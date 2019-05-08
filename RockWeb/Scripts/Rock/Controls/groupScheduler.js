@@ -405,7 +405,7 @@
             initializeEventHandlers: function () {
                 var self = this;
 
-                self.$groupScheduler.on('click', '.js-markconfirmed, .js-markdeclined, .js-markpending', function (a, b, c) {
+                self.$groupScheduler.on('click', '.js-markconfirmed, .js-markdeclined, .js-markpending, .js-resendconfirmation', function (a, b, c) {
                     var $resource = $(this).closest('.js-resource');
                     var attendanceId = $resource.attr('data-attendance-id');
                     var scheduledPersonUrl;
@@ -417,6 +417,9 @@
                     }
                     else if ($(this).hasClass('js-markpending')) {
                         scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonPending';
+                    }
+                    else if ($(this).hasClass('js-resendconfirmation')) {
+                        scheduledPersonUrl = Rock.settings.get('baseUrl') + 'api/Attendances/ScheduledPersonSendConfirmationEmail';
                     }
                     else {
                         return;

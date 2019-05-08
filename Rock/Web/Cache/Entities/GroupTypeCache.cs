@@ -391,7 +391,7 @@ namespace Rock.Web.Cache
         /// The scheduled communication template identifier.
         /// </value>
         [DataMember]
-        public int? ScheduledSystemEmailId { get; private set; }
+        public int? ScheduleConfirmationSystemEmailId { get; private set; }
 
         /// <summary>
         /// Gets or sets the communication template to use when sending a schedule reminder
@@ -403,7 +403,7 @@ namespace Rock.Web.Cache
         public int? ScheduleReminderSystemEmailId { get; private set; }
 
         /// <summary>
-        /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to volunteer at their scheduled time
+        /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to attend at their scheduled time
         /// </summary>
         /// <value>
         /// The schedule cancellation workflow type identifier.
@@ -735,7 +735,7 @@ namespace Rock.Web.Cache
             EnableGroupTag = groupType.EnableGroupTag;
             GroupStatusDefinedTypeId = groupType.GroupStatusDefinedTypeId;
             IsSchedulingEnabled = groupType.IsSchedulingEnabled;
-            ScheduledSystemEmailId = groupType.ScheduledSystemEmailId;
+            ScheduleConfirmationSystemEmailId = groupType.ScheduleConfirmationSystemEmailId;
             ScheduleReminderSystemEmailId = groupType.ScheduleReminderSystemEmailId;
             ScheduleCancellationWorkflowTypeId = groupType.ScheduleCancellationWorkflowTypeId;
             ScheduleConfirmationEmailOffsetDays = groupType.ScheduleConfirmationEmailOffsetDays;

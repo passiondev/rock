@@ -26,16 +26,16 @@ using Rock.Model;
 namespace Rock.Jobs
 {
     [DisallowConcurrentExecution]
-    [DisplayName( "Send Volunteer Schedule RSVPs" )]
-    [Description( "Sends Volunteer Scheduling RSVP emails to people that haven't been notified yet." )]
+    [DisplayName( "Send Group Schedule Confirmation Emails" )]
+    [Description( "Sends Group Scheduling Confirmation emails to people that haven't been notified yet." )]
 
     [GroupField(
         "Group",
-        Key = AttributeKey.Group,
-        Description = "Only people in or under this group will receive the Schedule RSVP email.",
+        Key = AttributeKey.RootGroup,
+        Description = "Only people in or under this group will receive the Schedule Confirmation email.",
         IsRequired = false,
         Order = 0 )]
-    public class SendVolunteerScheduleRSVP : IJob
+    public class SendGroupScheduleConfirmationEmail : IJob
     {
         #region Attribute Keys
 
@@ -44,14 +44,14 @@ namespace Rock.Jobs
         /// </summary>
         protected static class AttributeKey
         {
-            public const string Group = "Group";
+            public const string RootGroup = "RootGroup";
         }
 
         #endregion Attribute Keys
 
         #region Fields
 
-        private int _volunteerScheduleRSVPsSent = 0;
+        private int _groupScheduleConfirmationsSent = 0;
 
         #endregion Fields
 
@@ -62,7 +62,7 @@ namespace Rock.Jobs
         /// scheduler can instantiate the class whenever it needs.
         /// </para>
         /// </summary>
-        public SendVolunteerScheduleRSVP()
+        public SendGroupScheduleConfirmationEmail()
         {
         }
 
@@ -72,7 +72,7 @@ namespace Rock.Jobs
         /// <param name="context">The context.</param>
         public void Execute( IJobExecutionContext context )
         {
-            var parentGroupGuid = context.JobDetail.JobDataMap.GetString( AttributeKey.Group ).AsGuidOrNull();
+            var rootGroupGuid = context.JobDetail.JobDataMap.GetString( AttributeKey.RootGroup ).AsGuidOrNull();
 
             List<Person> personsScheduled = new List<Person>();
             using ( var rockContext = new RockContext() )
@@ -86,10 +86,10 @@ namespace Rock.Jobs
                     .GetPendingScheduledConfirmations()
                     .Where( a => a.ScheduleConfirmationSent != true );
 
-                // if the parent group is configured on the Job then limit to the group and its child groups
-                if ( parentGroupGuid.HasValue )
+                // if the root group is configured on the Job then limit to the group and its child groups
+                if ( rootGroupGuid.HasValue )
                 {
-                    var parentGroup = groupService.Get( parentGroupGuid.Value );
+                    var parentGroup = groupService.Get( rootGroupGuid.Value );
                     groupIds.Add( parentGroup.Id );
                     var groupChildrenIds = groupService.GetAllDescendents( parentGroup.Id ).Select( g => g.Id ).ToArray();
                     groupIds.AddRange( groupChildrenIds );
@@ -103,7 +103,7 @@ namespace Rock.Jobs
                     .Where( a => a.Occurrence.Group.GroupType.ScheduleConfirmationEmailOffsetDays.HasValue )
                     .Where( a => System.Data.Entity.SqlServer.SqlFunctions.DateDiff( "day", currentDate, a.Occurrence.OccurrenceDate ) <= a.Occurrence.Group.GroupType.ScheduleConfirmationEmailOffsetDays.Value );
 
-                _volunteerScheduleRSVPsSent = attendanceService.SendScheduledAttendanceUpdateEmails( sendConfirmationAttendancesQuery );
+                _groupScheduleConfirmationsSent = attendanceService.SendScheduleConfirmationSystemEmails( sendConfirmationAttendancesQuery );
                 rockContext.SaveChanges();
             }
         }

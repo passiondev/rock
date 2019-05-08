@@ -36,7 +36,7 @@ namespace RockWeb.Blocks.Groups
     /// </summary>
     [DisplayName( "Group Scheduler" )]
     [Category( "Groups" )]
-    [Description( "Allows volunteer schedules for groups and locations to be managed by a scheduler." )]
+    [Description( "Allows group schedules for groups and locations to be managed by a scheduler." )]
 
     [IntegerField(
         "Number of Weeks To Show",
@@ -240,10 +240,7 @@ namespace RockWeb.Blocks.Groups
 
                     rblSchedule.Items.Clear();
 
-                    // Calculate the Next Start Date Time based on the start of the week so that schedule columns are in the correct order
-                    var occurrenceDate = RockDateTime.Now.SundayDate().AddDays( 1 );
-
-                    List<Schedule> sortedScheduleList = groupSchedules.OrderBy( a => a.GetNextStartDateTime( occurrenceDate ) ).ToList();
+                    List<Schedule> sortedScheduleList = groupSchedules.OrderByNextScheduledDateTime();
 
                     foreach ( var schedule in sortedScheduleList )
                     {
@@ -434,7 +431,7 @@ namespace RockWeb.Blocks.Groups
 
                 var groupLocationsList = groupLocationsQuery.ToList();
 
-                if (!groupLocationsList.Any())
+                if (!groupLocationsList.Any() && scheduleId != 0)
                 {
                     nbGroupWarning.Text = "Group does not have any locations for the selected schedule";
                     nbGroupWarning.Visible = true;
@@ -817,7 +814,7 @@ namespace RockWeb.Blocks.Groups
                 .Where( a => attendanceOccurrenceIdList.Contains( a.OccurrenceId ) )
                 .Where( a => a.ScheduleConfirmationSent != true );
 
-            attendanceService.SendScheduledAttendanceUpdateEmails( sendConfirmationAttendancesQuery );
+            attendanceService.SendScheduleConfirmationSystemEmails( sendConfirmationAttendancesQuery );
             rockContext.SaveChanges();
         }
 

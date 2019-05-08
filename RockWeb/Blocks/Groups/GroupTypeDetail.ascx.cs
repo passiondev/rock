@@ -528,7 +528,7 @@ namespace RockWeb.Blocks.Groups
 
             // Scheduling
             groupType.IsSchedulingEnabled = cbSchedulingEnabled.Checked;
-            groupType.ScheduledSystemEmailId = ddlScheduledSystemEmail.SelectedValue.AsIntegerOrNull();
+            groupType.ScheduleConfirmationSystemEmailId = ddlScheduleConfirmationSystemEmail.SelectedValue.AsIntegerOrNull();
             groupType.RequiresReasonIfDeclineSchedule = cbRequiresReasonIfDeclineSchedule.Checked;
             groupType.ScheduleConfirmationEmailOffsetDays = nbScheduleConfirmationEmailOffsetDays.Text.AsIntegerOrNull();
             groupType.ScheduleCancellationWorkflowTypeId = wtpScheduleCancellationWorkflowType.SelectedValueAsId();
@@ -873,7 +873,7 @@ namespace RockWeb.Blocks.Groups
             // Scheduling
             cbSchedulingEnabled.Checked = groupType.IsSchedulingEnabled;
 
-            ddlScheduledSystemEmail.SetValue( groupType.ScheduledSystemEmailId );
+            ddlScheduleConfirmationSystemEmail.SetValue( groupType.ScheduleConfirmationSystemEmailId );
             cbRequiresReasonIfDeclineSchedule.Checked = groupType.RequiresReasonIfDeclineSchedule;
             nbScheduleConfirmationEmailOffsetDays.Text = groupType.ScheduleConfirmationEmailOffsetDays.ToString();
             wtpScheduleCancellationWorkflowType.SetValue( groupType.ScheduleCancellationWorkflowTypeId );
@@ -1020,8 +1020,8 @@ namespace RockWeb.Blocks.Groups
                 ddlGroupStatusDefinedType.Items.Add( new ListItem( definedType.Name, definedType.Id.ToString() ) );
             }
 
-            ddlScheduledSystemEmail.Items.Clear();
-            ddlScheduledSystemEmail.Items.Add( new ListItem() );
+            ddlScheduleConfirmationSystemEmail.Items.Clear();
+            ddlScheduleConfirmationSystemEmail.Items.Add( new ListItem() );
             ddlScheduleReminderSystemEmail.Items.Clear();
             ddlScheduleReminderSystemEmail.Items.Add( new ListItem() );
 
@@ -1035,7 +1035,7 @@ namespace RockWeb.Blocks.Groups
             {
                 foreach ( var template in systemEmails )
                 {
-                    ddlScheduledSystemEmail.Items.Add( new ListItem( template.Title, template.Id.ToString() ) );
+                    ddlScheduleConfirmationSystemEmail.Items.Add( new ListItem( template.Title, template.Id.ToString() ) );
                     ddlScheduleReminderSystemEmail.Items.Add( new ListItem( template.Title, template.Id.ToString() ) );
                 }
             }

@@ -644,7 +644,7 @@ namespace Rock.Model
         /// The scheduled system email identifier.
         /// </value>
         [DataMember]
-        public int? ScheduledSystemEmailId { get; set; }
+        public int? ScheduleConfirmationSystemEmailId { get; set; }
 
         /// <summary>
         /// Gets or sets the system email to use when sending a schedule reminder
@@ -656,7 +656,7 @@ namespace Rock.Model
         public int? ScheduleReminderSystemEmailId { get; set; }
 
         /// <summary>
-        /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to volunteer at their scheduled time
+        /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to attend at their scheduled time
         /// </summary>
         /// <value>
         /// The schedule cancellation workflow type identifier.
@@ -838,7 +838,7 @@ namespace Rock.Model
         /// The scheduled system email.
         /// </value>
         [DataMember]
-        public virtual SystemEmail ScheduledSystemEmail { get; set; }
+        public virtual SystemEmail ScheduleConfirmationSystemEmail { get; set; }
 
         /// <summary>
         /// Gets or sets the system email to use when sending a Schedule Reminder
@@ -850,7 +850,7 @@ namespace Rock.Model
         public virtual SystemEmail ScheduleReminderSystemEmail { get; set; }
 
         /// <summary>
-        /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to volunteer at their scheduled time
+        /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to attend at their scheduled time
         /// </summary>
         /// <value>
         /// The type of the schedule cancellation workflow.
@@ -1237,7 +1237,7 @@ namespace Rock.Model
             this.HasOptional( p => p.DefaultGroupRole ).WithMany().HasForeignKey( p => p.DefaultGroupRoleId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.GroupStatusDefinedType ).WithMany().HasForeignKey( p => p.GroupStatusDefinedTypeId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.InheritedGroupType ).WithMany().HasForeignKey( p => p.InheritedGroupTypeId ).WillCascadeOnDelete( false );
-            this.HasOptional( p => p.ScheduledSystemEmail ).WithMany().HasForeignKey( p => p.ScheduledSystemEmailId ).WillCascadeOnDelete( false );
+            this.HasOptional( p => p.ScheduleConfirmationSystemEmail ).WithMany().HasForeignKey( p => p.ScheduleConfirmationSystemEmailId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.ScheduleReminderSystemEmail ).WithMany().HasForeignKey( p => p.ScheduleReminderSystemEmailId ).WillCascadeOnDelete( false );
             this.HasOptional( p => p.ScheduleCancellationWorkflowType ).WithMany().HasForeignKey( p => p.ScheduleCancellationWorkflowTypeId ).WillCascadeOnDelete( false );
         }

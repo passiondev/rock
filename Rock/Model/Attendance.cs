@@ -242,7 +242,7 @@ namespace Rock.Model
         /// The decline reason value identifier.
         /// </value>
         [DataMember]
-        [DefinedValue( SystemGuid.DefinedType.VOLUNTEER_SCHEDULE_DECLINE_REASON )]
+        [DefinedValue( SystemGuid.DefinedType.GROUP_SCHEDULE_DECLINE_REASON )]
         public int? DeclineReasonValueId { get; set; }
 
         /// <summary>
@@ -885,7 +885,7 @@ namespace Rock.Model
 
         /// <summary>
         /// Here's my number, call me Maybe.
-        /// Not used by Group Volunteer Scheduler.
+        /// Not used by Group Scheduler.
         /// </summary>
         Maybe = 2,
 

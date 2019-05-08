@@ -187,56 +187,22 @@ namespace Rock.Rest.Controllers
             rockContext.SaveChanges();
         }
 
+        /// <summary>
+        /// Sends (or Re-sends) a confirmation email to the person in the specified scheduled attendance record
+        /// </summary>
+        /// <param name="attendanceId">The attendance identifier.</param>
+        [Authenticate, Secured]
+        [System.Web.Http.Route( "api/Attendances/ScheduledPersonSendConfirmationEmail" )]
+        [HttpPut]
+        public void ScheduledPersonSendConfirmationEmail( int attendanceId )
+        {
+            var rockContext = new RockContext();
+            var attendanceService = new AttendanceService( rockContext );
+            var sendConfirmationAttendancesQuery = attendanceService.Queryable().Where( a => a.Id == attendanceId );
+            attendanceService.SendScheduleConfirmationSystemEmails( sendConfirmationAttendancesQuery );
+            rockContext.SaveChanges();
+        }
+
         #endregion Group Scheduler Related
-
-        /// <summary>
-        /// Creates a record in AttendanceOccurrence if it does not exist already.
-        /// Then creates a record in Attendance.
-        /// Use this method if there is a chance that an AttendanceOccurrence has not been created or if
-        /// one is not available.
-        /// </summary>
-        /// <param name="personId">The person identifier.</param>
-        /// <param name="locationId">The location identifier.</param>
-        /// <param name="groupId">The group identifier.</param>
-        /// <param name="scheduleId">The schedule identifier.</param>
-        /// <param name="dateTime">The date time.</param>
-        [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/ScheduledPersonSignup" )]
-        [HttpPost]
-        public void ScheduledPersonSignup( int personId, int locationId, int groupId, int scheduleId, DateTime dateTime )
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                // First see if an Attendance occurrence exists and create it if needed
-
-
-                // Create an attendance record for the occurrence
-
-            }
-        }
-
-        /// <summary>
-        /// Removes the person from the attendance table for the occurrence. Occurrence is determined using the supplied data.
-        /// </summary>
-        /// <param name="personId">The person identifier.</param>
-        /// <param name="locationId">The location identifier.</param>
-        /// <param name="groupId">The group identifier.</param>
-        /// <param name="scheduleId">The schedule identifier.</param>
-        /// <param name="dateTime">The date time.</param>
-        [Authenticate, Secured]
-        [System.Web.Http.Route( "api/Attendances/ScheduledPersonSignup" )]
-        [HttpPost]
-        public void ScheduledPersonUnSignup( int personId, int locationId, int groupId, int scheduleId, DateTime dateTime )
-        {
-            using ( var rockContext = new RockContext() )
-            {
-                // Find the AttendanceOccurrence record.
-
-                // Remove the person/attendanceoccurrence record from attendance
-
-
-            }
-        }
-
     }
 }

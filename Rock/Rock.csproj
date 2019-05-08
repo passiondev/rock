@@ -397,7 +397,7 @@
     <Compile Include="Field\FieldVisibilityRules.cs" />
     <Compile Include="Field\Types\AssetFieldType.cs" />
     <Compile Include="Field\Types\AssetStorageProviderFieldType.cs" />
-    <Compile Include="Jobs\SendVolunteerScheduleRSVP.cs" />
+    <Compile Include="Jobs\SendGroupScheduleRSVP.cs" />
     <Compile Include="Model\CodeGenerated\GroupMemberAssignmentService.cs" />
     <Compile Include="Model\CodeGenerated\GroupMemberScheduleTemplateService.cs" />
     <Compile Include="Field\Types\ValueFilterFieldType.cs" />
@@ -523,6 +523,7 @@
     <Compile Include="Utility\ExtensionMethods\DictionaryExtensions.cs" />
     <Compile Include="Utility\ExtensionMethods\DictionaryFieldExtensions.cs" />
     <Compile Include="Utility\ExtensionMethods\EnumUtilityExtensions.cs" />
+    <Compile Include="Utility\ExtensionMethods\ScheduleExtensions.cs" />
     <Compile Include="Utility\RockObsolete.cs" />
     <Compile Include="SystemGuid\SystemSetting.cs" />
     <Compile Include="SystemKey\GroupTypeAttributeKey.cs" />

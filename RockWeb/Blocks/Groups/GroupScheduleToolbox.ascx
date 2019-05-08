@@ -72,7 +72,7 @@
                                 <span class="control-label">
                                     <asp:Literal runat="server" ID="lUpcomingSchedules" Text="Upcoming Schedules" />&nbsp;&nbsp;
                                 <button id="btnCopyToClipboard" runat="server" disabled="disabled"
-                                    data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copies the link to synchronize your volunteer schedule with a calendar such as Microsoft Outlook or Google Calendar"
+                                    data-toggle="tooltip" data-placement="top" data-trigger="hover" data-delay="250" title="Copies the link to synchronize your schedule with a calendar such as Microsoft Outlook or Google Calendar"
                                     class="btn btn-info btn-xs btn-copy-to-clipboard"
                                     onclick="$(this).attr('data-original-title', 'Copied').tooltip('show').attr('data-original-title', 'Copy Link to Clipboard');return false;">
                                     <i class="fa fa-calendar-alt"></i>Copy Calendar Link
