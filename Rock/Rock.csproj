@@ -397,7 +397,7 @@
     <Compile Include="Field\FieldVisibilityRules.cs" />
     <Compile Include="Field\Types\AssetFieldType.cs" />
     <Compile Include="Field\Types\AssetStorageProviderFieldType.cs" />
-    <Compile Include="Jobs\SendGroupScheduleRSVP.cs" />
+    <Compile Include="Jobs\SendGroupScheduleNotifications.cs" />
     <Compile Include="Model\CodeGenerated\GroupMemberAssignmentService.cs" />
     <Compile Include="Model\CodeGenerated\GroupMemberScheduleTemplateService.cs" />
     <Compile Include="Field\Types\ValueFilterFieldType.cs" />

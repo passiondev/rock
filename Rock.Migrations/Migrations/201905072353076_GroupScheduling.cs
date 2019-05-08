@@ -150,8 +150,50 @@ WHERE [Guid] = '2C42B2D4-1C5F-4AD5-A9AD-08631B872AC4'" );
             RockMigrationHelper.UpdateBlockTypeAttribute( "1BFB72CC-A224-4A0B-B291-21733597738A", "F4399CEF-827B-48B2-A735-F7806FCFE8E8", "Parent Group", "ParentGroup", "", @"A parent group to start from when allowing someone to pick one or more groups to view.", 0, @"", "B24C6793-86CE-46E6-AEE9-8B921EED8468" );
             // Attrib for BlockType: Group Schedule Toolbox:Number of Future Weeks To Show
             RockMigrationHelper.UpdateBlockTypeAttribute( "7F9CEA6F-DCE5-4F60-A551-924965289F1D", "A75DFC58-7A1B-4799-BF31-451B2BBE38FF", "Number of Future Weeks To Show", "FutureWeeksToShow", "", @"The number of weeks into the future to allow users to signup for a schedule.", 0, @"6", "7016B03D-38C2-4CE9-8508-B04AC27C958C" );
+
+            // Attrib for BlockType: Group Member Schedule Template List:Detail Page
+            RockMigrationHelper.UpdateBlockTypeAttribute( "D930E08B-ACD3-4ADD-9FAC-3B61C021D0F7", "BD53F9C9-EBA9-4D3F-82EA-DE5DD34A8108", "Detail Page", "DetailPage", "", @"", 0, @"", "8869DC36-CB12-4842-BDA0-7C125A34F112" );
             // Attrib Value for Block:Group Member Schedule Template List, Attribute:Detail Page Page: Group Member Schedule Templates, Site: Rock RMS
-            RockMigrationHelper.AddBlockAttributeValue( "DFF3E9C7-1FB8-42E3-A6CB-5F28FC7DA564", "224F9179-1B11-4EFB-8315-3217301422DE", @"b7b0864d-91f2-4b24-a7b0-fc7bee769fa0" );
+            RockMigrationHelper.AddBlockAttributeValue( "DFF3E9C7-1FB8-42E3-A6CB-5F28FC7DA564", "8869DC36-CB12-4842-BDA0-7C125A34F112", @"b7b0864d-91f2-4b24-a7b0-fc7bee769fa0" );
+
+
+            // Add Block to Page: Groups Site: Rock RMS
+            RockMigrationHelper.AddBlock( true, "183B7B7E-105A-4C9A-A4BC-06CD26B7FE6D".AsGuid(), null, "C2D29296-6A87-47A9-A753-EE4E9159C4C4".AsGuid(), "7F9CEA6F-DCE5-4F60-A551-924965289F1D".AsGuid(), "Group Schedule Toolbox", "SectionC1", @"", @"", 2, "47199FAE-BB88-4CDC-B9EA-5BAB72042D64" );
+            // update block order for pages with new blocks if the page,zone has multiple blocks
+            Sql( @"UPDATE [Block] SET [Order] = 0 WHERE [Guid] = 'E18B1B2D-BF2A-43AD-BB9E-5DADBEFFB908'" );  // Page: Groups,  Zone: SectionC1,  Block: Person Group History
+            Sql( @"UPDATE [Block] SET [Order] = 1 WHERE [Guid] = '1CBE10C7-5E64-4385-BEE3-81DCA43DC47F'" );  // Page: Groups,  Zone: SectionC1,  Block: Group List
+            Sql( @"UPDATE [Block] SET [Order] = 2 WHERE [Guid] = '47199FAE-BB88-4CDC-B9EA-5BAB72042D64'" );  // Page: Groups,  Zone: SectionC1,  Block: Group Schedule Toolbox
+
+
+            // add ServiceJob: Send Group Schedule Confirmation and Reminder Emails
+            // Code Generated using Rock\Dev Tools\Sql\CodeGen_ServiceJobWithAttributes_ForAJob.sql
+            Sql( @"IF NOT EXISTS( SELECT [Id] FROM [ServiceJob] WHERE [Class] = 'Rock.Jobs.SendGroupScheduleNotifications' AND [Guid] = 'A7D45C92-18D7-42DD-83E9-CBD204C8A4C8' )
+            BEGIN
+               INSERT INTO [ServiceJob] (
+                  [IsSystem]
+                  ,[IsActive]
+                  ,[Name]
+                  ,[Description]
+                  ,[Class]
+                  ,[CronExpression]
+                  ,[NotificationStatus]
+                  ,[Guid] )
+               VALUES ( 
+                  0
+                  ,1
+                  ,'Send Group Schedule Confirmation and Reminder Emails'
+                  ,'Sends Group Scheduling Confirmation and Reminder emails to people that haven't been notified yet.'
+                  ,'Rock.Jobs.SendGroupScheduleNotifications'
+                  ,'0 0 16 1/1 * ? *'
+                  ,1
+                  ,'A7D45C92-18D7-42DD-83E9-CBD204C8A4C8'
+                  );
+            END" );
+            RockMigrationHelper.UpdateEntityAttribute( "Rock.Model.ServiceJob", "F4399CEF-827B-48B2-A735-F7806FCFE8E8", "Class", "Rock.Jobs.SendGroupScheduleNotifications", "Group", "Only people in or under this group will receive the schedule notifications emails.", 0, @"", "3BAA9243-1AAD-46A4-9363-BC6BD63B31B6", "RootGroup" );
+
+
+
+
             RockMigrationHelper.UpdateFieldType( "Value Filter", "", "Rock", "Rock.Field.Types.ValueFilterFieldType", "80ED0575-8FAE-4BC4-A51F-CAC211DD104F" );
         }
 

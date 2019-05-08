@@ -371,6 +371,7 @@ namespace RockWeb.Blocks.Groups
 
             pnlScheduler.Visible = filterIsValid;
             nbFilterInstructions.Visible = !filterIsValid;
+            pnlGroupScheduleLocations.Visible = groupId > 0;
 
             if ( filterIsValid )
             {

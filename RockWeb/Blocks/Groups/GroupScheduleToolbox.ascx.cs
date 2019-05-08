@@ -451,16 +451,16 @@ $('#{0}').tooltip();
             var currentDateTime = RockDateTime.Now;
             var rockContext = new RockContext();
 
-            var qryPendingConfirmations = new AttendanceService( rockContext ).GetConfirmedScheduled()
+            var qryConfirmedScheduled = new AttendanceService( rockContext ).GetConfirmedScheduled()
                 .Where( a => a.PersonAlias.PersonId == this.SelectedPersonId )
                 .Where( a => a.Occurrence.OccurrenceDate >= currentDateTime )
                 .OrderBy( a => a.Occurrence.OccurrenceDate );
 
-            var pendingConfirmationsList = qryPendingConfirmations.ToList();
+            var confirmedScheduledList = qryConfirmedScheduled.ToList();
 
-            pnlUpcomingSchedules.Visible = pendingConfirmationsList.Any();
+            pnlUpcomingSchedules.Visible = confirmedScheduledList.Any();
 
-            rptUpcomingSchedules.DataSource = pendingConfirmationsList;
+            rptUpcomingSchedules.DataSource = confirmedScheduledList;
             rptUpcomingSchedules.DataBind();
 
             var personAliasService = new PersonAliasService( rockContext );

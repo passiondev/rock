@@ -691,6 +691,64 @@ namespace Rock.Model
             return emailsSent;
         }
 
+        /// <summary>
+        /// Sends the scheduled attendance reminder emails and marks ScheduleReminderSent = true, then returns the number of emails sent.
+        /// </summary>
+        /// <param name="sendReminderAttendancesQuery">The send reminder attendances query.</param>
+        /// <returns></returns>
+        public int SendScheduleReminderSystemEmails( IQueryable<Attendance> sendReminderAttendancesQuery )
+        {
+            int emailsSent = 0;
+            var sendReminderAttendancesQueryList = sendReminderAttendancesQuery.ToList();
+            var attendancesBySystemEmailTypeList = sendReminderAttendancesQueryList.GroupBy( a => a.Occurrence.Group.GroupType.ScheduleReminderSystemEmailId ).Where( a => a.Key.HasValue ).Select( s => new
+            {
+                ScheduleReminderSystemEmailId = s.Key.Value,
+                Attendances = s.ToList()
+            } ).ToList();
+
+            var rockContext = this.Context as RockContext;
+
+            foreach ( var attendancesBySystemEmailType in attendancesBySystemEmailTypeList )
+            {
+                var scheduleReminderSystemEmail = new SystemEmailService( rockContext ).GetNoTracking( attendancesBySystemEmailType.ScheduleReminderSystemEmailId );
+
+                var attendancesByPersonList = attendancesBySystemEmailType.Attendances.GroupBy( a => a.PersonAlias.Person ).Select( s => new
+                {
+                    Person = s.Key,
+                    Attendances = s.ToList()
+                } );
+
+                foreach ( var attendancesByPerson in attendancesByPersonList )
+                {
+                    try
+                    {
+
+                        var emailMessage = new RockEmailMessage( scheduleReminderSystemEmail );
+                        var recipient = attendancesByPerson.Person.Email;
+                        var attendances = attendancesByPerson.Attendances;
+
+                        foreach ( var attendance in attendances )
+                        {
+                            attendance.ScheduleReminderSent = true;
+                        }
+
+                        var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( null );
+                        mergeFields.Add( "Attendance", attendances.FirstOrDefault() );
+                        mergeFields.Add( "Attendances", attendances );
+                        emailMessage.AddRecipient( new RecipientData( recipient, mergeFields ) );
+                        emailMessage.Send();
+                        emailsSent++;
+                    }
+                    catch ( Exception ex )
+                    {
+                        ExceptionLogService.LogException( new Exception( $"Exception occurred trying to send SendScheduleReminderSystemEmails to { attendancesByPerson.Person }", ex ) );
+                    }
+                }
+            }
+
+            return emailsSent;
+        }
+
         #region GroupScheduling Related
 
         /// <summary>
@@ -1424,13 +1482,13 @@ namespace Rock.Model
         /// <returns></returns>
         public IQueryable<Attendance> GetPendingScheduledConfirmations()
         {
-            var occurrenceDate = RockDateTime.Now.Date;
+            var currentDate = RockDateTime.Now.Date;
             return Queryable()
                 .Where( a => a.RequestedToAttend == true )
                 .Where( a => a.ScheduledToAttend != true )
                 .Where( a => a.DeclineReasonValueId == null )
                 .Where( a => a.DidAttend != true )
-                .Where( a => a.Occurrence.OccurrenceDate >= occurrenceDate )
+                .Where( a => a.Occurrence.OccurrenceDate >= currentDate )
                 // RSVP.Maybe is not used by the Group Scheduler. But, just in case, treat it as that the person has not responded.
                 .Where( a => a.RSVP == RSVP.Maybe || a.RSVP == RSVP.Unknown );
         }
