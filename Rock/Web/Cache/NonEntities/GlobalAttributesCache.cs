@@ -638,7 +638,7 @@ namespace Rock.Web.Cache
                         if ( location == null ) return string.Empty;
 
                         appSettings[ORG_LOC_FORMATTED] = location.ToString();
-                        return location.Country;
+                        return location.ToString();
                     }
                 }
 
