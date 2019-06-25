@@ -24,16 +24,20 @@ using Rock.Model;
 
 namespace Rock.Transactions
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <seealso cref="Rock.Transactions.ITransaction" />
     public class SaveCommunicationTransaction : ITransaction
     {
-
         /// <summary>
         /// If <see cref="Recipients"/> is not specified, this is the list of email addresses to set the email to
         /// </summary>
         /// <value>
         /// The recipient emails.
         /// </value>
-        [Obsolete]
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use Recipients instead to ensure the correct person is associated with the communication." )]
         public List<string> RecipientEmails
         {
             get => _recipientEmailAddresses;
@@ -175,7 +179,8 @@ namespace Rock.Transactions
         /// <param name="fromAddress">From address.</param>
         /// <param name="subject">The subject.</param>
         /// <param name="message">The message.</param>
-        [Obsolete( "Use the constructor that takes RockMessageRecipient as a parameter" )]
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the constructor that takes RockMessageRecipient as a parameter to ensure the correct person is associated with the communication." )]
         public SaveCommunicationTransaction( string to, string fromName, string fromAddress, string subject, string message )
             : this( fromName, fromAddress, subject, message )
         {
@@ -190,7 +195,8 @@ namespace Rock.Transactions
         /// <param name="fromAddress">From address.</param>
         /// <param name="subject">The subject.</param>
         /// <param name="message">The message.</param>
-        [Obsolete( "Use the constructor that takes RockMessageRecipients as a parameter")]
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the constructor that takes RockMessageRecipient as a parameter to ensure the correct person is associated with the communication." )]
         public SaveCommunicationTransaction( List<string> to, string fromName, string fromAddress, string subject, string message )
             : this( fromName, fromAddress, subject, message )
         {
@@ -262,7 +268,7 @@ namespace Rock.Transactions
                 if ( this.Recipients?.Any() == true )
                 {
                     var emailRecipients = this.Recipients.OfType<RockEmailMessageRecipient>().ToList();
-                    communication = new CommunicationService( rockContext ).CreateEmailCommunication( emailRecipients , FromName, FromAddress, ReplyTo, Subject, HtmlMessage, BulkCommunication, SendDateTime, RecipientStatus, senderPersonAliasId );
+                    communication = new CommunicationService( rockContext ).CreateEmailCommunication( emailRecipients, FromName, FromAddress, ReplyTo, Subject, HtmlMessage, BulkCommunication, SendDateTime, RecipientStatus, senderPersonAliasId );
 
                     if ( communication != null && communication.Recipients.Count() == 1 && RecipientGuid.HasValue )
                     {
@@ -271,7 +277,6 @@ namespace Rock.Transactions
 
                     rockContext.SaveChanges();
                 }
-
             }
         }
     }

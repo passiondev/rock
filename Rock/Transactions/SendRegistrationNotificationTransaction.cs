@@ -81,22 +81,17 @@ namespace Rock.Transactions
                     mergeFields.Add( "Registration", registration );
 
                     var anonymousHash = new HashSet<string>();
-                    var messageRecipients = new List<RockEmailMessageRecipient>();
+                    var messageRecipients = new List<RockMessageRecipient>();
 
                     // Contact
                     if ( !string.IsNullOrWhiteSpace( registration.RegistrationInstance.ContactEmail ) &&
                         ( template.Notify & RegistrationNotify.RegistrationContact ) == RegistrationNotify.RegistrationContact )
                     {
-                        var contactPerson = registration.RegistrationInstance.ContactPersonAlias?.Person;
-                        var contactEmail = registration.RegistrationInstance.ContactEmail;
-                        if ( contactPerson?.Email == contactEmail )
+                        var messageRecipient = registration.RegistrationInstance.GetContactRecipient( mergeFields );
+                        if (!anonymousHash.Contains( messageRecipient.To ) )
                         {
-                            messageRecipients.Add( new RockEmailMessageRecipient( registration.RegistrationInstance.ContactPersonAlias?.Person, mergeFields ) );
-                        }
-                        else if ( !anonymousHash.Contains( contactEmail ) )
-                        {
-                            messageRecipients.Add( RockEmailMessageRecipient.CreateAnonymous( contactEmail, mergeFields ) );
-                            anonymousHash.Add( contactEmail );
+                            messageRecipients.Add( messageRecipient );
+                            anonymousHash.Add( messageRecipient.To );
                         }
                     }
 

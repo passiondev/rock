@@ -24,6 +24,12 @@ namespace Rock.Communication
     /// </summary>
     public class RockEmailMessageRecipient : RockMessageRecipient
     {
+        /// <summary>
+        /// Gets the email address.
+        /// </summary>
+        /// <value>
+        /// The email address.
+        /// </value>
         public string EmailAddress
         {
             get => To;
@@ -31,9 +37,10 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="RockEmailMessageRecipient"/> class.
+        /// Initializes a new instance of the <see cref="RockEmailMessageRecipient" /> class.
         /// </summary>
         /// <param name="person">The person.</param>
+        /// <param name="mergeFields">The merge fields.</param>
         public RockEmailMessageRecipient( Person person, Dictionary<string, object> mergeFields ) : base( person, person.Email, mergeFields )
         {
         }
@@ -46,7 +53,7 @@ namespace Rock.Communication
         /// <returns></returns>
         public static RockEmailMessageRecipient CreateAnonymous( string emailAddress, Dictionary<string, object> mergeFields )
         {
-            var result = new RockEmailMessageRecipient( null, null );
+            var result = new RockEmailMessageRecipient( null, mergeFields );
             result.EmailAddress = emailAddress;
             return result;
         }

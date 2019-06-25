@@ -88,16 +88,8 @@ namespace Rock.Jobs
 
                         var emailMessage = new RockEmailMessage();
                         emailMessage.AdditionalMergeFields = mergeFields;
-                        var personEmail = registration.PersonAlias?.Person.Email;
-                        var confirmationEmail = registration.ConfirmationEmail;
-                        if ( personEmail == confirmationEmail )
-                        {
-                            emailMessage.AddRecipient( new RockEmailMessageRecipient( registration.PersonAlias?.Person, mergeFields ) );
-                        }
-                        else
-                        {
-                            emailMessage.AddRecipient( RockEmailMessageRecipient.CreateAnonymous( confirmationEmail, mergeFields ) );
-                        }
+
+                        emailMessage.AddRecipient( registration.GetConfirmationRecipient( mergeFields ) );
 
                         emailMessage.FromEmail = template.ReminderFromEmail;
                         emailMessage.FromName = template.ReminderFromName;

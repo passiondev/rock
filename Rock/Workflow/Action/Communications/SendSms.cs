@@ -88,7 +88,7 @@ namespace Rock.Workflow.Action
                         {
                             case "Rock.Field.Types.TextFieldType":
                                 {
-                                    recipients.Add( RockSMSMessageRecipient.RockSMSMessageRecipientFromAnonymous( toAttributeValue, mergeFields ) );
+                                    recipients.Add( RockSMSMessageRecipient.CreateAnonymous( toAttributeValue, mergeFields ) );
                                     break;
                                 }
                             case "Rock.Field.Types.PersonFieldType":
@@ -181,7 +181,7 @@ namespace Rock.Workflow.Action
             {
                 if ( !string.IsNullOrWhiteSpace( toValue ) )
                 {
-                    recipients.Add( RockSMSMessageRecipient.RockSMSMessageRecipientFromAnonymous( toValue.ResolveMergeFields( mergeFields ), mergeFields ) );
+                    recipients.Add( RockSMSMessageRecipient.CreateAnonymous( toValue.ResolveMergeFields( mergeFields ), mergeFields ) );
                 }
             }
 

@@ -116,16 +116,19 @@ namespace Rock.Communication
         /// </value>
         public bool CreateCommunicationRecord { get; set; }
 
+        #region Obsolete
+
         /// <summary>
         /// Adds the recipient.
         /// </summary>
         /// <param name="to">To.</param>
-        [Obsolete]
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the AddRecipient that takes RockMessageRecipient as a parameter" )]
         public void AddRecipient( string to )
         {
             if ( to.IsNotNullOrWhiteSpace() )
             {
-                Recipients.Add( RockEmailMessageRecipient.CreateAnonymous ( to, null ) );
+                Recipients.Add( RockEmailMessageRecipient.CreateAnonymous( to, null ) );
             }
         }
 
@@ -133,11 +136,63 @@ namespace Rock.Communication
         /// Adds the recipient.
         /// </summary>
         /// <param name="recipient">The recipient.</param>
-        [Obsolete]
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the AddRecipient that takes RockMessageRecipient as a parameter" )]
         public void AddRecipient( RecipientData recipient )
         {
             Recipients.Add( RockEmailMessageRecipient.CreateAnonymous( recipient.To, null ) );
         }
+
+        /// <summary>
+        /// Sets the recipients.
+        /// </summary>
+        /// <param name="toEmails">To emails.</param>
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the SetRecipients that uses List<RockMessageRecipient> as a parameter" )]
+        public void SetRecipients( string toEmails )
+        {
+            Recipients.AddRange( toEmails.SplitDelimitedValues().ToList().Select( a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ) );
+        }
+
+        /// <summary>
+        /// Sets the recipients.
+        /// </summary>
+        /// <param name="recipientData">The recipient data.</param>
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the SetRecipients that uses List<RockMessageRecipient> as a parameter" )]
+        public void SetRecipients( List<RecipientData> recipientData )
+        {
+            this.Recipients = new List<RockMessageRecipient>();
+            foreach ( var recipient in recipientData )
+            {
+                // assume it is an email recipient
+                this.AddRecipient( RockEmailMessageRecipient.CreateAnonymous( recipient.To, recipient.MergeFields ) );
+            }
+        }
+
+        /// <summary>
+        /// Sets the recipients.
+        /// </summary>
+        /// <param name="toEmails">To emails.</param>
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the SetRecipients that uses List<RockMessageRecipient> as a parameter" )]
+        public void SetRecipients( List<string> toEmails )
+        {
+            Recipients.AddRange( toEmails.Select( a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ) );
+        }
+
+        /// <summary>
+        /// Gets the recipient data.
+        /// </summary>
+        /// <returns></returns>
+        [RockObsolete( "1.10" )]
+        [Obsolete( "Use List<RockMessageRecipient> GetRecipients() instead" )]
+        public List<RecipientData> GetRecipientData()
+        {
+            return Recipients.Select( a => new RecipientData( a.To, a.MergeFields ) ).ToList();
+        }
+
+        #endregion Obsolete
 
         /// <summary>
         /// Adds the recipient.
@@ -146,25 +201,6 @@ namespace Rock.Communication
         public void AddRecipient( RockMessageRecipient messageRecipient )
         {
             this.Recipients.Add( messageRecipient );
-        }
-
-        /// <summary>
-        /// Sets the recipients.
-        /// </summary>
-        /// <param name="toEmails">To emails.</param>
-        [Obsolete]
-        public void SetRecipients( string toEmails )
-        {
-            Recipients.AddRange( toEmails.SplitDelimitedValues().ToList().Select(a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ) );
-        }
-
-        /// <summary>
-        /// Sets the recipients.
-        /// </summary>
-        /// <param name="toEmails">To emails.</param>
-        public void SetRecipients( List<string> toEmails )
-        {
-            Recipients.AddRange( toEmails.Select( a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ) );
         }
 
         /// <summary>
@@ -198,7 +234,7 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Sets the recipients from the members of the Group
+        /// Sets the recipients from the active members of the Group
         /// </summary>
         /// <param name="groupId">The group identifier.</param>
         public void SetRecipients( int groupId )
@@ -215,27 +251,12 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Sets the recipients.
+        /// Sets the recipients from the active members of the Group
         /// </summary>
         /// <param name="group">The group.</param>
         public void SetRecipients( Group group )
         {
             SetRecipients( group.Id );
-        }
-
-        /// <summary>
-        /// Sets the recipients.
-        /// </summary>
-        /// <param name="recipientData">The recipient data.</param>
-        [Obsolete]
-        public void SetRecipients( List<RecipientData> recipientData )
-        {
-            this.Recipients = new List<RockMessageRecipient>();
-            foreach ( var recipient in recipientData )
-            {
-                // assume it is an email recipient
-                this.AddRecipient( RockEmailMessageRecipient.CreateAnonymous( recipient.To, recipient.MergeFields ) );
-            }
         }
 
         /// <summary>
@@ -248,16 +269,6 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Gets the recipient data.
-        /// </summary>
-        /// <returns></returns>
-        [Obsolete]
-        public List<RecipientData> GetRecipientData()
-        {
-            return Recipients.Select( a => new RecipientData( a.To, a.MergeFields ) ).ToList();
-        }
-
-        /// <summary>
         /// Gets the recipients.
         /// </summary>
         /// <returns></returns>
@@ -267,7 +278,8 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Sends this instance.
+        /// Sends this message(Email, SMS, or PushDevice, depending which RockMessage class you are using).
+        /// NOTE: Email exceptions will be logged to exception log, but won't throw an exception. To get the list of errorMessages, use Send( out List<string> errorMessages )
         /// </summary>
         /// <returns></returns>
         public virtual bool Send()
@@ -277,7 +289,8 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Sends the specified error message. Ensure you check for error messages and the boolean value to handle error causes where a communication may not be sent.
+        /// Sends this message(Email, SMS, or PushDevice, depending which RockMessage class you are using).
+        /// NOTE: Email exceptions will be logged to exception log, but won't throw an exception. Ensure you check for error messages and the boolean value to handle error causes where a communication may not be sent.
         /// </summary>
         /// <param name="errorMessages">The error messages.</param>
         /// <returns></returns>
@@ -313,6 +326,5 @@ namespace Rock.Communication
                 return false;
             }
         }
-
     }
 }

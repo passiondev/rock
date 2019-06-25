@@ -262,7 +262,7 @@ namespace Rock.Workflow.Action
         /// <param name="body">The body.</param>
         /// <param name="mergeFields">The merge fields.</param>
         /// <param name="createCommunicationRecord">if set to <c>true</c> [create communication record].</param>
-        /// <param name="metaData">The meta data.</param>
+        /// <param name="attachments">The attachments.</param>
         private void Send( string recipientEmails, Person fromPerson, string fromEmail, string fromName, string subject, string body, Dictionary<string, object> mergeFields, bool createCommunicationRecord, BinaryFile[] attachments )
         {
             var recipients = recipientEmails.ResolveMergeFields( mergeFields ).SplitDelimitedValues().Select( e => RockEmailMessageRecipient.CreateAnonymous( e, mergeFields ) ).ToList();
@@ -279,7 +279,7 @@ namespace Rock.Workflow.Action
         /// <param name="subject">The subject.</param>
         /// <param name="body">The body.</param>
         /// <param name="createCommunicationRecord">if set to <c>true</c> [create communication record].</param>
-        /// <param name="metaData">The meta data.</param>
+        /// <param name="attachments">The attachments.</param>
         private void Send( List<RockEmailMessageRecipient> recipients, Person fromPerson, string fromEmail, string fromName, string subject, string body, bool createCommunicationRecord, BinaryFile[] attachments )
         {
             var emailMessage = new RockEmailMessage();

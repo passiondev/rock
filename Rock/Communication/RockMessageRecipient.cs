@@ -26,11 +26,12 @@ namespace Rock.Communication
     public abstract class RockMessageRecipient
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="RockMessageRecipient"/> class.
+        /// Initializes a new instance of the <see cref="RockMessageRecipient" /> class.
         /// </summary>
         /// <param name="person">The person.</param>
+        /// <param name="to">To.</param>
         /// <param name="mergeFields">The merge fields.</param>
-        public RockMessageRecipient( Person person, string to, Dictionary<string, object> mergeFields )
+        internal RockMessageRecipient( Person person, string to, Dictionary<string, object> mergeFields )
             : base()
         {
             this.PersonId = person?.Id;
@@ -76,7 +77,16 @@ namespace Rock.Communication
         /// </value>
         public Dictionary<string, object> MergeFields { get; set; } = new Dictionary<string, object>();
 
+        /// <summary>
+        /// Returns a <see cref="System.String" /> that represents this instance.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="System.String" /> that represents this instance.
+        /// </returns>
+        public override string ToString()
+        {
+            return $"Message to {this.Name}( {this.To} ), PersonId:{this.PersonId} ";
+        }
 
-        
     }
 }

@@ -352,7 +352,6 @@ namespace Rock.Workflow.Action
             }
             else
             {
-
                 var recipientEmails = to.ResolveMergeFields( mergeFields );
                 Send( recipientEmails, fromPerson, fromEmailAddress, fromName, subject, body, mergeFields, createCommunicationRecord, metaData );
             }

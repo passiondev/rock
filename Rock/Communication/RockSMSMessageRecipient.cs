@@ -53,7 +53,7 @@ namespace Rock.Communication
         /// <param name="smsNumber">The SMS number.</param>
         /// <param name="mergeFields">The merge fields.</param>
         /// <returns></returns>
-        public static RockSMSMessageRecipient RockSMSMessageRecipientFromAnonymous( string smsNumber, Dictionary<string, object> mergeFields )
+        public static RockSMSMessageRecipient CreateAnonymous( string smsNumber, Dictionary<string, object> mergeFields )
         {
             return new RockSMSMessageRecipient( null, smsNumber, mergeFields );
         }

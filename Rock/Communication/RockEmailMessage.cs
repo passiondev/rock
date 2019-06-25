@@ -173,6 +173,10 @@ namespace Rock.Communication
             }
         }
 
+        /// <summary>
+        /// Sets the recipients.
+        /// </summary>
+        /// <param name="recipients">The recipients.</param>
         public void SetRecipients( List<RockEmailMessageRecipient> recipients )
         {
             this.Recipients = new List<RockMessageRecipient>();

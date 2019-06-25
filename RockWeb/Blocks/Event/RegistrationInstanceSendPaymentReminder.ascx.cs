@@ -161,23 +161,7 @@ namespace RockWeb.Blocks.Event
                                 emailMessage.FromEmail = txtFromEmail.Text;
                                 emailMessage.FromName = txtFromName.Text;
                                 emailMessage.Subject = txtFromSubject.Text;
-
-                                string personEmail = string.Empty;
-                                if ( registration.PersonAlias != null )
-                                {
-                                    personEmail = registration.PersonAlias.Person.Email;
-                                }
-
-                                var confirmationEmail = registration.ConfirmationEmail;
-                                if ( personEmail == confirmationEmail )
-                                {
-                                    emailMessage.AddRecipient( new RockEmailMessageRecipient( registration.PersonAlias.Person, mergeObjects ) );
-                                }
-                                else
-                                {
-                                    emailMessage.AddRecipient( RockEmailMessageRecipient.CreateAnonymous( confirmationEmail, mergeObjects ) );
-                                }
-
+                                emailMessage.AddRecipient( registration.GetConfirmationRecipient( mergeObjects ) );
                                 emailMessage.Message = ceEmailMessage.Text;
                                 emailMessage.AppRoot = ResolveRockUrl( "~/" );
                                 emailMessage.ThemeRoot = ResolveRockUrl( "~~/" );

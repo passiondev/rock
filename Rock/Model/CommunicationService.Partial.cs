@@ -111,7 +111,8 @@ namespace Rock.Model
         /// <param name="recipientStatus">The recipient status.</param>
         /// <param name="senderPersonAliasId">The sender person alias identifier.</param>
         /// <returns></returns>
-        [Obsolete( "Use the CreateEmailCommunication method that takes List<RockEmailMessageRecipient> as a parameter" )]
+        [RockObsolete( "1.10" )]
+        [Obsolete( "This has a issue where the wrong person(s) might be logged as the recipient. Use the CreateEmailCommunication method that takes List<RockEmailMessageRecipient> as a parameter instead." )]
         public Communication CreateEmailCommunication
         (
             List<string> recipientEmails,
