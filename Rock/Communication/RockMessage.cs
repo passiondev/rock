@@ -34,7 +34,7 @@ namespace Rock.Communication
         /// <summary>
         /// The recipients
         /// </summary>
-        private List<RecipientData> _recipients = new List<RecipientData>();
+        protected List<RockMessageRecipient> Recipients { get; set; } = new List<RockMessageRecipient>();
 
         /// <summary>
         /// Gets the medium entity type identifier.
@@ -120,11 +120,12 @@ namespace Rock.Communication
         /// Adds the recipient.
         /// </summary>
         /// <param name="to">To.</param>
+        [Obsolete]
         public void AddRecipient( string to )
         {
             if ( to.IsNotNullOrWhiteSpace() )
             {
-                _recipients.Add( new RecipientData( to ) );
+                Recipients.Add( RockEmailMessageRecipient.CreateAnonymous ( to, null ) );
             }
         }
 
@@ -132,18 +133,29 @@ namespace Rock.Communication
         /// Adds the recipient.
         /// </summary>
         /// <param name="recipient">The recipient.</param>
+        [Obsolete]
         public void AddRecipient( RecipientData recipient )
         {
-            _recipients.Add( recipient );
+            Recipients.Add( RockEmailMessageRecipient.CreateAnonymous( recipient.To, null ) );
+        }
+
+        /// <summary>
+        /// Adds the recipient.
+        /// </summary>
+        /// <param name="messageRecipient">The message recipient.</param>
+        public void AddRecipient( RockMessageRecipient messageRecipient )
+        {
+            this.Recipients.Add( messageRecipient );
         }
 
         /// <summary>
         /// Sets the recipients.
         /// </summary>
         /// <param name="toEmails">To emails.</param>
+        [Obsolete]
         public void SetRecipients( string toEmails )
         {
-            SetRecipients( toEmails.SplitDelimitedValues().ToList() );
+            Recipients.AddRange( toEmails.SplitDelimitedValues().ToList().Select(a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ) );
         }
 
         /// <summary>
@@ -152,7 +164,7 @@ namespace Rock.Communication
         /// <param name="toEmails">To emails.</param>
         public void SetRecipients( List<string> toEmails )
         {
-            toEmails.ForEach( to => AddRecipient( to ) );
+            Recipients.AddRange( toEmails.Select( a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ) );
         }
 
         /// <summary>
@@ -161,11 +173,10 @@ namespace Rock.Communication
         /// <param name="people">The people.</param>
         public void SetRecipients( IQueryable<Person> people )
         {
-            _recipients = new List<RecipientData>();
-
+            Recipients = new List<RockMessageRecipient>();
             if ( people != null )
             {
-                people.ToList().ForEach( p => _recipients.Add( new RecipientData( p.Email ) ) );
+                Recipients.AddRange( people.AsNoTracking().ToList().Select( p => new RockEmailMessageRecipient( p, null ) ).ToList() );
             }
         }
 
@@ -175,7 +186,6 @@ namespace Rock.Communication
         /// <param name="personIds">The person ids.</param>
         public void SetRecipients( List<int> personIds )
         {
-            _recipients = new List<RecipientData>();
             if ( personIds != null )
             {
                 using ( var rockContext = new RockContext() )
@@ -188,13 +198,11 @@ namespace Rock.Communication
         }
 
         /// <summary>
-        /// Sets the recipients.
+        /// Sets the recipients from the members of the Group
         /// </summary>
         /// <param name="groupId">The group identifier.</param>
         public void SetRecipients( int groupId )
         {
-            _recipients = new List<RecipientData>();
-
             using ( var rockContext = new RockContext() )
             {
                 SetRecipients( new GroupMemberService( rockContext )
@@ -219,18 +227,43 @@ namespace Rock.Communication
         /// Sets the recipients.
         /// </summary>
         /// <param name="recipientData">The recipient data.</param>
+        [Obsolete]
         public void SetRecipients( List<RecipientData> recipientData )
         {
-            _recipients = recipientData;
+            this.Recipients = new List<RockMessageRecipient>();
+            foreach ( var recipient in recipientData )
+            {
+                // assume it is an email recipient
+                this.AddRecipient( RockEmailMessageRecipient.CreateAnonymous( recipient.To, recipient.MergeFields ) );
+            }
+        }
+
+        /// <summary>
+        /// Sets the recipients.
+        /// </summary>
+        /// <param name="recipients">The recipients.</param>
+        public void SetRecipients( List<RockMessageRecipient> recipients )
+        {
+            this.Recipients = recipients.ToList();
         }
 
         /// <summary>
         /// Gets the recipient data.
         /// </summary>
         /// <returns></returns>
+        [Obsolete]
         public List<RecipientData> GetRecipientData()
         {
-            return _recipients;
+            return Recipients.Select( a => new RecipientData( a.To, a.MergeFields ) ).ToList();
+        }
+
+        /// <summary>
+        /// Gets the recipients.
+        /// </summary>
+        /// <returns></returns>
+        public List<RockMessageRecipient> GetRecipients()
+        {
+            return Recipients;
         }
 
         /// <summary>
@@ -254,7 +287,7 @@ namespace Rock.Communication
 
             try
             {
-                if ( this._recipients.Any() )
+                if ( this.Recipients.Any() )
                 {
                     var mediumEntity = EntityTypeCache.Get( MediumEntityTypeId );
                     if ( mediumEntity != null )

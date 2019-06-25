@@ -14,6 +14,7 @@
 // limitations under the License.
 // </copyright>
 //
+using System;
 using System.Collections.Generic;
 
 using Rock.Model;
@@ -23,6 +24,7 @@ namespace Rock.Communication
     /// <summary>
     /// Simple recipient information
     /// </summary>
+    [Obsolete( "Use a RockMessageRecipient class instead" )]
     public class RecipientData
     {
         /// <summary>

@@ -77,7 +77,8 @@ namespace Rock.Workflow.Action
 
             bool createCommunicationRecord = GetAttributeValue( action, "SaveCommunicationHistory" ).AsBoolean();
 
-            string fromEmail = string.Empty;
+            string fromEmailAddress = string.Empty;
+            Person fromPerson = null;
             string fromName = string.Empty;
             Guid? fromGuid = fromValue.AsGuidOrNull();
             if ( fromGuid.HasValue )
@@ -99,21 +100,22 @@ namespace Rock.Workflow.Action
                                     .FirstOrDefault();
                                 if ( person != null && !string.IsNullOrWhiteSpace( person.Email ) )
                                 {
-                                    fromEmail = person.Email;
+                                    fromPerson = person;
+                                    fromEmailAddress = person.Email;
                                     fromName = person.FullName;
                                 }
                             }
                         }
                         else
                         {
-                            fromEmail = fromAttributeValue;
+                            fromEmailAddress = fromAttributeValue;
                         }
                     }
                 }
             }
             else
             {
-                fromEmail = fromValue.ResolveMergeFields( mergeFields );
+                fromEmailAddress = fromValue.ResolveMergeFields( mergeFields );
             }
 
             Guid? guid = to.AsGuidOrNull();
@@ -130,7 +132,7 @@ namespace Rock.Workflow.Action
                             case "Rock.Field.Types.TextFieldType":
                             case "Rock.Field.Types.EmailFieldType":
                                 {
-                                    Send( toValue, fromEmail, fromName, subject, body, mergeFields, rockContext, createCommunicationRecord, attachments );
+                                    Send( toValue, fromPerson, fromEmailAddress, fromName, subject, body, mergeFields, createCommunicationRecord, attachments );
                                     break;
                                 }
 
@@ -163,7 +165,8 @@ namespace Rock.Workflow.Action
                                         {
                                             var personDict = new Dictionary<string, object>( mergeFields );
                                             personDict.Add( "Person", person );
-                                            Send( person.Email, fromEmail, fromName, subject, body, personDict, rockContext, createCommunicationRecord, attachments );
+                                            var recipients = new RockEmailMessageRecipient[1] { new RockEmailMessageRecipient( person, personDict ) }.ToList();
+                                            Send( recipients, fromPerson, fromEmailAddress, fromName, subject, body, createCommunicationRecord, attachments );
                                         }
                                     }
 
@@ -213,7 +216,8 @@ namespace Rock.Workflow.Action
                                             {
                                                 var personDict = new Dictionary<string, object>( mergeFields );
                                                 personDict.Add( "Person", person );
-                                                Send( person.Email, fromEmail, fromName, subject, body, personDict, rockContext, createCommunicationRecord, attachments );
+                                                var recipients = new RockEmailMessageRecipient[1] { new RockEmailMessageRecipient( person, personDict ) }.ToList();
+                                                Send( recipients, fromPerson, fromEmailAddress, fromName, subject, body, createCommunicationRecord, attachments );
                                             }
                                         }
                                     }
@@ -226,7 +230,7 @@ namespace Rock.Workflow.Action
             }
             else
             {
-                Send( to.ResolveMergeFields( mergeFields ), fromEmail, fromName, subject, body, mergeFields, rockContext, createCommunicationRecord, attachments );
+                Send( to.ResolveMergeFields( mergeFields ), fromPerson, fromEmailAddress, fromName, subject, body, mergeFields, createCommunicationRecord, attachments );
             }
 
             return true;
@@ -247,14 +251,40 @@ namespace Rock.Workflow.Action
             return groupRoleGuid;
         }
 
-        private void Send( string recipients, string fromEmail, string fromName, string subject, string body, Dictionary<string, object> mergeFields, RockContext rockContext, bool createCommunicationRecord, BinaryFile[] attachments )
+        /// <summary>
+        /// Sends the specified recipient emails.
+        /// </summary>
+        /// <param name="recipientEmails">The recipient emails.</param>
+        /// <param name="fromPerson">From person.</param>
+        /// <param name="fromEmail">From email.</param>
+        /// <param name="fromName">From name.</param>
+        /// <param name="subject">The subject.</param>
+        /// <param name="body">The body.</param>
+        /// <param name="mergeFields">The merge fields.</param>
+        /// <param name="createCommunicationRecord">if set to <c>true</c> [create communication record].</param>
+        /// <param name="metaData">The meta data.</param>
+        private void Send( string recipientEmails, Person fromPerson, string fromEmail, string fromName, string subject, string body, Dictionary<string, object> mergeFields, bool createCommunicationRecord, BinaryFile[] attachments )
+        {
+            var recipients = recipientEmails.ResolveMergeFields( mergeFields ).SplitDelimitedValues().Select( e => RockEmailMessageRecipient.CreateAnonymous( e, mergeFields ) ).ToList();
+            Send( recipients, fromPerson, fromEmail, fromName, subject, body, createCommunicationRecord, attachments );
+        }
+
+        /// <summary>
+        /// Sends the specified recipients.
+        /// </summary>
+        /// <param name="recipients">The recipients.</param>
+        /// <param name="fromPerson">From person.</param>
+        /// <param name="fromEmail">From email.</param>
+        /// <param name="fromName">From name.</param>
+        /// <param name="subject">The subject.</param>
+        /// <param name="body">The body.</param>
+        /// <param name="createCommunicationRecord">if set to <c>true</c> [create communication record].</param>
+        /// <param name="metaData">The meta data.</param>
+        private void Send( List<RockEmailMessageRecipient> recipients, Person fromPerson, string fromEmail, string fromName, string subject, string body, bool createCommunicationRecord, BinaryFile[] attachments )
         {
             var emailMessage = new RockEmailMessage();
-            foreach ( string recipient in recipients.SplitDelimitedValues().ToList() )
-            {
-                emailMessage.AddRecipient( new RecipientData( recipient, mergeFields ) );
-            }
-
+            emailMessage.SetRecipients( recipients );
+            emailMessage.FromPerson = fromPerson;
             emailMessage.FromEmail = fromEmail;
             emailMessage.FromName = fromName.IsNullOrWhiteSpace() ? fromEmail : fromName;
             emailMessage.Subject = subject;

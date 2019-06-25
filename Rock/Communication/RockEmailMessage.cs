@@ -54,6 +54,14 @@ namespace Rock.Communication
         public string FromName { get; set; }
 
         /// <summary>
+        /// Gets or sets from person.
+        /// </summary>
+        /// <value>
+        /// From person.
+        /// </value>
+        public Person FromPerson { get; set; }
+
+        /// <summary>
         /// Gets or sets from email.
         /// </summary>
         /// <value>
@@ -156,12 +164,19 @@ namespace Rock.Communication
             {
                 this.FromEmail = systemEmail.From;
                 this.FromName = systemEmail.FromName;
-                this.SetRecipients( systemEmail.To );
+                var recipients = systemEmail.To.SplitDelimitedValues().ToList().Select( a => RockEmailMessageRecipient.CreateAnonymous( a, null ) ).ToList();
+                this.SetRecipients( recipients );
                 this.CCEmails = systemEmail.Cc.SplitDelimitedValues().ToList();
                 this.BCCEmails = systemEmail.Bcc.SplitDelimitedValues().ToList();
                 this.Subject = systemEmail.Subject;
                 this.Message = systemEmail.Body;
             }
+        }
+
+        public void SetRecipients( List<RockEmailMessageRecipient> recipients )
+        {
+            this.Recipients = new List<RockMessageRecipient>();
+            this.Recipients.AddRange( recipients );
         }
     }
 }
