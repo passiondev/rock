@@ -56,7 +56,7 @@ namespace RockWeb.Blocks.Crm.PersonDetail
     [BooleanField( "Child Birthdate", "Require a birthdate for each child", "Don't require", "When Family group type, should Birthdate be required for each child added?", false, "", 10 )]
     [CustomDropdownListField( "Grade", "When Family group type, should Grade be required for each child added?", "True^Require a grade for each child,False^Don't require,None^Grade is not displayed", false, "", "", 11 )]
     [BooleanField( "Show Inactive Campuses", "Determines if inactive campuses should be shown.", true, order: 12 )]
-    [BooleanField( "Require Campus", "Determines if a campus is required.", true, "", 13 )]
+    [BooleanField( "Require Campus", "Determines if a campus is required. The campus will not be displayed if there is only one available campus.", true, "", 13 )]
     [BooleanField( "Show County", "Should County be displayed when editing an address?.", false, "", 14 )]
     [BooleanField( "Marital Status Confirmation", "When Family group type, should user be asked to confirm saving an adult without a marital status?", true, "", 15 )]
     [DefinedValueField( Rock.SystemGuid.DefinedType.PERSON_MARITAL_STATUS, "Adult Marital Status", "When Family group type, the default marital status for adults in the family.", false, false, "", "", 16 )]
