@@ -194,17 +194,13 @@ namespace RockWeb.Blocks.Crm.PersonDetail
 
             if ( _isFamilyGroupType )
             {
-                bool campusRequired = GetAttributeValue( "RequireCampus" ).AsBoolean( true );
                 divGroupName.Visible = false;
-                var campusi = GetAttributeValue( "ShowInactiveCampuses" ).AsBoolean() ? CampusCache.All() : CampusCache.All().Where( c => c.IsActive == true ).ToList();
-                cpCampus.Campuses = campusi;
-                cpCampus.Visible = campusi.Any();
-                if ( campusi.Count == 1 && campusRequired )
-                {
-                    cpCampus.SelectedCampusId = campusi.FirstOrDefault().Id;
-                }
-                cpCampus.Required = campusRequired;
 
+                cpCampus.Required = GetAttributeValue( "RequireCampus" ).AsBoolean( true );;
+
+                var campusi = GetAttributeValue( "ShowInactiveCampuses" ).AsBoolean() ? CampusCache.All() : CampusCache.All( false ).ToList();
+                cpCampus.Campuses = campusi;
+                
                 dvpMaritalStatus.Visible = true;
                 dvpMaritalStatus.DefinedTypeId = DefinedTypeCache.Get( Rock.SystemGuid.DefinedType.PERSON_MARITAL_STATUS.AsGuid() ).Id;
                 var adultMaritalStatus = DefinedValueCache.Get( GetAttributeValue( "AdultMaritalStatus" ).AsGuid() );
