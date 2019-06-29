@@ -23,6 +23,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Data.Entity.ModelConfiguration;
+using System.Data.Entity.SqlServer;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
@@ -735,6 +736,8 @@ namespace Rock.Model
                         // IsActive was modified, set the InactiveDateTime if it changed to Inactive, or set it to NULL if it changed to Active
                         if ( originalIsActive != this.IsActive )
                         {
+                            DateTime? oldInactiveDateTime = this.InactiveDateTime;
+
                             if ( !this.IsActive )
                             {
                                 // if the caller didn't already set InactiveDateTime, set it to now
@@ -744,6 +747,10 @@ namespace Rock.Model
                             {
                                 this.InactiveDateTime = null;
                             }
+
+                            DateTime? newInactiveDateTime = this.InactiveDateTime;
+
+                            UpdateGroupMembersActiveStatusFromGroupStatus( rockContext, originalIsActive, oldInactiveDateTime, this.IsActive, newInactiveDateTime );
                         }
 
                         break;
@@ -785,6 +792,43 @@ namespace Rock.Model
             }
 
             base.PreSaveChanges( dbContext, entry );
+        }
+
+        /// <summary>
+        /// Updates the group members active status from group status.
+        /// </summary>
+        /// <param name="oldActiveStatus">if set to <c>true</c> [old active status].</param>
+        /// <param name="oldInactiveDateTime">The old inactive date time.</param>
+        /// <param name="newActiveStatus">if set to <c>true</c> [new active status].</param>
+        /// <param name="newInactiveDateTime">The new inactive date time.</param>
+        private void UpdateGroupMembersActiveStatusFromGroupStatus( RockContext rockContext, bool oldActiveStatus, DateTime? oldInactiveDateTime, bool newActiveStatus, DateTime? newInactiveDateTime )
+        {
+            if ( oldActiveStatus == newActiveStatus || this.Id == 0 )
+            {
+                // only change GroupMember status if the Group's status was changed 
+                return;
+            }
+
+            var groupMemberQuery = new GroupMemberService( rockContext ).Queryable().Where( a => a.GroupId == this.Id );
+
+            if ( newActiveStatus == false )
+            {
+                // group was changed to from Active to Inactive, so change all Active/Pending GroupMembers to Inactive and stamp their inactivate DateTime to be the same as the group's inactive DateTime.
+                foreach ( var groupMember in groupMemberQuery.Where( a => a.GroupMemberStatus != GroupMemberStatus.Inactive ).ToList() )
+                {
+                    groupMember.GroupMemberStatus = GroupMemberStatus.Inactive;
+                    groupMember.InactiveDateTime = newInactiveDateTime;
+                }
+            }
+            else if ( oldInactiveDateTime.HasValue )
+            {
+                // group was changed to from InActive to Active, so change all Inactive GroupMembers to Active if their InactiveDateTime is within 24 hours of the Group's InactiveDateTime
+                foreach ( var groupMember in groupMemberQuery.Where( a => a.GroupMemberStatus == GroupMemberStatus.Inactive && a.InactiveDateTime.HasValue && Math.Abs( SqlFunctions.DateDiff( "hour", a.InactiveDateTime.Value, oldInactiveDateTime.Value ).Value ) < 24 ).ToList() )
+                {
+                    groupMember.GroupMemberStatus = GroupMemberStatus.Active;
+                    groupMember.InactiveDateTime = newInactiveDateTime;
+                }
+            }
         }
 
         /// <summary>
