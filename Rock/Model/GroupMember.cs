@@ -514,46 +514,43 @@ namespace Rock.Model
         {
             if ( HistoryChanges != null )
             {
-                // use a new rockContext since this is PostSave and we want to avoid ChangeTracker buildup
-                using ( var historySaveContext = new RockContext() )
+                foreach ( var historyItem in HistoryChanges )
                 {
-                    foreach ( var historyItem in HistoryChanges )
+                    int personId = historyItem.PersonId > 0 ? historyItem.PersonId : PersonId;
+
+                    // if GroupId is 0, it is probably a Group that wasn't saved yet, so get the GroupId from historyItem.Group.Id instead
+                    if ( historyItem.GroupId == 0 )
                     {
-                        int personId = historyItem.PersonId > 0 ? historyItem.PersonId : PersonId;
-
-                        // if GroupId is 0, it is probably a Group that wasn't saved yet, so get the GroupId from historyItem.Group.Id instead
-                        if ( historyItem.GroupId == 0 )
-                        {
-                            historyItem.GroupId = historyItem.Group?.Id;
-                        }
-
-                        var changes = HistoryService.GetChanges(
-                            typeof( Person ),
-                            Rock.SystemGuid.Category.HISTORY_PERSON_GROUP_MEMBERSHIP.AsGuid(),
-                            personId,
-                            historyItem.PersonHistoryChangeList,
-                            historyItem.Caption,
-                            typeof( Group ),
-                            historyItem.GroupId,
-                            this.ModifiedByPersonAliasId,
-                            dbContext.SourceOfChange );
-
-                        new SaveHistoryTransaction( changes ).Enqueue();
-
-                        var groupMemberChanges = HistoryService.GetChanges(
-                            typeof( GroupMember ),
-                            Rock.SystemGuid.Category.HISTORY_GROUP_CHANGES.AsGuid(),
-                            this.Id,
-                            historyItem.GroupMemberHistoryChangeList,
-                            historyItem.Caption,
-                            typeof( Group ),
-                            historyItem.GroupId,
-                            this.ModifiedByPersonAliasId,
-                            dbContext.SourceOfChange );
-
-                        new SaveHistoryTransaction( groupMemberChanges ).Enqueue();
+                        historyItem.GroupId = historyItem.Group?.Id;
                     }
+
+                    var changes = HistoryService.GetChanges(
+                        typeof( Person ),
+                        Rock.SystemGuid.Category.HISTORY_PERSON_GROUP_MEMBERSHIP.AsGuid(),
+                        personId,
+                        historyItem.PersonHistoryChangeList,
+                        historyItem.Caption,
+                        typeof( Group ),
+                        historyItem.GroupId,
+                        this.ModifiedByPersonAliasId,
+                        dbContext.SourceOfChange );
+
+                    new SaveHistoryTransaction( changes ).Enqueue();
+
+                    var groupMemberChanges = HistoryService.GetChanges(
+                        typeof( GroupMember ),
+                        Rock.SystemGuid.Category.HISTORY_GROUP_CHANGES.AsGuid(),
+                        this.Id,
+                        historyItem.GroupMemberHistoryChangeList,
+                        historyItem.Caption,
+                        typeof( Group ),
+                        historyItem.GroupId,
+                        this.ModifiedByPersonAliasId,
+                        dbContext.SourceOfChange );
+
+                    new SaveHistoryTransaction( groupMemberChanges ).Enqueue();
                 }
+
             }
 
             base.PostSaveChanges( dbContext );
@@ -1036,7 +1033,7 @@ namespace Rock.Model
             // Tell EF that we never want archived group members. 
             // This will prevent archived members from being included in any GroupMember queries.
             // It will also prevent navigation properties of GroupMember from including archived group members.
-            Z.EntityFramework.Plus.QueryFilterManager.Filter<GroupMember>( x => x.Where( m => m.IsArchived == false && m.Group.IsArchived == false ) );
+            Z.EntityFramework.Plus.QueryFilterManager.Filter<GroupMember>( x => x.Where( m => m.IsArchived == false ) );
 
             // In the case of GroupMember as a property (not a collection), we DO want to fetch the groupMember record even if it is archived, so ensure that AllowPropertyFilter = false;
             // NOTE: This is not specific to GroupMember, it is for any Filtered Model (currently just Group and GroupMember)
