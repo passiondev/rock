@@ -80,7 +80,7 @@ namespace RockWeb.Blocks.Prayer
 {% endif %}
 
 " )]
-    [BooleanField( "Display Campus", "Display the campus filter", true,category: "Filtering", order: 6 )]
+    [BooleanField( "Display Campus", "Should the campus field be displayed? If there is only one active campus then the campus field will not show.", true,category: "Filtering", order: 6 )]
     [BooleanField( "Public Only", "If selected, all non-public prayer request will be excluded.", false, "", 7 )]
     public partial class PrayerSession : RockBlock
     {
