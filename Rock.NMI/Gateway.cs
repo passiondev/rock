@@ -33,6 +33,7 @@ using Rock.Financial;
 using Rock.Model;
 using Rock.Web.Cache;
 using Rock.Security;
+using System.Diagnostics;
 
 namespace Rock.NMI
 {
@@ -936,6 +937,11 @@ namespace Rock.NMI
         /// <exception cref="System.Exception"></exception>
         private Dictionary<string, string> PostToGateway( FinancialGateway financialGateway, XDocument data )
         {
+            Debug.WriteLine( data.ToString() );
+            Debug.WriteLine("");
+            Debug.WriteLine( "" );
+            Debug.WriteLine( "" );
+
             var restClient = new RestClient( GetAttributeValue( financialGateway, "APIUrl" ) );
             var restRequest = new RestRequest( Method.POST );
             restRequest.RequestFormat = DataFormat.Xml;
