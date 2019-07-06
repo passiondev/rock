@@ -179,7 +179,7 @@ namespace Rock.NMI
         /// <returns>
         /// Url to post the Step2 request to
         /// </returns>
-        /// <exception cref="System.ArgumentNullException">paymentInfo</exception>
+        /// <exception cref="ArgumentNullException">paymentInfo</exception>
         public string ChargeStep1( FinancialGateway financialGateway, PaymentInfo paymentInfo, out string errorMessage )
         {
             errorMessage = string.Empty;
@@ -421,7 +421,7 @@ namespace Rock.NMI
         /// <param name="paymentInfo">The payment information.</param>
         /// <param name="errorMessage">The error message.</param>
         /// <returns></returns>
-        /// <exception cref="System.ArgumentNullException">paymentInfo</exception>
+        /// <exception cref="ArgumentNullException">paymentInfo</exception>
         public string AddScheduledPaymentStep1( FinancialGateway financialGateway, PaymentSchedule schedule, PaymentInfo paymentInfo, out string errorMessage )
         {
             errorMessage = string.Empty;
@@ -501,7 +501,7 @@ namespace Rock.NMI
         /// <param name="resultQueryString">The result query string from step 2.</param>
         /// <param name="errorMessage">The error message.</param>
         /// <returns></returns>
-        /// <exception cref="System.ArgumentNullException">tokenId</exception>
+        /// <exception cref="ArgumentNullException">tokenId</exception>
         public FinancialScheduledTransaction AddScheduledPaymentStep3( FinancialGateway financialGateway, string resultQueryString, out string errorMessage )
         {
             errorMessage = string.Empty;
@@ -934,9 +934,10 @@ namespace Rock.NMI
         /// <param name="financialGateway">The financial gateway.</param>
         /// <param name="data">The data.</param>
         /// <returns></returns>
-        /// <exception cref="System.Exception"></exception>
+        /// <exception cref="Exception"></exception>
         private Dictionary<string, string> PostToGateway( FinancialGateway financialGateway, XDocument data )
         {
+            Debug.WriteLine( "REQUEST:" );
             Debug.WriteLine( data.ToString() );
             Debug.WriteLine("");
             Debug.WriteLine( "" );
@@ -951,6 +952,14 @@ namespace Rock.NMI
             {
                 var response = restClient.Execute( restRequest );
                 var xdocResult = GetXmlResponse( response );
+
+
+                Debug.WriteLine( "RESPONSE:" );
+                Debug.WriteLine( xdocResult.ToString() );
+                Debug.WriteLine( "" );
+                Debug.WriteLine( "" );
+                Debug.WriteLine( "" );
+
                 if ( xdocResult != null )
                 {
                     // Convert XML result to a dictionary

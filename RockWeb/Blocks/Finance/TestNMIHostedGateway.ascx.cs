@@ -16,8 +16,13 @@
 //
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Web.UI;
+using System.Xml;
+using System.Xml.Serialization;
+using RestSharp;
 using Rock.Attribute;
+using Rock.Financial;
 using Rock.Model;
 using Rock.Web.UI;
 
@@ -27,6 +32,11 @@ namespace RockWeb.Blocks.Finance
     [Category( "Finance" )]
     [Description( "Test NMI Hosted Gateway." )]
 
+
+    [TextField(
+        "API Key",
+        Key = "APIKey"
+        )]
     public partial class TestNMIHostedGateway : RockBlock
     {
         #region Base Control Methods
@@ -59,6 +69,9 @@ namespace RockWeb.Blocks.Finance
 
                 // to show the created/modified by date time details in the PanelDrawer do something like this:
                 // pdAuditDetails.SetEntity( <YOUROBJECT>, ResolveRockUrl( "~" ) );
+
+
+                acTest.SetValues( this.CurrentPerson.GetHomeLocation() );
             }
         }
 
@@ -85,5 +98,52 @@ namespace RockWeb.Blocks.Finance
         // helper functional methods (like BindGrid(), etc.)
 
         #endregion
+
+        protected void btnTest_Click( object sender, EventArgs e )
+        {
+            PaymentInfo paymentInfo = new PaymentInfo();
+            paymentInfo.UpdateAddressFieldsFromAddressControl( acTest );
+            paymentInfo.FirstName = this.CurrentPerson.FirstName;
+            paymentInfo.LastName = this.CurrentPerson.LastName;
+            paymentInfo.Email = this.CurrentPerson.Email;
+
+
+            Rock.NMI.NMITypes.Sale sale = new Rock.NMI.NMITypes.Sale();
+            sale.ApiKey = this.GetAttributeValue( "APIKey" );
+            sale.IPAddress = GetClientIpAddress();
+            sale.Currency = "USD";
+            sale.Amount = 12.45M;
+            sale.OrderDescription = "Hello Sale";
+            sale.TaxAmount = 0.00M;
+            sale.ShippingAmount = 0.00M;
+            sale.RedirectURL = "http://localhost:6229/GatewayStep2Return.aspx";
+            sale.AddCustomer = new Rock.NMI.NMITypes.AddCustomer();
+            sale.Billing = new Rock.NMI.NMITypes.BillingAddress();
+            sale.Billing.UpdateFromPaymentInfo( paymentInfo );
+
+            XmlSerializer xsSubmit = new XmlSerializer( typeof( Rock.NMI.NMITypes.Sale ) );
+            var saleXml = "";
+
+            using ( var sww = new StringWriter() )
+            {
+                using ( XmlWriter writer = XmlWriter.Create( sww, new XmlWriterSettings { Indent = true, OmitXmlDeclaration = true } ) )
+                {
+                    xsSubmit.Serialize( writer, sale );
+                    saleXml = sww.ToString(); // Your XML
+                }
+            }
+
+
+            var apiURL = "https://secure.networkmerchants.com/api/v2/three-step";
+            var restClient = new RestClient( apiURL );
+
+            var restRequest = new RestRequest( Method.POST );
+            restRequest.RequestFormat = DataFormat.Xml;
+            restRequest.AddParameter( "text/xml", saleXml, ParameterType.RequestBody );
+
+            var response = restClient.Execute<Rock.NMI.NMITypes.ResponseBase>( restRequest );
+            tbResponse.Text = response.Content;
+            
+        }
     }
 }

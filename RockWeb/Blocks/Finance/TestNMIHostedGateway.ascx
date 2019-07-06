@@ -3,20 +3,15 @@
 <asp:UpdatePanel ID="upnlContent" runat="server">
     <ContentTemplate>
 
-        <asp:Panel ID="pnlView" runat="server" CssClass="panel panel-block">
-        
-            <div class="panel-heading">
-                <h1 class="panel-title">
-                    <i class="fa fa-star"></i> 
-                    Test NMI Hosted Gateway
-                </h1>
+        <Rock:RockTextBox ID="txtCreditCard" runat="server" Label="Card Number" MaxLength="19" CssClass="credit-card" />
+        <Rock:MonthYearPicker ID="mypExpiration" runat="server" Label="Expiration Date" />
+        <Rock:RockTextBox ID="txtCVV" Label="Card Security Code" CssClass="input-width-xs" runat="server" MaxLength="4" />
 
-            </div>
-            <div class="panel-body">
+        <Rock:AddressControl ID="acTest" runat="server" />
 
-            </div>
-        
-        </asp:Panel>
+        <asp:LinkButton ID="btnTest" runat="server" CssClass="btn btn-sm btn-primary" Text="Go" OnClick="btnTest_Click" />
+
+        <Rock:CodeEditor ID="tbResponse" runat="server" EditorMode="Xml" Label="Response" />
 
     </ContentTemplate>
 </asp:UpdatePanel>

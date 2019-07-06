@@ -94,12 +94,12 @@ namespace Rock.NMI
             throw new NotImplementedException();
         }
 
-        public string GetHostPaymentInfoSubmitScript( FinancialGateway financialGateway, System.Web.UI.Control hostedPaymentInfoControl )
+        public string GetHostPaymentInfoSubmitScript( FinancialGateway financialGateway, Control hostedPaymentInfoControl )
         {
             throw new NotImplementedException();
         }
 
-        public void UpdatePaymentInfoFromPaymentControl( FinancialGateway financialGateway, System.Web.UI.Control hostedPaymentInfoControl, ReferencePaymentInfo referencePaymentInfo, out string errorMessage )
+        public void UpdatePaymentInfoFromPaymentControl( FinancialGateway financialGateway, Control hostedPaymentInfoControl, ReferencePaymentInfo referencePaymentInfo, out string errorMessage )
         {
             throw new NotImplementedException();
         }
