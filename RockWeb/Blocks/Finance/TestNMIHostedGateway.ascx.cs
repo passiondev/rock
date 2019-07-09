@@ -143,7 +143,12 @@ namespace RockWeb.Blocks.Finance
 
             var response = restClient.Execute<Rock.NMI.NMITypes.ResponseBase>( restRequest );
             tbResponse.Text = response.Content;
-            
+
+            var saleResponse = response.Data;
+
+            hfSendPaymentInfoURL.Value = saleResponse.FormUrl;
+
+
         }
     }
 }
