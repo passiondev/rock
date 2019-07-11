@@ -105,15 +105,13 @@ namespace RockWeb.Blocks.Core
             }
 
             campus.Name = tbCampusName.Text;
-            campus.CampusStatusValueId = dvpCampusStatus.SelectedValueAsInt();
             campus.IsActive = cbIsActive.Checked;
             campus.Description = tbDescription.Text;
+            campus.CampusStatusValueId = dvpCampusStatus.SelectedValueAsInt();
+            campus.CampusTypeValueId = dvpCampusType.SelectedValueAsInt();
             campus.Url = tbUrl.Text;
-
             campus.PhoneNumber = tbPhoneNumber.Text;
-
             campus.LocationId = lpLocation.Location.Id;
-
             campus.ShortCode = tbCampusCode.Text;
             campus.TimeZoneId = ddlTimeZone.SelectedValue;
 
@@ -121,7 +119,6 @@ namespace RockWeb.Blocks.Core
             var leaderPerson = personService.Get( ppCampusLeader.SelectedValue ?? 0 );
             campus.LeaderPersonAliasId = leaderPerson != null ? leaderPerson.PrimaryAliasId : null;
 
-            campus.CampusTypeValueId = dvpCampusType.SelectedValueAsInt();
             campus.ServiceTimes = kvlServiceTimes.Value;
 
             avcAttributes.GetEditValues( campus );
@@ -188,16 +185,16 @@ namespace RockWeb.Blocks.Core
             hfCampusId.Value = campus.Id.ToString();
             tbCampusName.Text = campus.Name;
             cbIsActive.Checked = !campus.IsActive.HasValue || campus.IsActive.Value;
-            dvpCampusStatus.SetValue( campus.CampusStatusValueId );
             tbDescription.Text = campus.Description;
+            dvpCampusStatus.SetValue( campus.CampusStatusValueId );
+            dvpCampusType.SetValue( campus.CampusTypeValueId );
+            tbCampusCode.Text = campus.ShortCode;
             tbUrl.Text = campus.Url;
             tbPhoneNumber.Text = campus.PhoneNumber;
             lpLocation.Location = campus.Location;
 
-            tbCampusCode.Text = campus.ShortCode;
             ddlTimeZone.SetValue( campus.TimeZoneId );
             ppCampusLeader.SetValue( campus.LeaderPersonAlias != null ? campus.LeaderPersonAlias.Person : null );
-            dvpCampusType.SetValue( campus.CampusTypeValueId );
             kvlServiceTimes.Value = campus.ServiceTimes;
 
             campus.LoadAttributes();
