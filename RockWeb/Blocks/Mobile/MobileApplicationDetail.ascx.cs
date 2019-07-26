@@ -1,4 +1,20 @@
-﻿using System;
+﻿// <copyright>
+// Copyright by the Spark Development Network
+//
+// Licensed under the Rock Community License (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.rockrms.com/license
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// </copyright>
+//
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -26,10 +42,19 @@ namespace RockWeb.Blocks.Mobile
     [LinkedPage( "Page Detail", "", true )]
     public partial class MobileApplicationDetail : RockBlock
     {
-        private static class AttributeKeys
+        /// <summary>
+        /// Keys to use for block attributes
+        /// </summary>
+        protected static class AttributeKey
         {
+            /// <summary>
+            /// Key for Layout Detail
+            /// </summary>
             public const string LayoutDetail = "LayoutDetail";
 
+            /// <summary>
+            /// Key for Page Detail
+            /// </summary>
             public const string PageDetail = "PageDetail";
         }
 
@@ -690,6 +715,7 @@ namespace RockWeb.Blocks.Mobile
             }
             else
             {
+                site.AdditionalSettings = additionalSettings.ToJson();
                 rockContext.SaveChanges();
             }
 
@@ -750,7 +776,7 @@ namespace RockWeb.Blocks.Mobile
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void gLayouts_AddClick( object sender, EventArgs e )
         {
-            NavigateToLinkedPage( AttributeKeys.LayoutDetail, new Dictionary<string, string>
+            NavigateToLinkedPage( AttributeKey.LayoutDetail, new Dictionary<string, string>
             {
                 { "SiteId", hfSiteId.Value },
                 { "LayoutId", "0" }
@@ -764,7 +790,7 @@ namespace RockWeb.Blocks.Mobile
         /// <param name="e">The <see cref="Rock.Web.UI.Controls.RowEventArgs"/> instance containing the event data.</param>
         protected void gLayouts_RowSelected( object sender, Rock.Web.UI.Controls.RowEventArgs e )
         {
-            NavigateToLinkedPage( AttributeKeys.LayoutDetail, new Dictionary<string, string>
+            NavigateToLinkedPage( AttributeKey.LayoutDetail, new Dictionary<string, string>
             {
                 { "SiteId", hfSiteId.Value },
                 { "LayoutId", e.RowKeyId.ToString() }
@@ -810,7 +836,7 @@ namespace RockWeb.Blocks.Mobile
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         private void gPages_AddClick( object sender, EventArgs e )
         {
-            NavigateToLinkedPage( AttributeKeys.PageDetail, new Dictionary<string, string>
+            NavigateToLinkedPage( AttributeKey.PageDetail, new Dictionary<string, string>
             {
                 { "SiteId", hfSiteId.Value },
                 { "Page", "0" }
@@ -824,7 +850,7 @@ namespace RockWeb.Blocks.Mobile
         /// <param name="e">The <see cref="Rock.Web.UI.Controls.RowEventArgs"/> instance containing the event data.</param>
         protected void gPages_RowSelected( object sender, Rock.Web.UI.Controls.RowEventArgs e )
         {
-            NavigateToLinkedPage( AttributeKeys.PageDetail, new Dictionary<string, string>
+            NavigateToLinkedPage( AttributeKey.PageDetail, new Dictionary<string, string>
             {
                 { "SiteId", hfSiteId.Value },
                 { "Page", e.RowKeyId.ToString() }

@@ -34,7 +34,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>bin\Release\Rock.XML</DocumentationFile>
-    <LangVersion>7.0</LangVersion>
+    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="AngleSharp, Version=0.9.9.0, Culture=neutral, PublicKeyToken=e83494dcdc6d31ea, processorArchitecture=MSIL">
@@ -377,7 +377,7 @@
     <Compile Include="Attribute\MergeTemplateFieldAttribute.cs" />
     <Compile Include="Attribute\MetricCategoriesFieldAttribute.cs" />
     <Compile Include="Attribute\NoteTypeFieldAttribute.cs" />
-    <Compile Include="Attribute\BadgeTypesFieldAttribute.cs" />
+    <Compile Include="Attribute\BadgesFieldAttribute.cs" />
     <Compile Include="Attribute\PersonFieldAttribute.cs" />
     <Compile Include="Attribute\PhoneNumberFieldAttribute.cs" />
     <Compile Include="Attribute\RemoteAuthsFieldAttribute.cs" />
@@ -397,10 +397,14 @@
     <Compile Include="Attribute\WorkflowTypeFieldAttribute.cs" />
     <Compile Include="Blocks\BlockActionAttribute.cs" />
     <Compile Include="Attribute\IconCssClassAttribute.cs" />
+    <Compile Include="Blocks\Types\Mobile\MobileContentChannelItemView.cs" />
+    <Compile Include="Blocks\Types\Mobile\MobileLavaItemList.cs" />
+    <Compile Include="Jobs\PostV100DataMigrationsValueAsNumeric.cs" />
     <Compile Include="Mobile\AdditionalSettings.cs" />
     <Compile Include="Mobile\TabLocation.cs" />
     <Compile Include="Net\ClientInformation.cs" />
     <Compile Include="Utility\LazyDictionary.cs" />
+    <Compile Include="Web\Cache\Entities\Obsolete\PersonBadgeCache.cs" />
     <Compile Include="Web\RockCustomSettingsProvider.cs" />
     <Compile Include="Web\IRockCustomSettingsUserControl.cs" />
     <Compile Include="Blocks\IRockMobileBlockType.cs" />
@@ -431,6 +435,10 @@
     <Compile Include="Communication\SmsActions\SmsActionConversations.cs" />
     <Compile Include="Communication\SmsActions\SmsActionOutcome.cs" />
     <Compile Include="Communication\SmsActions\SmsMessage.cs" />
+    <Compile Include="Crm\ConnectionStatusChangeReport\ConnectionStatusChangeReportBuilder.cs" />
+    <Compile Include="Crm\ConnectionStatusChangeReport\ConnectionStatusChangeReportData.cs" />
+    <Compile Include="Crm\ConnectionStatusChangeReport\ConnectionStatusChangeReportSettings.cs" />
+    <Compile Include="Crm\ConnectionStatusChangeReport\ConnectionStatusChangeEventInfo.cs" />
     <Compile Include="Field\FieldVisibilityRules.cs" />
     <Compile Include="Field\Types\AssetFieldType.cs" />
     <Compile Include="Field\Types\AssetStorageProviderFieldType.cs" />
@@ -438,7 +446,7 @@
     <Compile Include="Field\Types\ConditionalScaleFieldType.cs" />
     <Compile Include="Jobs\RockTriggerListener.cs" />
     <Compile Include="Jobs\GroupLeaderAbsenceNotifications.cs" />
-    <Compile Include="Jobs\PostV90DataMigrationsValueAsNumeric.cs" />
+    <Compile Include="Jobs\PostV90DataMigrationsScheduledTransactionNotesToHistory.cs" />
     <Compile Include="Jobs\SendAssessmentReminders.cs" />
     <Compile Include="Field\Types\SequenceFieldType.cs" />
     <Compile Include="Jobs\RebuildSequenceMaps.cs" />
@@ -567,6 +575,8 @@
     <Compile Include="Plugin\HotFixes\071_BlacklistBlankFix.cs" />
     <Compile Include="Plugin\HotFixes\072_RemoveDoNotDisturb.cs" />
     <Compile Include="Plugin\HotFixes\073_MigrationRollupsForV8_8.cs" />
+    <Compile Include="Plugin\HotFixes\084_FixSpiritualGiftsAssessmentBadge.cs" />
+    <Compile Include="Plugin\HotFixes\083_MigrationRollupsForV9_1_0.cs" />
     <Compile Include="Plugin\HotFixes\074_MigrationRollupsForV8_8_1.cs" />
     <Compile Include="Plugin\HotFixes\HotFixMigrationResource.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -578,8 +588,10 @@
     <Compile Include="Reporting\DataFilter\Person\AttendanceDataViewFilter.cs" />
     <Compile Include="Reporting\DataFilter\Person\HasDuplicateEmailFilter.cs" />
     <Compile Include="Reporting\DataFilter\Person\HasDuplicatePhoneFilter.cs" />
+    <Compile Include="Reporting\DataFilter\Person\StepsTakenFilter.cs" />
     <Compile Include="Reporting\DataFilter\Person\InteractionDataViewFilter.cs" />
     <Compile Include="Reporting\DataFilter\Person\InteractionsFilter.cs" />
+    <Compile Include="Reporting\DataFilter\Person\StepDataViewFilter.cs" />
     <Compile Include="Reporting\DataSelect\Person\InteractionCountSelect.cs" />
     <Compile Include="Reporting\DataSelect\Person\InteractionDateSelect.cs" />
     <Compile Include="SystemGuid\AssessmentType.cs" />
@@ -589,6 +601,7 @@
     <Compile Include="Transactions\GroupScheduleCancellationTransaction.cs" />
     <Compile Include="Transactions\SaveHistoryTransaction.cs" />
     <Compile Include="Transactions\StepChangeTransaction.cs" />
+    <Compile Include="Utility\TimePeriod.cs" />
     <Compile Include="Utility\EntityCoding\CodingHelper.cs" />
     <Compile Include="Utility\EntityCoding\EncodedEntity.cs" />
     <Compile Include="Utility\EntityCoding\EntityCoder.cs" />
@@ -638,7 +651,7 @@
     <Compile Include="Web\Cache\Entities\Obsolete\CachedEntity.cs" />
     <Compile Include="Web\Cache\Entities\Obsolete\CachedModel.cs" />
     <Compile Include="Web\Cache\Entities\Obsolete\RockMemoryCache.cs" />
-    <Compile Include="Web\Cache\Entities\BadgeTypeCache.cs" />
+    <Compile Include="Web\Cache\Entities\BadgeCache.cs" />
     <Compile Include="Web\Cache\Entities\RestActionCache.cs" />
     <Compile Include="Web\Cache\Entities\RestControllerCache.cs" />
     <Compile Include="Web\Cache\Entities\SignalTypeCache.cs" />
@@ -889,7 +902,7 @@
     <Compile Include="Field\Types\NoteTypeFieldType.cs" />
     <Compile Include="Field\Types\NoteTypesFieldType.cs" />
     <Compile Include="Field\Types\PageReferenceFieldType.cs" />
-    <Compile Include="Field\Types\BadgeTypesFieldType.cs" />
+    <Compile Include="Field\Types\BadgesFieldType.cs" />
     <Compile Include="Field\Types\PersonFieldType.cs" />
     <Compile Include="Field\Types\PhoneNumberFieldType.cs" />
     <Compile Include="Field\Types\RangeSliderFieldType.cs" />
@@ -1845,6 +1858,7 @@
     <Compile Include="Web\UI\Controls\FieldVisibilityRulesEditor.cs" />
     <Compile Include="Web\UI\Controls\Grid\PersonMergeField.cs" />
     <Compile Include="Web\UI\Controls\ScreenKeyboard.cs" />
+    <Compile Include="Web\UI\Controls\Pickers\SingleEntityPicker.cs" />
     <Compile Include="Web\UI\Controls\Pickers\StepStatusPicker.cs" />
     <Compile Include="Web\UI\Controls\RegistryEntry.cs" />
     <Compile Include="Web\UI\Controls\ValueFilter.cs" />

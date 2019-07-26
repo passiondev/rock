@@ -177,19 +177,36 @@ namespace Rock.Lava
                 return string.Empty;
             }
 
+            var numOfImages = 0;
             var inputString = input.ToString();
+
+            // Count images before we strip HTML
+            if ( secondsPerImage > 0 )
+            {
+                numOfImages = Regex.Matches( inputString, "<img" ).Count;
+            }
+
+            inputString = inputString.StripHtml();
 
             var wordsPerSecond = wordPerMinute / 60;
             var wordsInString = inputString.WordCount();
 
             var readTimeInSeconds = wordsInString / wordsPerSecond;
 
-            // Get number of image tags in string
-            if ( secondsPerImage > 0 )
-            {
-                var numOfImages = Regex.Matches( inputString, "<img" ).Count;
+            // Adjust the read time for images. We will start with the provided seconds per image (default 12) and subject a second for each additional image until we reach 10 then every image is 3 seconds.
+            // https://blog.medium.com/read-time-and-you-bc2048ab620c
+            var adjustedSecondsPerImage = secondsPerImage;
 
-                readTimeInSeconds = readTimeInSeconds + ( numOfImages * secondsPerImage );
+            for ( int i = 0; i < numOfImages; i++ )
+            {
+                if ( i < ( secondsPerImage -2 ) && ( secondsPerImage - 2 ) > 0 )
+                {
+                    readTimeInSeconds = readTimeInSeconds + ( secondsPerImage - i);
+                }
+                else
+                {
+                    readTimeInSeconds = readTimeInSeconds + 3;
+                }
             }
 
             // Format the results
@@ -213,13 +230,75 @@ namespace Rock.Lava
             else if ( readTimeInSeconds > 60 )
             {
                 // Display in mins
-                return $"{"min".ToQuantity( readTime.Minutes )}";
+
+                var remainderSeconds = readTimeInSeconds - ( readTime.Minutes * 60 );
+
+                if ( remainderSeconds > 30 )
+                {
+                    return $"{"min".ToQuantity( readTime.Minutes + 1 )}";
+                }
+                else
+                {
+                    return $"{"min".ToQuantity( readTime.Minutes )}";
+                }
             }
             else
             {
                 // Display in seconds
                 return $"{"sec".ToQuantity(readTime.Seconds)}";
             }
+        }
+
+        /// <summary>
+        /// Returns a MD5 hash of the string
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <returns></returns>
+        public static string Md5( string input )
+        {
+            return input.Md5Hash();
+        }
+
+        /// <summary>
+        /// Returns a SHA1 hash of the string
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <returns></returns>
+        public static string Sha1( string input )
+        {
+            return input.Sha1Hash();
+        }
+
+        /// <summary>
+        /// Returns a SHA254 hash of the string
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <returns></returns>
+        public static string Sha256( string input )
+        {
+            return input.Sha256Hash();
+        }
+
+        /// <summary>
+        /// Returns a hash message authentication code using SHA1
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <param name="key">The key.</param>
+        /// <returns></returns>
+        public static string HmacSha1( string input, string key )
+        {
+            return input.HmacSha1Hash( key );
+        }
+
+        /// <summary>
+        /// Returns a hash message authentication code using SHA256
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <param name="key">The key.</param>
+        /// <returns></returns>
+        public static string HmacSha256( string input, string key )
+        {
+            return input.HmacSha256Hash( key );
         }
 
         /// <summary>
@@ -1043,6 +1122,23 @@ namespace Rock.Lava
 
             return Liquid.UseRubyDateFormat ? inputDateTime.Value.ToStrFTime( format ).Trim() : inputDateTime.Value.ToString( format ).Trim();
         }
+
+
+        /// <summary>
+        /// Current datetime.
+        /// </summary>
+        /// <param name="input">The input.</param>
+        /// <returns></returns>
+        public static DateTime? Date( string input )
+        {
+            if (input != "Now" )
+            {
+                return null;
+            }
+
+            return RockDateTime.Now;
+        }
+
 
         /// <summary>
         /// Sundays the date.
