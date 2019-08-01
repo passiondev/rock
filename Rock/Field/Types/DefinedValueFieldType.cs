@@ -391,11 +391,12 @@ namespace Rock.Field.Types
         /// </returns>
         public override Control EditControl( Dictionary<string, ConfigurationValue> configurationValues, string id )
         {
-            ListControl editControl;
+            Control editControl;
 
             bool useDescription = configurationValues != null && configurationValues.ContainsKey( DISPLAY_DESCRIPTION ) && configurationValues[DISPLAY_DESCRIPTION].Value.AsBoolean();
             int? definedTypeId = configurationValues != null && configurationValues.ContainsKey( DEFINED_TYPE_KEY ) ? configurationValues[DEFINED_TYPE_KEY].Value.AsIntegerOrNull() : null;
-            var repeateColumns = ( configurationValues != null && configurationValues.ContainsKey( REPEAT_COLUMNS_KEY ) ? configurationValues[REPEAT_COLUMNS_KEY].Value.AsIntegerOrNull() : null ) ?? 4;
+            int repeateColumns = ( configurationValues != null && configurationValues.ContainsKey( REPEAT_COLUMNS_KEY ) ? configurationValues[REPEAT_COLUMNS_KEY].Value.AsIntegerOrNull() : null ) ?? 4;
+            bool allowAdd = configurationValues != null && configurationValues.ContainsKey( ALLOW_ADDING_NEW_VALUES_KEY ) ? configurationValues[ALLOW_ADDING_NEW_VALUES_KEY].Value.AsBoolean() : false;
 
             if ( definedTypeId.HasValue )
             {
@@ -415,10 +416,17 @@ namespace Rock.Field.Types
             }
             else
             {
-                editControl = new DefinedValuePicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
-                if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                if ( allowAdd )
                 {
-                    ( ( DefinedValuePicker ) editControl ).EnhanceForLongLists = true;
+                    editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, AllowAddingNewValues = allowAdd };
+                }
+                else
+                {
+                    editControl = new DefinedValuePicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
+                    if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                    {
+                        ( ( DefinedValuePicker ) editControl ).EnhanceForLongLists = true;
+                    }
                 }
             }
 
@@ -446,10 +454,15 @@ namespace Rock.Field.Types
             var definedValueIdList = new List<int>();
 
             var definedValuePicker = control as IDefinedValuePicker;
+            var definedValuePickerWithAdd = control as IDefinedValuePickerWithAdd;
 
             if ( definedValuePicker != null )
             {
                 definedValueIdList = definedValuePicker.SelectedDefinedValuesId.ToList();
+            }
+            else if ( definedValuePickerWithAdd != null )
+            {
+                definedValueIdList = definedValuePickerWithAdd.SelectedDefinedValuesId.ToList();
             }
 
             var guids = new List<Guid>();
