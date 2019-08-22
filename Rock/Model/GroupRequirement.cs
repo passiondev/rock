@@ -177,6 +177,12 @@ namespace Rock.Model
             }
         }
 
+        private class PersonIncludedResult
+        {
+            public int PersonId { get; set; }
+            public bool Included { get; set; }
+        }
+
         /// <summary>
         /// Returns a list of each person and their GroupRequiremnt status for this group requirement
         /// </summary>
@@ -191,13 +197,13 @@ namespace Rock.Model
             if ( ( this.GroupRoleId != null ) && ( groupRoleId != null ) && ( this.GroupRoleId != groupRoleId ) )
             {
                 // if this GroupRequirement is for a specific role, the groupRole we are checking for is something different
-                var result = personQry.ToList().Select( a =>
-                    new PersonGroupRequirementStatus
-                    {
-                        PersonId = a.Id,
-                        GroupRequirement = this,
-                        MeetsGroupRequirement = MeetsGroupRequirement.NotApplicable
-                    } );
+                var result = personQry.Select( p => p.Id ).ToList().Select( a =>
+                     new PersonGroupRequirementStatus
+                     {
+                         PersonId = Id,
+                         GroupRequirement = this,
+                         MeetsGroupRequirement = MeetsGroupRequirement.NotApplicable
+                     } );
 
                 return result;
             }
@@ -207,11 +213,11 @@ namespace Rock.Model
                 var errorMessages = new List<string>();
                 var personService = new PersonService( rockContext );
                 var paramExpression = personService.ParameterExpression;
-                IQueryable<Person> warningDataViewQry = null;
+                List<int> warningDataViewPersonIdList = null;
                 if ( this.GroupRequirementType.WarningDataViewId.HasValue )
                 {
                     var warningDataViewWhereExpression = this.GroupRequirementType.WarningDataView.GetExpression( personService, paramExpression, out errorMessages );
-                    warningDataViewQry = personService.Get( paramExpression, warningDataViewWhereExpression );
+                    warningDataViewPersonIdList = personService.Get( paramExpression, warningDataViewWhereExpression ).Select( a => a.Id ).ToList();
                 }
 
                 if ( this.GroupRequirementType.DataViewId.HasValue )
@@ -220,53 +226,56 @@ namespace Rock.Model
                     var dataViewQry = personService.Get( paramExpression, dataViewWhereExpression );
                     if ( dataViewQry != null )
                     {
-                        var personWithRequirements = from p in personQry
-                                                     join d in dataViewQry on p equals d into oj
-                                                     from d in oj.DefaultIfEmpty()
-                                                     select new { PersonId = p.Id, Included = d != null, WarningIncluded = false };
+                        var personWithRequirementsQuery = from p in personQry
+                                                          join d in dataViewQry on p equals d into oj
+                                                          from d in oj.DefaultIfEmpty()
+                                                          select new PersonIncludedResult { PersonId = p.Id, Included = d != null };
 
-                        // if a Warning Database was specified, set the WarningIncluded flag to true if they are included in the Warning Dataview
-                        if ( warningDataViewQry != null )
+                        var personWithRequirementsList = personWithRequirementsQuery.Select( p => new PersonIncludedResult { PersonId = p.PersonId, Included = p.Included } ).ToList();
+
+                        var result = personWithRequirementsList.Select( a =>
                         {
-                            personWithRequirements = personWithRequirements.Select( a => new
-                            {
-                                a.PersonId,
-                                a.Included,
-                                WarningIncluded = warningDataViewQry.Any( w => w.Id == a.PersonId )
-                            } );
-                        }
-
-                        var result = personWithRequirements.ToList().Select( a =>
-                            new PersonGroupRequirementStatus
+                            var personGroupRequirementStatus = new PersonGroupRequirementStatus
                             {
                                 PersonId = a.PersonId,
-                                GroupRequirement = this,
-                                MeetsGroupRequirement = a.Included
-                                    ? ( a.WarningIncluded ? MeetsGroupRequirement.MeetsWithWarning : MeetsGroupRequirement.Meets )
-                                    : MeetsGroupRequirement.NotMet
-                            } );
+                                GroupRequirement = this
+                            };
+
+                            var hasWarning = warningDataViewPersonIdList?.Contains( a.PersonId ) == true;
+
+                            if ( a.Included )
+                            {
+                                if ( hasWarning )
+                                {
+                                    personGroupRequirementStatus.MeetsGroupRequirement = MeetsGroupRequirement.MeetsWithWarning;
+                                }
+                                else
+                                {
+                                    personGroupRequirementStatus.MeetsGroupRequirement = MeetsGroupRequirement.Meets;
+                                }
+                            }
+                            else
+                            {
+                                personGroupRequirementStatus.MeetsGroupRequirement = MeetsGroupRequirement.NotMet;
+                            }
+
+                            return personGroupRequirementStatus;
+                        }
+                        );
 
                         return result;
                     }
                 }
                 else
                 {
-                    var personWithRequirements = personQry.Select( p => new { PersonId = p.Id, WarningIncluded = false } );
-                    if ( warningDataViewQry != null )
-                    {
-                        personWithRequirements = personWithRequirements.Select( a => new
-                        {
-                            a.PersonId,
-                            WarningIncluded = warningDataViewQry.Any( w => w.Id == a.PersonId )
-                        } );
-                    }
+                    var personWithIdRequirements = personQry.Select( p => p.Id );
 
-                    var result = personWithRequirements.ToList().Select( a =>
+                    var result = personWithIdRequirements.ToList().Select( a =>
                             new PersonGroupRequirementStatus
                             {
-                                PersonId = a.PersonId,
+                                PersonId = a,
                                 GroupRequirement = this,
-                                MeetsGroupRequirement = a.WarningIncluded ? MeetsGroupRequirement.MeetsWithWarning : MeetsGroupRequirement.Meets
+                                MeetsGroupRequirement = warningDataViewPersonIdList.Contains(a) == true ? MeetsGroupRequirement.MeetsWithWarning : MeetsGroupRequirement.Meets
                             } );
 
                     return result;
@@ -485,6 +494,8 @@ namespace Rock.Model
                 }
             }
         }
+
+
 
         #endregion
     }
