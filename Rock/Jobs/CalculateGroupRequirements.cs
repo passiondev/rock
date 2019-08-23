@@ -115,7 +115,7 @@ namespace Rock.Jobs
                         }
                         else
                         {
-                            // shouldn't happen, but grouprequirement doesn't have a groupId or a GroupTypeId
+                            // shouldn't happen, but Group Requirement doesn't have a groupId or a GroupTypeId
                             break;
                         }
 
@@ -130,7 +130,7 @@ namespace Rock.Jobs
                             using ( var rockContextUpdate = new RockContext() )
                             {
                                 groupRequirement.UpdateGroupMemberRequirementResult( rockContextUpdate, result.PersonId, group.Id, result.MeetsGroupRequirement );
-                                rockContextUpdate.SaveChanges( true );
+                                rockContextUpdate.SaveChanges();
                             }
                         }
                     }
