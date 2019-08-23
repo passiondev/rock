@@ -18,7 +18,6 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Data.Entity.SqlServer;
-using System.Diagnostics;
 using System.Linq;
 
 using Quartz;
@@ -65,7 +64,7 @@ namespace Rock.Jobs
             var calculationExceptions = new List<Exception>();
             List<int> groupRequirementsCalculatedPersonIds = new List<int>();
 
-            foreach ( var groupRequirement in groupRequirementQry.Include( i => i.GroupRequirementType ).AsNoTracking().ToList() )
+            foreach ( var groupRequirement in groupRequirementQry.Include( i => i.GroupRequirementType ).Include( a => a.GroupRequirementType.DataView ).Include( a => a.GroupRequirementType.WarningDataView ).AsNoTracking().ToList() )
             {
                 var groupQuery = groupService.Queryable();
                 if ( groupRequirement.GroupId.HasValue )
@@ -86,9 +85,7 @@ namespace Rock.Jobs
                 var groupCount = groupList.Count();
                 foreach ( var group in groupList )
                 {
-                    Stopwatch stopwatchGroup = Stopwatch.StartNew();
-                    var stopWatchUpdateResults = new List<double>();
-                    var stopWatchSaveChangesResults = new List<double>();
+                    context.UpdateLastStatusMessage( $"Calculating group requirement {groupRequirement.GroupRequirementType.Name} for {group.Name}" );
                     try
                     {
                         var currentDateTime = RockDateTime.Now;
@@ -106,9 +103,7 @@ namespace Rock.Jobs
                             qryGroupMemberRequirementsAlreadyOK = qryGroupMemberRequirementsAlreadyOK.Where( a => a.RequirementMetDateTime.HasValue );
                         }
 
-
-
-                        var groupMemberQry = groupMemberService.Queryable();//.Where( a => ( groupRequirement.GroupId.HasValue && groupRequirement.GroupId == a.GroupId ) || ( groupRequirement.GroupTypeId.HasValue && groupRequirement.GroupTypeId == a.Group.GroupTypeId ) && a.GroupId == group.Id ).AsNoTracking();
+                        var groupMemberQry = groupMemberService.Queryable();
 
                         if ( groupRequirement.GroupId.HasValue )
                         {
@@ -129,45 +124,24 @@ namespace Rock.Jobs
 
                         var results = groupRequirement.PersonQueryableMeetsGroupRequirement( rockContext, personQry, group.Id, groupRequirement.GroupRoleId ).ToList();
                         groupRequirementsCalculatedPersonIds.AddRange( results.Select( a => a.PersonId ).Distinct() );
-
                         foreach ( var result in results )
                         {
-                            double stopWatchUpdateResultMS;
-                            double stopwatchSaveChangesMS;
-                            // use a fresh rockContext per Update so that ChangeTracker doesn't get bogged down
-                            var rockContextUpdate = new RockContext();
-                            var stopWatchUpdateResult = Stopwatch.StartNew();
-                            groupRequirement.UpdateGroupMemberRequirementResult( rockContextUpdate, result.PersonId, group.Id, result.MeetsGroupRequirement );
-                            stopWatchUpdateResult.Stop();
-                            stopWatchUpdateResultMS = stopWatchUpdateResult.Elapsed.TotalMilliseconds;
-
-                            var stopwatchSaveChanges = Stopwatch.StartNew();
-                            rockContextUpdate.SaveChanges();
-
-                            stopwatchSaveChanges.Stop();
-                            stopwatchSaveChangesMS = stopwatchSaveChanges.Elapsed.TotalMilliseconds;
-
-                            stopWatchUpdateResults.Add( stopWatchUpdateResultMS );
-                            stopWatchSaveChangesResults.Add( stopwatchSaveChangesMS );
+                            // use a fresh rockContext per result so that ChangeTracker doesn't get bogged down
+                            using ( var rockContextUpdate = new RockContext() )
+                            {
+                                groupRequirement.UpdateGroupMemberRequirementResult( rockContextUpdate, result.PersonId, group.Id, result.MeetsGroupRequirement );
+                                rockContextUpdate.SaveChanges( true );
+                            }
                         }
                     }
                     catch ( Exception ex )
                     {
                         calculationExceptions.Add( new Exception( string.Format( "Exception when calculating group requirement: {0} ", groupRequirement ), ex ) );
                     }
-
-                    stopwatchGroup.Stop();
-                    var stopWatchResultsMessage = string.Empty;
-                    if ( stopWatchUpdateResults.Any() )
-                    {
-                        stopWatchResultsMessage = $", stopWatchUpdateResults.Count:{stopWatchUpdateResults.Count}, stopWatchUpdateResults.Average:[{stopWatchUpdateResults.Average()}ms], stopWatchSaveChangesResults.Average: [{stopWatchSaveChangesResults.Average()}]ms";
-                    }
-
-                    Debug.WriteLine( $"[{stopwatchGroup.Elapsed.TotalMilliseconds}ms] {group.Name}{stopWatchResultsMessage}" );
                 }
             }
 
-            context.Result = $"{groupRequirementQry.Count()} group member requirements re-calculated for {groupRequirementsCalculatedPersonIds.Distinct().Count()} people";
+            context.UpdateLastStatusMessage( $"{groupRequirementQry.Count()} group member requirements re-calculated for {groupRequirementsCalculatedPersonIds.Distinct().Count()} people" );
 
             if ( calculationExceptions.Any() )
             {

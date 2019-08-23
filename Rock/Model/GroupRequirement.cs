@@ -217,7 +217,7 @@ namespace Rock.Model
                 if ( this.GroupRequirementType.WarningDataViewId.HasValue )
                 {
                     var warningDataViewWhereExpression = this.GroupRequirementType.WarningDataView.GetExpression( personService, paramExpression, out errorMessages );
-                    warningDataViewPersonIdList = personService.Get( paramExpression, warningDataViewWhereExpression ).Select( a => a.Id ).ToList();
+                    warningDataViewPersonIdList = personService.Get( paramExpression, warningDataViewWhereExpression ).Where( a => personQry.Any( p => p.Id == a.Id ) ).Select( a => a.Id ).ToList();
                 }
 
                 if ( this.GroupRequirementType.DataViewId.HasValue )
@@ -227,7 +227,7 @@ namespace Rock.Model
                     if ( dataViewQry != null )
                     {
                         var personWithRequirementsQuery = from p in personQry
-                                                          join d in dataViewQry on p equals d into oj
+                                                          join d in dataViewQry on p.Id equals d.Id into oj
                                                           from d in oj.DefaultIfEmpty()
                                                           select new PersonIncludedResult { PersonId = p.Id, Included = d != null };
 
@@ -275,7 +275,7 @@ namespace Rock.Model
                             {
                                 PersonId = a,
                                 GroupRequirement = this,
-                                MeetsGroupRequirement = warningDataViewPersonIdList.Contains(a) == true ? MeetsGroupRequirement.MeetsWithWarning : MeetsGroupRequirement.Meets
+                                MeetsGroupRequirement = warningDataViewPersonIdList.Contains( a ) == true ? MeetsGroupRequirement.MeetsWithWarning : MeetsGroupRequirement.Meets
                             } );
 
                     return result;
@@ -441,18 +441,30 @@ namespace Rock.Model
             var currentDateTime = RockDateTime.Now;
             GroupMemberRequirementService groupMemberRequirementService = new GroupMemberRequirementService( rockContext );
             var groupMemberService = new GroupMemberService( rockContext );
-            var groupMemberQry = groupMemberService.Queryable( true ).Where( a => a.PersonId == personId && a.GroupId == groupId
-                && (
-                    ( groupRequirement.GroupId.HasValue && groupRequirement.GroupId == a.GroupId )
-                    ||
-                    ( groupRequirement.GroupTypeId.HasValue && groupRequirement.GroupTypeId == a.Group.GroupTypeId )
-                   ) );
+            var groupMemberQry = groupMemberService.Queryable( true ).Where( a => a.PersonId == personId && a.GroupId == groupId );
+
+            if ( groupRequirement.GroupId.HasValue )
+            {
+                groupMemberQry = groupMemberQry.Where( g => g.Id == groupRequirement.GroupId );
+            }
+            else if ( groupRequirement.GroupTypeId.HasValue )
+            {
+                groupMemberQry = groupMemberQry.Where( g => g.Group.GroupTypeId == groupRequirement.GroupTypeId );
+            }
+            else
+            {
+                // shouldn't happen, but grouprequirement doesn't have a groupId or a GroupTypeId
+                return;
+            }
+
+
 
             if ( this.GroupRoleId != null )
             {
                 groupMemberQry = groupMemberQry.Where( a => a.GroupRoleId == this.GroupRoleId );
             }
 
+            // just in case the same person is in the same group multiple times, get a list of the groupMember records for this person
             foreach ( var groupMemberId in groupMemberQry.Select( a => a.Id ) )
             {
                 var groupMemberRequirement = groupMemberRequirementService.Queryable().Where( a => a.GroupMemberId == groupMemberId && a.GroupRequirementId == groupRequirement.Id ).FirstOrDefault();
@@ -494,8 +506,6 @@ namespace Rock.Model
                 }
             }
         }
-
-
 
         #endregion
     }

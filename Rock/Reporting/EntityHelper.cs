@@ -131,6 +131,9 @@ namespace Rock.Reporting
             return GetEntityFields( entity?.GetType(), entity, includeOnlyReportingFields, limitToFilterableFields );
         }
 
+        [ThreadStatic]
+        private static Dictionary<string, List<EntityField>> _entityFieldsLookup = null;
+
         /// <summary>
         /// Gets the entity fields for a specific Entity
         /// </summary>
@@ -147,6 +150,15 @@ namespace Rock.Reporting
             if ( HttpContext.Current != null )
             {
                 entityFields = HttpContext.Current.Items[EntityHelper.GetCacheKey( entityType, entity, includeOnlyReportingFields, limitToFilterableFields )] as List<EntityField>;
+                if ( entityFields != null )
+                {
+                    return entityFields;
+                }
+            }
+            else
+            {
+                _entityFieldsLookup = _entityFieldsLookup ?? new Dictionary<string, List<EntityField>>();
+                entityFields = _entityFieldsLookup.GetValueOrNull( EntityHelper.GetCacheKey( entityType, entity, includeOnlyReportingFields, limitToFilterableFields ) );
                 if ( entityFields != null )
                 {
                     return entityFields;
@@ -366,6 +378,10 @@ namespace Rock.Reporting
             if ( HttpContext.Current != null )
             {
                 HttpContext.Current.Items[EntityHelper.GetCacheKey( entityType, entity, includeOnlyReportingFields, limitToFilterableFields )] = sortedFields;
+            }
+            else
+            {
+                _entityFieldsLookup.AddOrReplace( EntityHelper.GetCacheKey( entityType, entity, includeOnlyReportingFields, limitToFilterableFields ), sortedFields );
             }
 
             return sortedFields;
