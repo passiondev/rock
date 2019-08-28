@@ -15,11 +15,12 @@
 // </copyright>
 //
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-
+using Rock.Field.Types;
 using Rock.Web.Cache;
 
 namespace Rock.Web.UI.Controls
@@ -150,7 +151,7 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether this <see cref="RockTextBox"/> is required.
+        /// Gets or sets a value indicating whether an Address must be entered.
         /// </summary>
         /// <value>
         ///   <c>true</c> if required; otherwise, <c>false</c>.
@@ -249,6 +250,21 @@ namespace Rock.Web.UI.Controls
         private string _orgState = string.Empty;
         private string _orgCountry = string.Empty;
 
+        private bool _AddressLine1IsRequired = false;
+        private bool _AddressLine2IsRequired = false;
+        private bool _CityOrTownIsRequired = false;
+        private bool _LocalityOrCountyIsRequired = false;
+        private bool _StateOrRegionIsRequired = false;
+        private bool _PostalCodeIsRequired = false;
+
+        private string _CityLabel = "City";
+        private string _LocalityLabel = "County";
+        private string _StateLabel = "Region";
+        private string _PostalCodeLabel = "Postal Code";
+
+        private bool _ShowAddressLine2 = true;
+        private bool _ShowLocality = true;
+
         #endregion
 
         #region Controls
@@ -267,10 +283,10 @@ namespace Rock.Web.UI.Controls
         #region Properties
 
         /// <summary>
-        /// Gets or sets the street1.
+        /// Gets or sets the value of the Address Line 1 field.
         /// </summary>
         /// <value>
-        /// The street1.
+        /// This field stores the most significant portion of the postal address: Street Address or PO Box.
         /// </value>
         public string Street1
         {
@@ -288,10 +304,10 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Gets or sets the street2.
+        /// Gets or sets the value of the Address Line 2 field.
         /// </summary>
         /// <value>
-        /// The street2.
+        /// This field stores additional detail about the postal address: Apartment/Building/Block information
         /// </value>
         public string Street2
         {
@@ -330,7 +346,8 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Gets or sets the county.
+        /// Gets or sets the locality of the postal address.
+        /// Locality refers to a subdivision of the state or region, such as a district or county.
         /// </summary>
         /// <value>
         /// The county.
@@ -351,7 +368,7 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Gets or sets the state.
+        /// Gets or sets the state, province or region of the postal address.
         /// </summary>
         /// <value>
         /// The state.
@@ -433,10 +450,11 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether [show address line2].
+        /// Gets or sets a value indicating whether the Address Line 2 field should be shown.
+        /// This setting has no effect if Address Line 2 is required for the selected Country.
         /// </summary>
         /// <value>
-        ///   <c>true</c> if [show address line2]; otherwise, <c>false</c>.
+        ///   <c>true</c> if the Address Line 2 field should be visible; otherwise, <c>false</c>.
         /// </value>
         public bool ShowAddressLine2
         {
@@ -452,7 +470,8 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether [show county].
+        /// Gets or sets a value indicating whether the Locality field should be shown.
+        /// This setting has no effect if Locality is required for the selected Country.
         /// </summary>
         /// <value>
         ///   <c>true</c> if [show county]; otherwise, <c>false</c>.
@@ -577,6 +596,31 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
+        /// </summary>
+        /// <param name="e">An <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+        protected override void OnLoad( EventArgs e )
+        {
+            base.OnLoad( e );
+
+            BindCountries();
+
+            var selectedCountry = _ddlCountry.SelectedValue;
+
+            LoadCountryConfiguration( selectedCountry );
+
+            BindStates( selectedCountry );
+
+            string defaultState = GetDefaultState();
+
+            _ddlState.SetValue( defaultState );
+
+            _tbState.Text = defaultState;
+
+            ApplyCountryConfigurationToControls();
+        }
+
+        /// <summary>
         /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
         /// </summary>
         protected override void CreateChildControls()
@@ -587,32 +631,40 @@ namespace Rock.Web.UI.Controls
 
             this.Attributes["data-itemlabel"] = this.Label != string.Empty ? this.Label : "Address";
             this.Attributes["data-required"] = this.Required.ToTrueFalse().ToLower();
+            
+            _ddlCountry = new RockDropDownList();
+            _ddlCountry.EnhanceForLongLists = true;
+            Controls.Add( _ddlCountry );
+            _ddlCountry.ID = "ddlCountry";
+            _ddlCountry.DataValueField = "Id";
+            _ddlCountry.AutoPostBack = true;
+            _ddlCountry.SelectedIndexChanged += _ddlCountry_SelectedIndexChanged;
+            _ddlCountry.CssClass = "form-control js-country";
 
             _tbStreet1 = new TextBox();
             Controls.Add( _tbStreet1 );
             _tbStreet1.ID = "tbStreet1";
-            _tbStreet1.CssClass = "form-control js-street1";
-
+            _tbStreet1.CssClass = "form-control js-address-field";
 
             _tbStreet2 = new TextBox();
             Controls.Add( _tbStreet2 );
             _tbStreet2.ID = "tbStreet2";
-            _tbStreet2.CssClass = "form-control";
+            _tbStreet2.CssClass = "form-control js-address-field";
 
             _tbCity = new TextBox();
             Controls.Add( _tbCity );
             _tbCity.ID = "tbCity";
-            _tbCity.CssClass = "form-control js-city";
+            _tbCity.CssClass = "form-control js-address-field";
 
             _tbCounty = new TextBox();
             Controls.Add( _tbCounty );
             _tbCounty.ID = "tbCounty";
-            _tbCounty.CssClass = "form-control";
+            _tbCounty.CssClass = "form-control js-address-field";
 
             _tbState = new TextBox();
             Controls.Add( _tbState );
             _tbState.ID = "tbState";
-            _tbState.CssClass = "form-control js-state";
+            _tbState.CssClass = "form-control js-address-field";
 
             _ddlState = new DropDownList();
             Controls.Add( _ddlState );
@@ -623,18 +675,9 @@ namespace Rock.Web.UI.Controls
             _tbPostalCode = new TextBox();
             Controls.Add( _tbPostalCode );
             _tbPostalCode.ID = "tbPostalCode";
-            _tbPostalCode.CssClass = "form-control";
+            _tbPostalCode.CssClass = "form-control js-postcode js-address-field";
 
-            _ddlCountry = new RockDropDownList();
-            _ddlCountry.EnhanceForLongLists = true;
-            Controls.Add( _ddlCountry );
-            _ddlCountry.ID = "ddlCountry";
-            _ddlCountry.DataValueField = "Id";
-            _ddlCountry.AutoPostBack = true;
-            _ddlCountry.SelectedIndexChanged += _ddlCountry_SelectedIndexChanged;
-            _ddlCountry.CssClass = "form-control";
-
-            // add custom validator
+            // Add custom validator
             CustomValidator = new CustomValidator();
             CustomValidator.ID = this.ID + "_cfv";
             CustomValidator.ClientValidationFunction = "Rock.controls.addressControl.clientValidate";
@@ -644,17 +687,6 @@ namespace Rock.Web.UI.Controls
             CustomValidator.Display = ValidatorDisplay.Dynamic;
             CustomValidator.ValidationGroup = ValidationGroup;
             Controls.Add( CustomValidator );
-
-            string defaultCountry = GetDefaultCountry();
-            string defaultState = GetDefaultState();
-
-            BindCountries();
-            _ddlCountry.SetValue( defaultCountry );
-
-            BindStates( defaultCountry );
-            _ddlState.SetValue( defaultState );
-
-            _tbState.Text = defaultState;
         }
 
         /// <summary>
@@ -670,118 +702,190 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
+        /// Load the address field settings for the specified country.
+        /// </summary>
+        /// <param name="countryCode"></param>
+        private void LoadCountryConfiguration( string countryCode )
+        {
+            var countryValue = DefinedTypeCache.Get( new Guid( SystemGuid.DefinedType.LOCATION_COUNTRIES ) )
+                .DefinedValues
+                .Where( v => v.Value.Equals( countryCode, StringComparison.OrdinalIgnoreCase ) )
+                .FirstOrDefault();
+
+            var requiredParts = new List<PostalAddressPartSpecifier>();
+
+            if ( countryValue == null )
+            {
+                _CityLabel = "City";
+                _LocalityLabel = "County";
+                _StateLabel = "Region";
+                _PostalCodeLabel = "Postal Code";
+            }
+            else
+            {
+                _CityLabel = countryValue.GetAttributeValue( "CityLabel" );
+                _LocalityLabel = countryValue.GetAttributeValue( "LocalityLabel" );
+                _StateLabel = countryValue.GetAttributeValue( "StateLabel" );
+                _PostalCodeLabel = countryValue.GetAttributeValue( "PostalCodeLabel" );
+
+                var addressPartsField = new AddressPartsFieldType();
+
+                requiredParts = addressPartsField.GetDeserializedValue( countryValue.GetAttributeValue( "RequiredAddressFields" ) );
+            }
+
+            _AddressLine1IsRequired = requiredParts.Contains( PostalAddressPartSpecifier.AddressLine1 );
+            _AddressLine2IsRequired = requiredParts.Contains( PostalAddressPartSpecifier.AddressLine2 );
+            _CityOrTownIsRequired = requiredParts.Contains( PostalAddressPartSpecifier.CityOrTown );
+            _LocalityOrCountyIsRequired = requiredParts.Contains( PostalAddressPartSpecifier.LocalityOrCounty );
+            _StateOrRegionIsRequired = requiredParts.Contains( PostalAddressPartSpecifier.StateOrRegion );
+            _PostalCodeIsRequired = requiredParts.Contains( PostalAddressPartSpecifier.PostalCode );
+
+            // Show Address Line 2 if it is required, or if indicated by both the control setting and the country setting.
+            if ( _AddressLine2IsRequired )
+            {
+                _ShowAddressLine2 = true;
+            }
+            else
+            {
+                _ShowAddressLine2 = this.ShowAddressLine2 && countryValue.GetAttributeValue( "ShowAddressLine2" ).AsBoolean();
+            }
+
+            // Show Locality it is required, or if indicated by the control setting.
+            _ShowLocality = this.ShowCounty || _LocalityOrCountyIsRequired;
+        }
+
+        /// <summary>
+        /// Set the Required status of the address controls according to internal settings.
+        /// </summary>
+        private void ApplyRequiredFieldConfiguration()
+        {
+            if ( this.Required )
+            {
+                _tbStreet1.CssClass += ( _AddressLine1IsRequired ? " required" : string.Empty );
+                _tbStreet2.CssClass += ( _AddressLine2IsRequired ? " required" : string.Empty );
+                _tbCity.CssClass += ( _CityOrTownIsRequired ? " required" : string.Empty );
+                _tbCounty.CssClass += ( _LocalityOrCountyIsRequired ? " required" : string.Empty );
+                _tbState.CssClass += ( _StateOrRegionIsRequired ? " required" : string.Empty );
+                _tbPostalCode.CssClass += ( _PostalCodeIsRequired ? " required" : string.Empty );
+            }
+        }
+
+        /// <summary>
+        /// Set the configuration of the address controls according to internal settings.
+        /// </summary>
+        private void ApplyCountryConfigurationToControls()
+        {
+            _tbStreet1.Attributes["field-name"] = _ShowAddressLine2 ? "Address Line 1" : "Address";
+            _tbStreet1.Attributes["placeholder"] = _ShowAddressLine2 ? "Address Line 1" : "Address";
+            _tbStreet1.Attributes["autocomplete"] = _ShowAddressLine2 ? "address-line1" : "street-address";
+
+            _tbStreet2.Attributes["field-name"] = "Address Line 2";
+            _tbCity.Attributes["field-name"] = _CityLabel;
+            _tbCounty.Attributes["field-name"] = _LocalityLabel;
+            _tbState.Attributes["field-name"] = _StateLabel;
+            _ddlState.Attributes["field-name"] = _StateLabel;
+            _tbPostalCode.Attributes["field-name"] = _PostalCodeLabel;
+
+            _tbCity.Attributes["placeholder"] = _CityLabel;
+            _tbCounty.Attributes["placeholder"] = _LocalityLabel;
+            _tbState.Attributes["placeholder"] = _StateLabel;
+            _ddlState.Attributes["placeholder"] = _StateLabel;
+            _tbPostalCode.Attributes["placeholder"] = _PostalCodeLabel;
+        }
+
+        /// <summary>
         /// Renders the base control.
         /// </summary>
         /// <param name="writer">The writer.</param>
         public void RenderBaseControl( HtmlTextWriter writer )
         {
-            if ( this.Visible )
+            if ( !this.Visible )
             {
-                bool showAddressLine2 = ShowAddressLine2;
-                string cityLabel = "City";
-                string stateLabel = "Region";
-                string postalCodeLabel = "Postal Code";
+                return;
+            }
 
-                var countryValue = DefinedTypeCache.Get( new Guid( SystemGuid.DefinedType.LOCATION_COUNTRIES ) )
-                    .DefinedValues
-                    .Where( v => v.Value.Equals( _ddlCountry.SelectedValue, StringComparison.OrdinalIgnoreCase ) )
-                    .FirstOrDefault();
-                if ( countryValue != null )
-                {
-                    cityLabel = countryValue.GetAttributeValue( "CityLabel" );
-                    stateLabel = countryValue.GetAttributeValue( "StateLabel" );
-                    postalCodeLabel = countryValue.GetAttributeValue( "PostalCodeLabel" );
-                    
-                    // only show Address Line 2 if this Control's ShowAddressLine2 and the Country's ShowAddressLine2 are both true
-                    if ( showAddressLine2 )
-                    {
-                        showAddressLine2 = countryValue.GetAttributeValue( "ShowAddressLine2" ).AsBoolean();
-                    }
-                }
+            this.ApplyRequiredFieldConfiguration();
 
-                // if this address has a value for Street2, show it regardless of the ShowAddressLine2
-                showAddressLine2 = showAddressLine2 || !string.IsNullOrWhiteSpace(_tbStreet2.Text);
-
-                if ( _ddlCountry.Visible )
-                {
-                    writer.AddAttribute( "class", "form-row" );
-                    writer.RenderBeginTag( HtmlTextWriterTag.Div );
-
-                    writer.AddAttribute( "class", "form-group col-sm-6" );
-                    writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                    _ddlCountry.RenderControl( writer );
-                    writer.RenderEndTag();  // div.form-group
-
-                    writer.AddAttribute( "class", "form-group col-sm-6" );
-                    writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                    writer.RenderEndTag();  // div.form-group
-
-                    writer.RenderEndTag();  // div.row
-                }
-
-                writer.AddAttribute( "class", "js-addressControl" );
-                writer.AddAttribute( "data-required", this.Required.ToTrueFalse().ToLower() );
-                writer.AddAttribute( "data-itemlabel", this.Label != string.Empty ? this.Label : "Address" );
-                writer.AddAttribute( "id", this.ClientID );
-                writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                writer.AddAttribute( "class", "form-group " + ( this.Required ? "required" : string.Empty ) );
-                writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                _tbStreet1.Attributes["placeholder"] = showAddressLine2 ? "Address Line 1" : "Address";
-                _tbStreet1.Attributes["autocomplete"] = showAddressLine2 ? "address-line1" : "street-address";
-                _tbStreet1.RenderControl( writer );
-                writer.RenderEndTag();  // div.form-group
-
-                if ( showAddressLine2 )
-                {
-                    writer.AddAttribute( "class", "form-group" );
-                    writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                    _tbStreet2.Attributes["placeholder"] = "Address Line 2";
-                    _tbStreet2.Attributes["autocomplete"] = "address-line2";
-                    _tbStreet2.RenderControl( writer );
-                    writer.RenderEndTag();  // div.form-group
-                }
-
+            // Country
+            if ( _ddlCountry.Visible )
+            {
                 writer.AddAttribute( "class", "form-row" );
                 writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
-                writer.AddAttribute( "class", ( ShowCounty ? "form-group col-sm-3 " : "form-group col-sm-6 " + ( this.Required ? "required" : string.Empty ) ) );
+                writer.AddAttribute( "class", "form-group col-sm-6" );
                 writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                _tbCity.Attributes["placeholder"] = cityLabel;
-                _tbCity.Attributes["autocomplete"] = "address-level2";
-                _tbCity.RenderControl( writer );
+                _ddlCountry.RenderControl( writer );
                 writer.RenderEndTag();  // div.form-group
 
-                if ( ShowCounty )
-                {
-                    writer.AddAttribute( "class", "form-group col-sm-3" );
-                    writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                    _tbCounty.Attributes["placeholder"] = "County";
-                    _tbCounty.Attributes["autocomplete"] = "country";
-                    _tbCounty.RenderControl( writer );
-                    writer.RenderEndTag();  // div.form-group
-                }
-
-                writer.AddAttribute( "class", "form-group col-sm-3 " + ( this.Required ? "required" : string.Empty ) );
+                writer.AddAttribute( "class", "form-group col-sm-6" );
                 writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                _tbState.Attributes["placeholder"] = stateLabel;
-                _tbState.Attributes["autocomplete"] = "address-level1";
-                _tbState.RenderControl( writer );
-                _ddlState.RenderControl( writer );
                 writer.RenderEndTag();  // div.form-group
 
+                writer.RenderEndTag();  // div.row
+            }
+
+            // Address Fields
+            writer.AddAttribute( "class", "js-addressControl" );
+            writer.AddAttribute( "data-required", this.Required.ToTrueFalse().ToLower() );
+            writer.AddAttribute( "data-itemlabel", this.Label != string.Empty ? this.Label : "Address" );
+            writer.AddAttribute( "id", this.ClientID );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
+
+            writer.AddAttribute( "class", "form-group" );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
+            _tbStreet1.RenderControl( writer );
+            writer.RenderEndTag();  // div.form-group
+
+            // Address Line 2
+            if ( _ShowAddressLine2 )
+            {
+                writer.AddAttribute( "class", "form-group" );
+                writer.RenderBeginTag( HtmlTextWriterTag.Div );
+                _tbStreet2.Attributes["placeholder"] = "Address Line 2";
+                _tbStreet2.Attributes["autocomplete"] = "address-line2";
+                _tbStreet2.RenderControl( writer );
+                writer.RenderEndTag();  // div.form-group
+            }
+
+            // City or Town
+            writer.AddAttribute( "class", "form-row" );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
+            writer.AddAttribute( "class", "form-group" + ( _ShowLocality ? " col-sm-3" : " col-sm-6" ) );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
+            _tbCity.Attributes["autocomplete"] = ( _ShowLocality ? "address-level3" : "address-level2" );
+            _tbCity.RenderControl( writer );
+            writer.RenderEndTag();  // div.form-group
+
+            // Locality or County
+            if ( _ShowLocality )
+            {
                 writer.AddAttribute( "class", "form-group col-sm-3" );
                 writer.RenderBeginTag( HtmlTextWriterTag.Div );
-                _tbPostalCode.Attributes["placeholder"] = postalCodeLabel;
-                _tbPostalCode.Attributes["autocomplete"] = "postal-code";
-                _tbPostalCode.RenderControl( writer );
+                _tbCounty.Attributes["autocomplete"] = "address-level2";
+                _tbCounty.RenderControl( writer );
                 writer.RenderEndTag();  // div.form-group
-
-                writer.RenderEndTag();  // div.form-row
-
-                CustomValidator.RenderControl( writer );
-
-                writer.RenderEndTag();      // div
             }
+
+            // State or Region
+            writer.AddAttribute( "class", "form-group col-sm-3" );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
+            _tbState.Attributes["autocomplete"] = "address-level1";
+            _tbState.RenderControl( writer );
+            _ddlState.RenderControl( writer );
+            writer.RenderEndTag();  // div.form-group
+
+            // Postal Code
+            writer.AddAttribute( "class", "form-group col-sm-3" );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
+            _tbPostalCode.Attributes["autocomplete"] = "postal-code";
+            _tbPostalCode.RenderControl( writer );
+            writer.RenderEndTag();  // div.form-group
+
+            writer.RenderEndTag();  // div.form-row
+
+            CustomValidator.RenderControl( writer );
+
+            writer.RenderEndTag();      // div
         }
 
         #endregion
@@ -815,6 +919,10 @@ namespace Rock.Web.UI.Controls
             {
                 State = selectedStateFromDownDrop;
             }
+
+            LoadCountryConfiguration( _ddlCountry.SelectedValue );
+
+            ApplyCountryConfigurationToControls();
         }
 
         #endregion
@@ -858,8 +966,12 @@ namespace Rock.Web.UI.Controls
             if ( location != null )
             {
                 if ( !string.IsNullOrWhiteSpace( this.Street1 ) ||
-                    !string.IsNullOrWhiteSpace( this.Street2 ) ||
-                    !string.IsNullOrWhiteSpace( this.City ) )
+                     !string.IsNullOrWhiteSpace( this.Street2 ) ||
+                     !string.IsNullOrWhiteSpace( this.City ) ||
+                     !string.IsNullOrWhiteSpace( this.County ) ||
+                     !string.IsNullOrWhiteSpace( this.PostalCode )
+                     || this.State != this.GetDefaultState()
+                     || this.Country != this.GetDefaultCountry() )
                 {
                     location.Country = Country;
                     location.Street1 = Street1;
@@ -871,6 +983,7 @@ namespace Rock.Web.UI.Controls
                 }
                 else
                 {
+                    // No non-default values have been entered, so return an empty location.
                     location.Country = null;
                     location.Street1 = null;
                     location.Street2 = null;
@@ -943,7 +1056,7 @@ namespace Rock.Web.UI.Controls
         /// <param name="country">The country.</param>
         private void BindStates( string country )
         {
-            if (country.IsNullOrWhiteSpace())
+            if ( country.IsNullOrWhiteSpace() )
             {
                 country = GetDefaultCountry();
             }
