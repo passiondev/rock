@@ -63,7 +63,7 @@ namespace RockWeb.Blocks.Steps
         /// <summary>
         /// Keys to use for Block Attributes
         /// </summary>
-        protected static class AttributeKey
+        private static class AttributeKey
         {
             public const string ShowChart = "Show Chart";
             public const string SlidingDateRange = "SlidingDateRange";
@@ -71,29 +71,12 @@ namespace RockWeb.Blocks.Steps
 
         #endregion
 
-        #region Attribute Default Values
-
-        private const string DescriptionTemplateDefaultValue = @"
-<h2>Steps Activity</h2>
-<p>
-    Growth Propensity measures your perceived mindset on a continuum between a growth mindset and
-    fixed mindset. These are two ends of a spectrum about how we view our own capacity and potential.
-</p>
-    {[chart type:'horizontalBar' chartheight:'200px' ]}
-    {% for motivatorThemeScore in MotivatorThemeScores %}
-        [[dataitem label:'{{ motivatorThemeScore.DefinedValue.Value }}' value:'{{ motivatorThemeScore.Value }}' fillcolor:'{{ motivatorThemeScore.DefinedValue | Attribute:'Color' }}' ]]
-        [[enddataitem]]
-    {% endfor %}
-    {[endchart]}
-";
-        #endregion
-
         #region Page Parameter Keys
 
         /// <summary>
         /// Keys to use for Page Parameters
         /// </summary>
-        protected static class PageParameterKey
+        private static class PageParameterKey
         {
             public const string StepProgramId = "ProgramId";
         }
@@ -779,7 +762,7 @@ namespace RockWeb.Blocks.Steps
         /// </summary>
         private void LoadWorkflowTriggerTypesSelectionList()
         {
-            ddlTriggerType.Items.Add( new ListItem( "Program Completed", StepWorkflowTrigger.WorkflowTriggerCondition.IsComplete.ToString() ) );
+            ddlTriggerType.Items.Add( new ListItem( "Step Completed", StepWorkflowTrigger.WorkflowTriggerCondition.IsComplete.ToString() ) );
             ddlTriggerType.Items.Add( new ListItem( "Status Changed", StepWorkflowTrigger.WorkflowTriggerCondition.StatusChanged.ToString() ) );
             ddlTriggerType.Items.Add( new ListItem( "Manual", StepWorkflowTrigger.WorkflowTriggerCondition.Manual.ToString() ) );
         }
@@ -1338,9 +1321,9 @@ namespace RockWeb.Blocks.Steps
             }
 
             // Get chart data and set visibility of related elements.
-            var chartDateRange = SlidingDateRangePicker.CalculateDateRangeFromDelimitedValues( drpSlidingDateRange.DelimitedValues ?? "-1||" );
+            var reportPeriod = new TimePeriod( drpSlidingDateRange.DelimitedValues );
 
-            var chartFactory = this.GetChartJsFactory( stepProgram, chartDateRange.Start, chartDateRange.End );
+            var chartFactory = this.GetChartJsFactory( stepProgram, reportPeriod );
 
             pnlActivityChart.Visible = chartFactory.HasData;
             nbActivityChartMessage.Visible = !chartFactory.HasData;
@@ -1355,7 +1338,7 @@ namespace RockWeb.Blocks.Steps
             RockPage.AddScriptLink( "~/Scripts/moment.min.js", true );
             RockPage.AddScriptLink( "~/Scripts/Chartjs/Chart.js", true );
 
-            var chartDataJson = chartFactory.GetJson();
+            var chartDataJson = chartFactory.GetJson( sizeToFitContainerWidth: true, maintainAspectRatio: false );
 
             string script = string.Format( @"
             var barCtx = $('#{0}')[0].getContext('2d');
@@ -1363,14 +1346,14 @@ namespace RockWeb.Blocks.Steps
                                     chartCanvas.ClientID,
                                     chartDataJson );
 
-            ScriptManager.RegisterStartupScript( this.Page, this.GetType(), "stepProgramActivityBarChartScript", script, true );
+            ScriptManager.RegisterStartupScript( this.Page, this.GetType(), "stepProgramActivityChartScript", script, true );
         }
 
         /// <summary>
         /// Gets a configured factory that creates the data required for the chart.
         /// </summary>
         /// <returns></returns>
-        private ChartJsTimeSeriesDataFactory<ChartJsTimeSeriesDataPoint> GetChartJsFactory( StepProgram program, DateTime? startDate = null, DateTime? endDate = null )
+        private ChartJsTimeSeriesDataFactory<ChartJsTimeSeriesDataPoint> GetChartJsFactory( StepProgram program, TimePeriod reportPeriod )
         {
             var dataContext = new RockContext();
 
@@ -1378,6 +1361,11 @@ namespace RockWeb.Blocks.Steps
 
             // Get all of the completed Steps associated with the current program, grouped by Step Type.
             var stepsCompletedQuery = GetStepsCompletedQuery( programId, dataContext );
+
+            var dateRange = reportPeriod.GetDateRange();
+
+            var startDate = dateRange.Start;
+            var endDate = dateRange.End;
 
             if ( startDate != null )
             {
@@ -1396,26 +1384,54 @@ namespace RockWeb.Blocks.Steps
             // Materialize the result so we can use a newly-constructed DateTime object in the Group function.
             var steps = stepsCompletedQuery.ToList();
 
-            var stepTypeDataPoints = steps
-                .GroupBy( x => new { Month = new DateTime( x.CompletedDateTime.Value.Year, x.CompletedDateTime.Value.Month, 1 ), DatasetName = x.StepType.Name, Order = x.StepType.Order } )
-                .Select( x => new
-                {
-                    DatasetName = x.Key.DatasetName,
-                    DateTime = x.Key.Month,
-                    SortKey = x.Key.Order.ToString(),
-                    Value = x.Count()
-                } )
-                .OrderBy( x => x.SortKey )
-                .ToList();
+            List<StepTypeActivityDataPoint> stepTypeDataPoints;
 
-            var stepTypeDatasets = stepTypeDataPoints.Select( x => x.DatasetName ).Distinct().ToList();
+            // Get the Data Points, scaled according to the currently selected range.
+            ChartJsTimeSeriesTimeScaleSpecifier chartTimeScale;
+
+            if ( reportPeriod.TimeUnit == TimePeriodUnitSpecifier.Year )
+            {
+                // Group by Month
+                chartTimeScale = ChartJsTimeSeriesTimeScaleSpecifier.Month;
+
+                stepTypeDataPoints = steps
+                    .GroupBy( x => new { Month = new DateTime( x.CompletedDateTime.Value.Year, x.CompletedDateTime.Value.Month, 1 ), DatasetName = x.StepType.Name, Order = x.StepType.Order } )
+                    .Select( x => new StepTypeActivityDataPoint
+                    {
+                        StepTypeName = x.Key.DatasetName,
+                        DateTime = x.Key.Month,
+                        SortKey = x.Key.Order.ToString(),
+                        CompletedCount = x.Count()
+                    } )
+                    .OrderBy( x => x.SortKey )
+                    .ToList();
+            }
+            else
+            {
+                // Group by Day
+                chartTimeScale = ChartJsTimeSeriesTimeScaleSpecifier.Day;
+
+                stepTypeDataPoints = steps
+                    .GroupBy( x => new { Day = new DateTime( x.CompletedDateTime.Value.Year, x.CompletedDateTime.Value.Month, x.CompletedDateTime.Value.Day ), DatasetName = x.StepType.Name, Order = x.StepType.Order } )
+                    .Select( x => new StepTypeActivityDataPoint
+                    {
+                        StepTypeName = x.Key.DatasetName,
+                        DateTime = x.Key.Day,
+                        SortKey = x.Key.Order.ToString(),
+                        CompletedCount = x.Count()
+                    } )
+                    .OrderBy( x => x.SortKey )
+                    .ToList();
+            }
+
+            var stepTypeDatasets = stepTypeDataPoints.Select( x => x.StepTypeName ).Distinct().ToList();
 
             var factory = new ChartJsTimeSeriesDataFactory<ChartJsTimeSeriesDataPoint>();
 
+            factory.TimeScale = chartTimeScale;
             factory.StartDateTime = startDate;
             factory.EndDateTime = endDate;
-            factory.TimeScale = ChartJsTimeSeriesTimeScaleSpecifier.Month;
-            factory.ChartStyle = ChartJsTimeSeriesChartStyleSpecifier.Line;
+            factory.ChartStyle = ChartJsTimeSeriesChartStyleSpecifier.StackedLine;
 
             foreach ( var stepTypeDataset in stepTypeDatasets )
             {
@@ -1432,8 +1448,8 @@ namespace RockWeb.Blocks.Steps
                 dataset.Name = stepTypeDataset;
 
                 dataset.DataPoints = stepTypeDataPoints
-                                        .Where( x => x.DatasetName == stepTypeDataset )
-                                        .Select( x => new ChartJsTimeSeriesDataPoint { DateTime = x.DateTime, Value = x.Value } )
+                                        .Where( x => x.StepTypeName == stepTypeDataset )
+                                        .Select( x => new ChartJsTimeSeriesDataPoint { DateTime = x.DateTime, Value = x.CompletedCount } )
                                         .Cast<IChartJsTimeSeriesDataPoint>()
                                         .ToList();
 
@@ -1502,6 +1518,32 @@ namespace RockWeb.Blocks.Steps
                     WorkflowTypeName = trigger.WorkflowType.Name;
                 }
             }
+        }
+
+        /// <summary>
+        /// A single data point in the result set of a Steps Activity query.
+        /// </summary>
+        private class StepTypeActivityDataPoint
+        {
+            /// <summary>
+            /// The name of the Step Type to which this Step activity relates.
+            /// </summary>
+            public string StepTypeName { get; set; }
+
+            /// <summary>
+            /// The date and time represented by this data point.
+            /// </summary>
+            public DateTime DateTime { get; set; }
+
+            /// <summary>
+            /// The number of completions represented by this data point.
+            /// </summary>
+            public int CompletedCount { get; set; }
+
+            /// <summary>
+            /// A value used to sort the datapoint within the set of values for this Step Type.
+            /// </summary>
+            public string SortKey { get; set; }
         }
 
         #endregion

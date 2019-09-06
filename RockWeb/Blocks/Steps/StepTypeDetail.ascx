@@ -6,6 +6,17 @@
     }
 </script>
 
+<style>
+.chart-banner
+{
+    width: 100%;
+}
+.chart-banner canvas
+{
+    height: 350px;
+}
+</style>
+
 <asp:UpdatePanel ID="upStepType" runat="server">
     <ContentTemplate>
         <Rock:NotificationBox ID="nbBlockStatus" runat="server" NotificationBoxType="Info" />
@@ -27,7 +38,7 @@
             <div class="panel-body">
                 <Rock:NotificationBox ID="nbEditModeMessage" runat="server" NotificationBoxType="Info" />
                 <asp:ValidationSummary ID="valStepTypeDetail" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" />
-
+                <asp:CustomValidator ID="cvStepType" runat="server" Display="None" />
                 <div id="pnlViewDetails" runat="server">
                     <div class="row">
                         <div class="col-md-12">
@@ -58,10 +69,8 @@
                         </div>
                         <%-- Steps Activity Chart --%>
                         <Rock:NotificationBox ID="nbActivityChartMessage" runat="server" NotificationBoxType="Info" />
-                        <div id="pnlActivityChart" runat="server">
-                            <div class="chart-container" align="center">
-                                <canvas id="chartCanvas" runat="server" height="350" width="700" />
-                            </div>
+                        <div id="pnlActivityChart" runat="server" class="chart-banner">
+                            <canvas id="chartCanvas" runat="server" />
                         </div>
                     </div>
 
@@ -76,6 +85,7 @@
                         <Rock:ModalAlert ID="mdDeleteWarning" runat="server" />
                         <asp:LinkButton ID="btnDelete" runat="server" Text="Delete" CssClass="btn btn-link" OnClick="btnDelete_Click" CausesValidation="false" />
                         <span class="pull-right">
+                            <asp:LinkButton ID="btnBulkEntry" runat="server" CssClass="btn btn-default btn-sm" OnClick="btnBulkEntry_Click" CausesValidation="false"><i class="fa fa-truck"></i></asp:LinkButton>
                             <Rock:SecurityButton ID="btnSecurity" runat="server" class="btn btn-sm btn-security" />
                         </span>
                     </div>
@@ -109,20 +119,20 @@
                                 PropertyName="AllowMultiple"
                                 Label="Allow Multiple"
                                 Text="Yes"
-                                Help="Can this step be achieved more than once by the same person?" />
+                                Help="Determines if a person can complete a step more than once." />
                             <Rock:RockCheckBox ID="cbHasDuration"
                                 runat="server"
                                 SourceTypeName="Rock.Model.StepType, Rock"
                                 PropertyName="HasEndDate"
                                 Label="Spans Time"
                                 Text="Yes"
-                                Help="Does this step occur immediately or does it take some period of time to complete?" />
+                                Help="Determines if a step is happens in a momemnt in time or if it happens over time." />
                             <Rock:RockCheckBox ID="cbShowBadgeCount"
                                 runat="server"
                                 SourceTypeName="Rock.Model.StepType, Rock"
                                 PropertyName="ShowCountOnBadge"
                                 Label="Show Count on Badge"
-                                Help="Should the number of achievements for this step type be shown on the step badge?"
+                                Help="Determines if the count of the number of times a step has been completed should be shown on the badge for the person profile page."
                                 Checked="false"
                                 Text="Yes" />
                         </div>
@@ -171,7 +181,7 @@
 
                     <Rock:PanelWidget ID="wpAdvanced" runat="server" Title="Advanced Settings">
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-6" style="display: none;"><!-- feature coming soon -->
                                 <Rock:DataViewItemPicker ID="dvpAutocomplete"
                                     runat="server"
                                     DataField="WorkflowType"
@@ -187,7 +197,7 @@
                                 <Rock:RockCheckBox ID="cbAllowEdit"
                                     runat="server"
                                     SourceTypeName="Rock.Model.StepType, Rock"
-                                    PropertyName="AllowManualEdit"
+                                    PropertyName="AllowManualEditing"
                                     Label="Allow Manual Edit"
                                     Help="Can the details of this step achievement be modified by the participant?"
                                     Checked="false"

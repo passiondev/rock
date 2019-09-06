@@ -67,11 +67,26 @@ namespace RockWeb.Blocks.Steps
         /// <summary>
         /// Keys to use for Block Attributes
         /// </summary>
-        protected static class AttributeKey
+        private static class AttributeKey
         {
+            /// <summary>
+            /// The detail page
+            /// </summary>
             public const string DetailPage = "DetailPage";
+
+            /// <summary>
+            /// The profile page
+            /// </summary>
             public const string ProfilePage = "PersonProfilePage";
+
+            /// <summary>
+            /// The show note column
+            /// </summary>
             public const string ShowNoteColumn = "ShowNoteColumn";
+
+            /// <summary>
+            /// The step type
+            /// </summary>
             public const string StepType = "StepType";
         }
 
@@ -82,9 +97,17 @@ namespace RockWeb.Blocks.Steps
         /// <summary>
         /// Keys to use for Page Parameters
         /// </summary>
-        protected static class PageParameterKey
+        private static class PageParameterKey
         {
+            /// <summary>
+            /// The step type identifier
+            /// </summary>
             public const string StepTypeId = "StepTypeId";
+
+            /// <summary>
+            /// The step identifier
+            /// </summary>
+            public const string StepId = "StepId";
         }
 
         #endregion Page Parameter Keys
@@ -94,7 +117,7 @@ namespace RockWeb.Blocks.Steps
         /// <summary>
         /// Keys to use for Filters
         /// </summary>
-        protected static class FilterKey
+        private static class FilterKey
         {
             public const string FirstName = "FirstName";
             public const string LastName = "LastName";
@@ -209,11 +232,11 @@ namespace RockWeb.Blocks.Steps
             {
                 if ( step.IsCompleted )
                 {
-                    lStepStatusHtml.Text = string.Format( "<div class='badge badge-success'>{0}</div>", step.StepStatusName );
+                    lStepStatusHtml.Text = string.Format( "<div class='label label-success'>{0}</div>", step.StepStatusName );
                 }
                 else
                 {
-                    lStepStatusHtml.Text = string.Format( "<div class='badge badge-info'>{0}</div>", step.StepStatusName );
+                    lStepStatusHtml.Text = string.Format( "<div class='label label-info'>{0}</div>", step.StepStatusName );
                 }
             }
 
@@ -385,7 +408,7 @@ namespace RockWeb.Blocks.Steps
         /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
         protected void gSteps_AddClick( object sender, EventArgs e )
         {
-            NavigateToLinkedPage( "DetailPage", "StepId", 0, "StepTypeId", _stepType.Id );
+            NavigateToLinkedPage( AttributeKey.DetailPage, PageParameterKey.StepId, 0, PageParameterKey.StepTypeId, _stepType.Id );
         }
 
         /// <summary>
@@ -395,7 +418,7 @@ namespace RockWeb.Blocks.Steps
         /// <param name="e">The <see cref="RowEventArgs" /> instance containing the event data.</param>
         protected void gSteps_Edit( object sender, RowEventArgs e )
         {
-            NavigateToLinkedPage( "DetailPage", "StepId", e.RowKeyId );
+            NavigateToLinkedPage( AttributeKey.DetailPage, PageParameterKey.StepId, e.RowKeyId, PageParameterKey.StepTypeId, _stepType.Id );
         }
 
         /// <summary>

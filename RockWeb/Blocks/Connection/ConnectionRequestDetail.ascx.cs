@@ -60,7 +60,7 @@ namespace RockWeb.Blocks.Connection
         /// <summary>
         /// Keys for the block attributes
         /// </summary>
-        protected static class AttributeKey
+        private static class AttributeKey
         {
             /// <summary>
             /// Key for the SMS Link Page
@@ -1384,6 +1384,14 @@ namespace RockWeb.Blocks.Connection
 
             if ( connectionOpportunity != null && connectionRequest != null )
             {
+
+                if ( !connectionRequest.IsAuthorized( Authorization.VIEW, CurrentPerson) )
+                {
+                    this.BreadCrumbs.Clear();
+                    upDetail.Visible = false;
+                    nbSecurityWarning.Visible = true;
+                }
+
                 hfConnectionOpportunityId.Value = connectionRequest.ConnectionOpportunityId.ToString();
                 hfConnectionRequestId.Value = connectionRequest.Id.ToString();
                 lConnectionOpportunityIconHtml.Text = string.Format( "<i class='{0}' ></i>", connectionOpportunity.IconCssClass );

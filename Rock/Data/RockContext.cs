@@ -638,6 +638,22 @@ namespace Rock.Data
         public DbSet<DataViewPersistedValue> DataViewPersistedValues { get; set; }
 
         /// <summary>
+        /// Gets or sets the document types.
+        /// </summary>
+        /// <value>
+        /// The document types.
+        /// </value>
+        public DbSet<DocumentType> DocumentTypes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the documents.
+        /// </summary>
+        /// <value>
+        /// The documents.
+        /// </value>
+        public DbSet<Document> Documents { get; set; }
+
+        /// <summary>
         /// Gets or sets the Defined Types.
         /// </summary>
         /// <value>
@@ -1318,6 +1334,14 @@ namespace Rock.Data
         public DbSet<PageRoute> PageRoutes { get; set; }
 
         /// <summary>
+        /// Gets or sets the persisted datasets.
+        /// </summary>
+        /// <value>
+        /// The persisted datasets.
+        /// </value>
+        public DbSet<PersistedDataset> PersistedDatasets { get; set; }
+
+        /// <summary>
         /// Gets or sets the People.
         /// </summary>
         /// <value>
@@ -1347,7 +1371,7 @@ namespace Rock.Data
         /// <value>
         /// The person badge types.
         /// </value>
-        public DbSet<Badge> Badges { get; set; }
+        public DbSet<Model.Badge> Badges { get; set; }
 
         /// <summary>
         /// Gets or sets the person duplicates.
@@ -1558,30 +1582,6 @@ namespace Rock.Data
         public DbSet<Schedule> Schedules { get; set; }
 
         /// <summary>
-        /// Gets or sets the sequences.
-        /// </summary>
-        /// <value>
-        /// The sequences.
-        /// </value>
-        public DbSet<Sequence> Sequences { get; set; }
-
-        /// <summary>
-        /// Gets or sets the sequence enrollments.
-        /// </summary>
-        /// <value>
-        /// The sequence enrollments.
-        /// </value>
-        public DbSet<SequenceEnrollment> SequenceEnrollments { get; set; }
-
-        /// <summary>
-        /// Gets or sets the sequence occurrence exclusions.
-        /// </summary>
-        /// <value>
-        /// The sequence occurrence exclusions.
-        /// </value>
-        public DbSet<SequenceOccurrenceExclusion> SequenceOccurrenceExclusions { get; set; }
-
-        /// <summary>
         /// Gets or sets the service job histories.
         /// </summary>
         /// <value>
@@ -1708,6 +1708,30 @@ namespace Rock.Data
         /// The site URL maps.
         /// </value>
         public DbSet<PageShortLink> PageShortLinks { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Streaks.
+        /// </summary>
+        /// <value>
+        /// The Streaks.
+        /// </value>
+        public DbSet<Streak> Streaks { get; set; }
+
+        /// <summary>
+        /// Gets or sets the StreakTypes.
+        /// </summary>
+        /// <value>
+        /// The StreakTypes.
+        /// </value>
+        public DbSet<StreakType> StreakTypes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the StreakTypeExclusions.
+        /// </summary>
+        /// <value>
+        /// The StreakTypeExclusions.
+        /// </value>
+        public DbSet<StreakTypeExclusion> StreakTypeExclusions { get; set; }
 
         /// <summary>
         /// Gets or sets the system emails.

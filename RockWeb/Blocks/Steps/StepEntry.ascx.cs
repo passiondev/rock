@@ -67,20 +67,42 @@ namespace RockWeb.Blocks.Steps
         /// <summary>
         /// Keys for block attributes
         /// </summary>
-        protected static class AttributeKey
+        private static class AttributeKey
         {
+            /// <summary>
+            /// The step type
+            /// </summary>
             public const string StepType = "StepType";
+
+            /// <summary>
+            /// The success page
+            /// </summary>
             public const string SuccessPage = "SuccessPage";
+
+            /// <summary>
+            /// The workflow entry page
+            /// </summary>
             public const string WorkflowEntryPage = "WorkflowEntryPage";
         }
 
         /// <summary>
         /// Keys for the page parameters
         /// </summary>
-        protected static class ParameterKey
+        private static class ParameterKey
         {
+            /// <summary>
+            /// The step type identifier
+            /// </summary>
             public const string StepTypeId = "StepTypeId";
+
+            /// <summary>
+            /// The step identifier
+            /// </summary>
             public const string StepId = "StepId";
+
+            /// <summary>
+            /// The person identifier
+            /// </summary>
             public const string PersonId = "PersonId";
         }
 
@@ -105,6 +127,7 @@ namespace RockWeb.Blocks.Steps
 
             if ( !IsPostBack && !ValidateRequiredModels() )
             {
+                pnlEditDetails.Visible = false;
                 return;
             }
 
@@ -327,14 +350,15 @@ namespace RockWeb.Blocks.Steps
             }
 
             // If the step is null, then the aim is to create a new step
-            if ( step == null )
+            var isAdd = step == null;
+
+            if ( isAdd )
             {
                 step = new Step
                 {
                     StepTypeId = stepType.Id,
                     PersonAliasId = person.PrimaryAliasId.Value
                 };
-                service.Add( step );
             }
 
             // Update the step properties. Person cannot be changed (only set when the step is added)
@@ -360,6 +384,32 @@ namespace RockWeb.Blocks.Steps
                 {
                     step.CompletedDateTime = step.EndDateTime ?? step.StartDateTime;
                 }
+            }
+
+            if ( !step.IsValid )
+            {
+                ShowError( step.ValidationResults.Select( vr => vr.ErrorMessage ).ToList().AsDelimited( "<br />" ) );
+                return;
+            }
+
+            if ( isAdd )
+            {
+                var errorMessage = string.Empty;
+                var canAdd = service.CanAdd( step, out errorMessage );
+
+                if ( !errorMessage.IsNullOrWhiteSpace() )
+                {
+                    ShowError( errorMessage );
+                    return;
+                }
+
+                if ( !canAdd )
+                {
+                    ShowError( "The step cannot be added for an unspecified reason" );
+                    return;
+                }
+
+                service.Add( step );
             }
 
             // Save the step record
@@ -392,20 +442,17 @@ namespace RockWeb.Blocks.Steps
         /// </summary>
         private bool ValidateRequiredModels()
         {
-            var step = GetStep();
-
-            if ( step != null )
-            {
-                // Edit only requires the step
-                return true;
-            }
-
-            // Add requires step type            
             var stepType = GetStepType();
 
             if ( stepType == null )
             {
                 ShowError( "A step type is required to add a step" );
+                return false;
+            }
+
+            if ( !stepType.AllowManualEditing && !UserCanEdit )
+            {
+                ShowError( "You are not authorized to add or edit a step of this type" );
                 return false;
             }
 
@@ -490,27 +537,16 @@ namespace RockWeb.Blocks.Steps
         {
             var page = GetAttributeValue( AttributeKey.SuccessPage );
             var parameters = new Dictionary<string, string>();
-            var person = GetPerson();
-            var step = GetStep();
-            var stepType = GetStepType();
+            var stepTypeIdParam = PageParameter( ParameterKey.StepTypeId ).AsIntegerOrNull();
+            var personIdParam = PageParameter( ParameterKey.PersonId ).AsIntegerOrNull();
 
-            if ( person != null )
+            if ( personIdParam.HasValue )
             {
-                parameters.Add( ParameterKey.PersonId, person.Id.ToString() );
+                parameters.Add( ParameterKey.PersonId, personIdParam.Value.ToString() );
             }
-
-            if ( newStepId.HasValue && newStepId > 0 )
+            else if ( stepTypeIdParam.HasValue )
             {
-                parameters.Add( ParameterKey.StepId, newStepId.Value.ToString() );
-            }
-            else if ( step != null )
-            {
-                parameters.Add( ParameterKey.StepId, step.Id.ToString() );
-            }
-
-            if ( stepType != null )
-            {
-                parameters.Add( ParameterKey.StepTypeId, stepType.Id.ToString() );
+                parameters.Add( ParameterKey.StepTypeId, stepTypeIdParam.Value.ToString() );
             }
 
             if ( page.IsNullOrWhiteSpace() )
@@ -649,8 +685,11 @@ namespace RockWeb.Blocks.Steps
         private void InitializePersonPicker()
         {
             var isSelectable = IsPersonSelectable();
-            ppPerson.Visible = isSelectable;
+            ppPerson.Enabled = isSelectable;
             ppPerson.Required = isSelectable;
+
+            var person = GetPerson();
+            ppPerson.SetValue( person );
         }
 
         /// <summary>
