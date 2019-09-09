@@ -176,7 +176,7 @@ namespace Rock.Web.UI.Controls
 
             // After adding a new one this will post back so we should re-load the defined value list so the new one is included.
             EnsureChildControls();
-            LoadDefinedValues();
+            //LoadDefinedValues();
         }
 
         public void RenderBaseControl( HtmlTextWriter writer )
@@ -300,7 +300,6 @@ namespace Rock.Web.UI.Controls
 
         public void LoadDefinedValues( int selectedDefinedValueId )
         {
-            this.SelectedDefinedValueId = selectedDefinedValueId;
             LoadDefinedValues();
         }
 
@@ -341,8 +340,7 @@ namespace Rock.Web.UI.Controls
 
         protected void ddlDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
         {
-
-            SelectedDefinedValueId = _ddlDefinedValues.SelectedValue.AsIntegerOrNull();
+            SelectedDefinedValueId = ( ( RockDropDownList ) sender ).SelectedValue.AsIntegerOrNull();
         }
 
         protected void lbAddDefinedValue_Click( object sender, EventArgs e )
