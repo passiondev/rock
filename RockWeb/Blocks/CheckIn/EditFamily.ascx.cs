@@ -860,6 +860,23 @@ namespace RockWeb.Blocks.CheckIn
             {
                 pnMobilePhone.CountryCode = familyPersonState.MobilePhoneCountryCode;
                 pnMobilePhone.Number = mobilePhoneNumber;
+
+                if ( bgSMS.Visible )
+                {
+                    // Set this value if it exists
+                    if ( familyPersonState.MobilePhoneSmsEnabled.HasValue )
+                    {
+                        bgSMS.SetValue( familyPersonState.MobilePhoneSmsEnabled.Value.Bit() );
+                    }
+                    else
+                    {
+                        // If we don't have a value then see if enabled is the default and set it if it is.
+                        if ( GroupTypeCache.GetFamilyGroupType().GetAttributeValue( Rock.SystemKey.GroupTypeAttributeKey.CHECKIN_REGISTRATION_DEFAULTSMSENABLED ).AsBoolean() )
+                        {
+                            bgSMS.SetValue( "1" );
+                        }
+                    }
+                }
             }
             else
             {
@@ -992,6 +1009,7 @@ namespace RockWeb.Blocks.CheckIn
 
             familyPersonState.MobilePhoneNumber = pnMobilePhone.Number;
             familyPersonState.MobilePhoneCountryCode = pnMobilePhone.CountryCode;
+            familyPersonState.MobilePhoneSmsEnabled = bool.Parse( bgSMS.SelectedValue );
             familyPersonState.BirthDate = dpBirthDate.SelectedDate;
             familyPersonState.Email = tbEmail.Text;
 
