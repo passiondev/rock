@@ -149,6 +149,7 @@ namespace Rock.CheckIn.Registration
                 var mobilePhone = person.GetPhoneNumber( Rock.SystemGuid.DefinedValue.PERSON_PHONE_TYPE_MOBILE.AsGuid() );
                 familyPersonState.MobilePhoneCountryCode = mobilePhone?.CountryCode;
                 familyPersonState.MobilePhoneNumber = mobilePhone?.Number;
+                familyPersonState.MobilePhoneSmsEnabled = mobilePhone?.IsMessagingEnabled;
 
                 person.LoadAttributes();
                 familyPersonState.PersonAttributeValuesState = person.AttributeValues.ToDictionary( k => k.Key, v => v.Value );

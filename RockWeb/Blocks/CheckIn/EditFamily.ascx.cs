@@ -855,26 +855,34 @@ namespace RockWeb.Blocks.CheckIn
             dvpRecordStatus.SetValue( familyPersonState.RecordStatusValueId );
             hfConnectionStatus.Value = familyPersonState.ConnectionStatusValueId.ToString();
 
+            bool showSmsButton = CurrentCheckInState.CheckInType.Registration.DisplaySmsButton;
+            if ( showSmsButton )
+            {
+                bgSMS.Visible = true;
+                bgSMS.SelectedValue = null;
+
+                if( CurrentCheckInState.CheckInType.Registration.DefaultSmsEnabled )
+                {
+                    bgSMS.SetValue( "True" );
+                }
+            }
+            else
+            {
+                bgSMS.Visible = false;
+            }
+
             var mobilePhoneNumber = familyPersonState.MobilePhoneNumber;
             if ( mobilePhoneNumber != null )
             {
                 pnMobilePhone.CountryCode = familyPersonState.MobilePhoneCountryCode;
                 pnMobilePhone.Number = mobilePhoneNumber;
 
-                if ( bgSMS.Visible )
+                if ( showSmsButton )
                 {
                     // Set this value if it exists
                     if ( familyPersonState.MobilePhoneSmsEnabled.HasValue )
                     {
-                        bgSMS.SetValue( familyPersonState.MobilePhoneSmsEnabled.Value.Bit() );
-                    }
-                    else
-                    {
-                        // If we don't have a value then see if enabled is the default and set it if it is.
-                        if ( GroupTypeCache.GetFamilyGroupType().GetAttributeValue( Rock.SystemKey.GroupTypeAttributeKey.CHECKIN_REGISTRATION_DEFAULTSMSENABLED ).AsBoolean() )
-                        {
-                            bgSMS.SetValue( "1" );
-                        }
+                        bgSMS.SetValue( familyPersonState.MobilePhoneSmsEnabled.Value.ToTrueFalse() );
                     }
                 }
             }
@@ -1009,7 +1017,7 @@ namespace RockWeb.Blocks.CheckIn
 
             familyPersonState.MobilePhoneNumber = pnMobilePhone.Number;
             familyPersonState.MobilePhoneCountryCode = pnMobilePhone.CountryCode;
-            familyPersonState.MobilePhoneSmsEnabled = bool.Parse( bgSMS.SelectedValue );
+            familyPersonState.MobilePhoneSmsEnabled = bgSMS.SelectedValue.AsBoolean();
             familyPersonState.BirthDate = dpBirthDate.SelectedDate;
             familyPersonState.Email = tbEmail.Text;
 

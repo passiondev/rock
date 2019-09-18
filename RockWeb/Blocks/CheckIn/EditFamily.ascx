@@ -199,8 +199,8 @@
                                 </div>
                                 <div class="col-md-6">
                                     <Rock:ButtonGroup ID="bgSMS" runat="server" FormGroupCssClass="toggle-container" SelectedItemClass="btn btn-primary active" UnselectedItemClass="btn btn-default" Label="&nbsp;" ValidationGroup="vgEditPerson" RequiredErrorMessage="SMS Enabled is required.">
-                                        <asp:ListItem Text="SMS Enabled" Value="1" />
-                                        <asp:ListItem Text="No SMS" Value="0" />
+                                        <asp:ListItem Text="SMS Enabled" Value="True" />
+                                        <asp:ListItem Text="No SMS" Value="False" />
                                     </Rock:ButtonGroup>
                                 </div>
                                 <div class="col-md-6">

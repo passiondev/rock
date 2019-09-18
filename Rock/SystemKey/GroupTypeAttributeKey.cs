@@ -106,7 +106,7 @@ namespace Rock.SystemKey
         /// <summary>
         /// Show or hide the control to set SMS Enabled
         /// </summary>
-        public const string CHECKIN_REGISTRATION_DISPLAYSMSBUTTON = "core_checkin_registration_ShowSmsButton";
+        public const string CHECKIN_REGISTRATION_DISPLAYSMSBUTTON = "core_checkin_registration_DisplaySmsButton";
 
         #endregion Registration Specific
 
