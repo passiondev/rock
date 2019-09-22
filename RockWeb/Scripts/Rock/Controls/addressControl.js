@@ -30,7 +30,7 @@
                 });
 
                 if (!isValid) {
-                    validator.errormessage = addressControlLabelText + " is required: " + invalidFieldList.join(", ");
+                    validator.errormessage = addressControlLabelText + " field is required: " + invalidFieldList.join(", ");
                 }
 
                 args.IsValid = isValid;

@@ -275,7 +275,6 @@
     <Compile Include="Attribute\AccountFieldAttribute.cs" />
     <Compile Include="Attribute\AccountsFieldAttribute.cs" />
     <Compile Include="Attribute\AddressFieldAttribute.cs" />
-    <Compile Include="Attribute\AddressPartsFieldAttribute.cs" />
     <Compile Include="Attribute\AssetStorageSystemFieldAttribute.cs" />
     <Compile Include="Attribute\AttributeCategoryFieldAttribute.cs" />
     <Compile Include="Attribute\AttributeFieldAttribute.cs" />
@@ -409,8 +408,7 @@
     <Compile Include="Blocks\RockMobileBlockType.cs" />
     <Compile Include="Bulk\BulkImport\AttendancesImport.cs" />
     <Compile Include="Bulk\BulkImport\AttendanceImport.cs" />
-    <Compile Include="Field\Types\RequirementLevelFieldType.cs" />
-	<Compile Include="Field\Types\AddressPartsFieldType.cs" />
+    <Compile Include="Field\Types\DataEntryRequirementLevelFieldType.cs" />
     <Compile Include="Field\Types\ContentChannelsFieldType.cs" />
     <Compile Include="Field\Types\PersistedDatasetFieldType.cs" />
     <Compile Include="Field\Types\StepProgramStepStatusFieldType.cs" />
@@ -441,6 +439,7 @@
     <Compile Include="Reporting\DataFilter\Person\PrimaryCampusesFilter.cs" />
     <Compile Include="Reporting\DataFilter\Person\PrimaryCampusFilter.cs" />
     <Compile Include="SystemGuid\Person.cs" />
+    <Compile Include="SystemKey\CountryAttributeKey.cs" />
     <Compile Include="UniversalSearch\IndexModels\DocumentIndex.cs" />
     <Compile Include="Reporting\ReportOutputBuilder.cs" />
     <Compile Include="Reporting\ReportTemplateBuilder.cs" />
@@ -1899,7 +1898,6 @@
     <Compile Include="Web\UI\Controls\Badges\PersonProfileBadge.cs" />
     <Compile Include="Web\UI\Controls\PersonBasicEditor.cs" />
     <Compile Include="Web\UI\Controls\Pickers\BadgeComponentPicker.cs" />
-    <Compile Include="Web\UI\Controls\Pickers\AddressPartsPicker.cs" />
     <Compile Include="Web\UI\Controls\Pickers\StepProgramStepStatusPicker.cs" />
     <Compile Include="Web\UI\Controls\Pickers\StepProgramStepTypePicker.cs" />
     <Compile Include="Web\UI\Controls\Pickers\StepProgramPicker.cs" />

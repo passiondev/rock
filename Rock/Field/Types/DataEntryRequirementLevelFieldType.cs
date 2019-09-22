@@ -20,9 +20,9 @@ using System.Collections.Generic;
 namespace Rock.Field.Types
 {
     /// <summary>
-    /// Specifies the level of availability for a data entry field.
+    /// Specifies a level of necessity and/or availability of a data entry element.
     /// </summary>
-    public enum RequirementLevelSpecifier
+    public enum DataEntryRequirementLevelSpecifier
     {
         /// <summary>
         /// No requirement level has been specified for this data element.
@@ -43,21 +43,21 @@ namespace Rock.Field.Types
     }
 
     /// <summary>
-    /// A data field that stores the level of necessity and availability associated with an item on a data entry form.
+    /// A field that stores the level of necessity and availability associated with a data entry item.
     /// </summary>
     /// <summary>
     /// Field Type used to display a dropdown list of RequirementLevels
     /// </summary>
     [Serializable]
-    public class RequirementLevelFieldType : EnumFieldType<RequirementLevelSpecifier>
+    public class DataEntryRequirementLevelFieldType : EnumFieldType<DataEntryRequirementLevelSpecifier>
     {
-        public RequirementLevelFieldType()
+        public DataEntryRequirementLevelFieldType()
         {
-            var values = new Dictionary<RequirementLevelSpecifier, string>();
+            var values = new Dictionary<DataEntryRequirementLevelSpecifier, string>();
 
-            values.Add( RequirementLevelSpecifier.Optional, "Optional" );
-            values.Add( RequirementLevelSpecifier.Required, "Required" );
-            values.Add( RequirementLevelSpecifier.Unavailable, "Hidden" );
+            values.Add( DataEntryRequirementLevelSpecifier.Optional, "Optional" );
+            values.Add( DataEntryRequirementLevelSpecifier.Required, "Required" );
+            values.Add( DataEntryRequirementLevelSpecifier.Unavailable, "Hidden" );
 
             base.SetAvailableValues( values );
         }
