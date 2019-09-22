@@ -15,6 +15,7 @@
 // </copyright>
 //
 using System.Data.Entity.Migrations;
+using System.Data.Entity.Migrations.Infrastructure;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -44,6 +45,8 @@ namespace Rock.Tests.Integration.Migrations
 
                 var migrator = new DbMigrator( configuration );
 
+                var logger = new MigratorLoggingDecorator( migrator, new Logger() );
+
                 var pendingMigrationNames = migrator.GetPendingMigrations();
 
                 Assert.AreNotEqual( 0, pendingMigrationNames.Count(), "There is no pending migration." );
@@ -53,7 +56,7 @@ namespace Rock.Tests.Integration.Migrations
 
                 Debug.Print( $"Applying migration: { pendingMigrationName }" );
 
-                migrator.Update();
+                logger.Update();
             }
 
             /// <summary>
@@ -81,6 +84,31 @@ namespace Rock.Tests.Integration.Migrations
                 var newLastMigrationName = migrator.GetDatabaseMigrations().FirstOrDefault();
 
                 Assert.AreEqual( targetMigrationName, newLastMigrationName );
+            }
+
+            #endregion
+
+            #region Support Classes
+
+            /// <summary>
+            /// A debug logger for the EF DbMigrator.
+            /// </summary>
+            private class Logger : System.Data.Entity.Migrations.Infrastructure.MigrationsLogger
+            {
+                public override void Info( string message )
+                {
+                    Debug.WriteLine( message );
+                }
+
+                public override void Verbose( string message )
+                {
+                    Debug.WriteLine( message );
+                }
+
+                public override void Warning( string message )
+                {
+                    Debug.WriteLine( message, "WARNING" );
+                }
             }
 
             #endregion
