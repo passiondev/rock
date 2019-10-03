@@ -857,9 +857,7 @@ namespace Rock.Web.UI.Controls
                     new CurrencyBox
                     {
                         ID = RepeaterControlIds.ID_nbAccountAmountMulti,
-                        CssClass = "amount-input account-amount-multi",
-                        NumberType = ValidationDataType.Currency,
-                        MinimumValue = "0"
+                        CssClass = "amount-input account-amount-multi"
                     } );
 
                 container.Controls.Add( itemTemplateControl );
