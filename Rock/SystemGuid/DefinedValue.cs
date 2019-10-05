@@ -23,11 +23,29 @@ namespace Rock.SystemGuid
     {
         #region Campus
 
+        /// <summary>
+        /// The campus status pending
+        /// </summary>
         public const string CAMPUS_STATUS_PENDING = "008209F5-144E-4282-92C3-944A4AC78700";
+
+        /// <summary>
+        /// The campus status open
+        /// </summary>
         public const string CAMPUS_STATUS_OPEN = "10696FD8-D0C7-486F-B736-5FB3F5D69F1A";
+
+        /// <summary>
+        /// The campus status closed
+        /// </summary>
         public const string CAMPUS_STATUS_CLOSED = "99D2C9CB-B6DC-49C1-B626-B76BD398B63A";
 
+        /// <summary>
+        /// The campus type physical
+        /// </summary>
         public const string CAMPUS_TYPE_PHYSICAL = "5A61507B-79CB-4DA2-AF43-6F82260203B3";
+
+        /// <summary>
+        /// The campus type online
+        /// </summary>
         public const string CAMPUS_TYPE_ONLINE = "10101010-2DB4-4C95-B07D-C400E412289B";
 
         #endregion Campus
@@ -147,6 +165,30 @@ namespace Rock.SystemGuid
 
         #endregion
 
+        #region Financial Non-Cash Asset Type
+
+        /// <summary>
+        /// Non-Cash Asset Type: Property.
+        /// </summary>
+        public const string NONCASH_ASSET_PROPERTY = "FF4E8D66-CFF2-4A96-AA30-19721884C373";
+
+        /// <summary>
+        /// Non-Cash Asset Type: Stocks and Bonds.
+        /// </summary>
+        public const string NONCASH_ASSET_STOCKSANDBONDS = "B29D7D89-357F-47F9-BE7B-52AFF3892007";
+
+        /// <summary>
+        /// Non-Cash Asset Type: Vehicles.
+        /// </summary>
+        public const string NONCASH_ASSET_VEHICLES = "C1DCBE74-88FE-4876-8943-5783499CBBE0";
+
+        /// <summary>
+        /// Non-Cash Asset Type: Other.
+        /// </summary>
+        public const string NONCASH_ASSET_OTHER = "3086AF9A-108B-47C8-B299-CECF53B9D1DF";
+
+        #endregion
+
         #region Financial Transaction Type
 
         /// <summary>
@@ -242,6 +284,35 @@ namespace Rock.SystemGuid
         /// Group Type Purpose of Check-in Filter
         /// </summary>
         public const string GROUPTYPE_PURPOSE_CHECKIN_FILTER = "6BCED84C-69AD-4F5A-9197-5C0F9C02DD34";
+
+        #endregion
+
+        #region Group RSVP
+
+        /// <summary>
+        /// Group RSVP Decline Reason - Illness.
+        /// </summary>
+        public const string GROUP_RSVP_DECLINE_REASON_ILLNESS = "15B4124E-9717-4161-9974-86C4925053E3";
+
+        /// <summary>
+        /// Group RSVP Decline Reason - Vacation.
+        /// </summary>
+        public const string GROUP_RSVP_DECLINE_REASON_VACATION = "759E0745-727B-493D-A44C-3A042A11B761";
+
+        /// <summary>
+        /// Group RSVP Decline Reason - Schedule Conflict.
+        /// </summary>
+        public const string GROUP_RSVP_DECLINE_REASON_SCHEDULE_CONFLICT = "D5989FA4-2CE0-4427-83E4-E43F30045B43";
+
+        /// <summary>
+        /// Group RSVP Decline Reason - Childcare Not Available.
+        /// </summary>
+        public const string GROUP_RSVP_DECLINE_REASON_CHILDCARE = "0E728945-3D74-4E03-9799-0CF5EE8D6B3D";
+
+        /// <summary>
+        /// Group RSVP Decline Reason - Other.
+        /// </summary>
+        public const string GROUP_RSVP_DECLINE_REASON_OTHER = "1634AC71-0054-4F3C-A76D-A75A48E6BA56";
 
         #endregion
 
@@ -424,6 +495,11 @@ namespace Rock.SystemGuid
         /// Rest User Record Type
         /// </summary>
         public const string PERSON_RECORD_TYPE_RESTUSER = "E2261A84-831D-4234-9BE0-4D628BBE751E";
+
+        /// <summary>
+        /// NamelessPerson Record Type
+        /// </summary>
+        public const string PERSON_RECORD_TYPE_NAMELESS = "721300ED-1267-4DA0-B4F2-6C6B5B17B1C5";
 
         #endregion
 

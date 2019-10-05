@@ -638,6 +638,22 @@ namespace Rock.Data
         public DbSet<DataViewPersistedValue> DataViewPersistedValues { get; set; }
 
         /// <summary>
+        /// Gets or sets the document types.
+        /// </summary>
+        /// <value>
+        /// The document types.
+        /// </value>
+        public DbSet<DocumentType> DocumentTypes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the documents.
+        /// </summary>
+        /// <value>
+        /// The documents.
+        /// </value>
+        public DbSet<Document> Documents { get; set; }
+
+        /// <summary>
         /// Gets or sets the Defined Types.
         /// </summary>
         /// <value>
@@ -924,6 +940,22 @@ namespace Rock.Data
         /// the Groups.
         /// </value>
         public DbSet<Group> Groups { get; set; }
+
+        /// <summary>
+        /// Gets or sets the group demographic types.
+        /// </summary>
+        /// <value>
+        /// The group demographic types.
+        /// </value>
+        public DbSet<GroupDemographicType> GroupDemographicTypes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the group demographic values.
+        /// </summary>
+        /// <value>
+        /// The group demographic values.
+        /// </value>
+        public DbSet<GroupDemographicValue> GroupDemographicValues { get; set; }
 
         /// <summary>
         /// Gets or sets the group historicals.
@@ -1318,6 +1350,14 @@ namespace Rock.Data
         public DbSet<PageRoute> PageRoutes { get; set; }
 
         /// <summary>
+        /// Gets or sets the persisted datasets.
+        /// </summary>
+        /// <value>
+        /// The persisted datasets.
+        /// </value>
+        public DbSet<PersistedDataset> PersistedDatasets { get; set; }
+
+        /// <summary>
         /// Gets or sets the People.
         /// </summary>
         /// <value>
@@ -1347,7 +1387,7 @@ namespace Rock.Data
         /// <value>
         /// The person badge types.
         /// </value>
-        public DbSet<Badge> Badges { get; set; }
+        public DbSet<Model.Badge> Badges { get; set; }
 
         /// <summary>
         /// Gets or sets the person duplicates.
@@ -1694,12 +1734,28 @@ namespace Rock.Data
         public DbSet<Streak> Streaks { get; set; }
 
         /// <summary>
+        /// Gets or sets the StreakAchievementAttempts.
+        /// </summary>
+        /// <value>
+        /// The StreakAchievementAttempts.
+        /// </value>
+        public DbSet<StreakAchievementAttempt> StreakAchievementAttempts { get; set; }
+
+        /// <summary>
         /// Gets or sets the StreakTypes.
         /// </summary>
         /// <value>
         /// The StreakTypes.
         /// </value>
         public DbSet<StreakType> StreakTypes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the StreakTypeAchievementTypes.
+        /// </summary>
+        /// <value>
+        /// The StreakTypeAchievementTypes.
+        /// </value>
+        public DbSet<StreakTypeAchievementType> StreakTypeAchievementTypes { get; set; }
 
         /// <summary>
         /// Gets or sets the StreakTypeExclusions.
