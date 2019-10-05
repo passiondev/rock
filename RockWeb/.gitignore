@@ -1,5 +1,6 @@
 /bin/*/*.dll
 /bin/*.dll
+!/bin/roslyn/*.dll
 /bin/*.pdb
 /bin/*.xml
 
