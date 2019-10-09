@@ -44,6 +44,22 @@ namespace Rock.Model
             return null;
         }
 
+        public PageShortLink GetByToken( string token, int siteId, bool filterForSite )
+        {
+            if ( filterForSite )
+            {
+
+            }
+
+            var items = this.Queryable().Where( s => s.Token == token ).ToList();
+            if ( items.Any() )
+            {
+                return items.Where( s => s.SiteId == siteId ).FirstOrDefault() ?? items.First();
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Gets the unique token.
         /// </summary>
