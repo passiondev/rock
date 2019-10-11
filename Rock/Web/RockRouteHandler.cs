@@ -175,34 +175,33 @@ namespace Rock.Web
                                 {
                                     var pageShortLink = new PageShortLinkService( rockContext ).GetByToken( shortlink, site.Id );
 
-                                    if ( pageShortLink != null && ( pageShortLink.SiteId == site.Id || requestContext.RouteData.DataTokens["RouteName"] == null ) )
+                                    // use the short link if the site IDs match or if the current site is not exclusive. It is okay if the destination site is exclusive because this is a redirect and should be able to get to anywhere on the internet.
+                                    if ( pageShortLink != null && ( pageShortLink.SiteId == site.Id || !site.EnableExclusiveRoutes ) )
                                     {
-                                        pageId = string.Empty;
-                                        routeId = 0;
-
-                                        string trimmedUrl = pageShortLink.Url.RemoveCrLf().Trim();
-
-                                        var transaction = new ShortLinkTransaction
+                                        if ( pageShortLink.SiteId == site.Id || requestContext.RouteData.DataTokens["RouteName"] == null )
                                         {
-                                            PageShortLinkId = pageShortLink.Id,
-                                            Token = pageShortLink.Token,
-                                            Url = trimmedUrl,
-                                            DateViewed = RockDateTime.Now,
-                                            IPAddress = WebRequestHelper.GetClientIpAddress( routeHttpRequest ),
-                                            UserAgent = routeHttpRequest.UserAgent ?? string.Empty,
-                                            UserName = requestContext.HttpContext.User?.Identity.Name
-                                        };
+                                            pageId = string.Empty;
+                                            routeId = 0;
 
-                                        //if ( requestContext.HttpContext.User != null )
-                                        //{
-                                        //    transaction.UserName = requestContext.HttpContext.User.Identity.Name;
-                                        //}
+                                            string trimmedUrl = pageShortLink.Url.RemoveCrLf().Trim();
 
-                                        RockQueue.TransactionQueue.Enqueue( transaction );
+                                            var transaction = new ShortLinkTransaction
+                                            {
+                                                PageShortLinkId = pageShortLink.Id,
+                                                Token = pageShortLink.Token,
+                                                Url = trimmedUrl,
+                                                DateViewed = RockDateTime.Now,
+                                                IPAddress = WebRequestHelper.GetClientIpAddress( routeHttpRequest ),
+                                                UserAgent = routeHttpRequest.UserAgent ?? string.Empty,
+                                                UserName = requestContext.HttpContext.User?.Identity.Name
+                                            };
 
-                                        requestContext.HttpContext.Response.Redirect( trimmedUrl, false );
-                                        requestContext.HttpContext.ApplicationInstance.CompleteRequest();
-                                        return null;
+                                            RockQueue.TransactionQueue.Enqueue( transaction );
+
+                                            requestContext.HttpContext.Response.Redirect( trimmedUrl, false );
+                                            requestContext.HttpContext.ApplicationInstance.CompleteRequest();
+                                            return null;
+                                        }
                                     }
                                 }
                             }
