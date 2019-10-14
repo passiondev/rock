@@ -129,6 +129,15 @@ namespace Rock.SystemGuid
 
         #endregion Assessment Block Types
 
+        #region Connections Block Types
+
+        /// <summary>
+        /// A Connections Module block type guid.
+        /// </summary>
+        public const string CONNECTION_OPPORTUNITY_SIGNUP = "C7FCE3B7-704B-43C0-AF96-5A70EB7F70D9";
+
+        #endregion
+
         #region Group RSVP Block Types
 
         /// <summary>

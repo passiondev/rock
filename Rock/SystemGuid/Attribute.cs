@@ -453,6 +453,20 @@ namespace Rock.SystemGuid
 
         #endregion
 
+        #region Connection Opportunity Signup Block
+
+        /// <summary>
+        /// Connection Opportunity Signup Block configuration setting.
+        /// </summary>
+        public const string CONNECTION_OPPORTUNITY_SIGNUP_INCLUDE_ATTRIBUTE_CATEGORIES = "B6C64813-C7E1-480E-BF8F-8FCE4EAD9242";
+
+        /// <summary>
+        /// Connection Opportunity Signup Block configuration setting.
+        /// </summary>
+        public const string CONNECTION_OPPORTUNITY_SIGNUP_EXCLUDE_ATTRIBUTE_CATEGORIES = "4617DD9E-CADE-42FB-915D-D82AB3E3C0D5";
+
+        #endregion
+
         #region File Type Lists
 
         /// <summary>
