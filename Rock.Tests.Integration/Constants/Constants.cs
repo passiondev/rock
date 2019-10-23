@@ -46,6 +46,7 @@ namespace Rock.Tests.Integration
         public const string Communications = "Communications";
         public const string Groups = "Groups";
 
+        public const string RockSurvey = "Rock Survey";
     }
 
     public static class TestPurposes
