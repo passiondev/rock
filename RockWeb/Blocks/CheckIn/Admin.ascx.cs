@@ -145,18 +145,44 @@ namespace RockWeb.Blocks.CheckIn
         private void ShowDetail()
         {
             bool enableLocationSharing = GetAttributeValue( AttributeKey.EnableLocationSharing ).AsBoolean();
+            bool allowManualSetup = GetAttributeValue( AttributeKey.AllowManualSetup ).AsBoolean( true );
 
-            // Inject script used for geo location determination
+            // 1. Match by IP/DNS first.
+            // If this succeeds, it'll navigate to the next page
+            if ( AttemptKioskMatchByIpOrName() )
+            {
+                return;
+            }
+
+            // 2. Then attempt to match by Geo location if enabled.
             if ( enableLocationSharing )
             {
                 lbRetry.Visible = true;
+
+                // We'll re-enable things if the geo lookup fails.
+                pnlManualConfig.AddCssClass( "hidden" );
+                lbOk.AddCssClass( "hidden" );
+
+                // Inject script used for geo location determination
                 AddGeoLocationScript();
             }
-            else
+
+            // 3. Allow manual setup if enabled.
+            if ( allowManualSetup )
             {
                 pnlManualConfig.Visible = true;
                 lbOk.Visible = true;
-                AttemptKioskMatchByIpOrName();
+            }
+
+            //
+            // If neither location sharing nor manual setup are enabled then
+            // display a friendly message.
+            //
+            if ( !enableLocationSharing && !allowManualSetup )
+            {
+                lbRetry.Visible = true;
+                pnlGeoMessage.AddCssClass( "alert alert-danger" );
+                lGeoMessage.Text = "Manual configuration is not currently enabled.";
             }
 
             ddlTheme.Items.Clear();
@@ -233,7 +259,7 @@ namespace RockWeb.Blocks.CheckIn
         /// <summary>
         /// Attempts to match a known kiosk based on the IP address of the client.
         /// </summary>
-        private void AttemptKioskMatchByIpOrName()
+        private bool AttemptKioskMatchByIpOrName()
         {
             // try to find matching kiosk by REMOTE_ADDR (ip/name).
             var checkInDeviceTypeId = DefinedValueCache.Get( Rock.SystemGuid.DefinedValue.DEVICE_TYPE_CHECKIN_KIOSK ).Id;
@@ -264,8 +290,11 @@ namespace RockWeb.Blocks.CheckIn
                     CurrentWorkflow = null;
                     SaveState();
                     NavigateToNextPage();
+                    return true;
                 }
             }
+
+            return false;
         }
 
         /// <summary>
@@ -304,16 +333,14 @@ namespace RockWeb.Blocks.CheckIn
             }}
 
             function error_callback( p ) {{
-                // TODO: decide what to do in this situation...
-                alert( 'error=' + p.message );
+                $(""input[id$='hfGeoError']"").val(p.message);
+                window.location = ""javascript:{0}"";
             }}
         }});
     </script>
 ", this.Page.ClientScript.GetPostBackEventReference( lbCheckGeoLocation, "" ) );
             phGeoCodeScript.Controls.Add( new LiteralControl( geoScript ) );
         }
-
-
 
         #region GeoLocation related
 
@@ -327,46 +354,60 @@ namespace RockWeb.Blocks.CheckIn
         {
             var latitude = hfLatitude.Value.AsDoubleOrNull();
             var longitude = hfLongitude.Value.AsDoubleOrNull();
+            var error = hfGeoError.Value;
             Device kiosk = null;
+
+            //
+            // If we have an error, display all the manual config stuff (if enabled),
+            // otherwise we will redirect so it won't matter.
+            //
+            pnlManualConfig.RemoveCssClass( "hidden" );
+            lbOk.RemoveCssClass( "hidden" );
+
+            if ( !string.IsNullOrEmpty( error ) )
+            {
+                pnlGeoMessage.AddCssClass( "alert alert-danger" );
+                lGeoMessage.Text = error;
+                return;
+            }
 
             if ( latitude.HasValue && longitude.HasValue )
             {
                 kiosk = GetCurrentKioskByGeoFencing( latitude.Value, longitude.Value );
             }
 
-            if ( kiosk != null )
-            {
-                SetDeviceIdCookie( kiosk );
-
-                LocalDeviceConfig.CurrentKioskId = kiosk.Id;
-                using ( var rockContext = new RockContext() )
-                {
-                    LocalDeviceConfig.CurrentGroupTypeIds = GetAllKiosksGroupTypes( kiosk, rockContext );
-                }
-
-                if ( !LocalDeviceConfig.CurrentCheckinTypeId.HasValue )
-                {
-                    foreach ( int groupTypeId in LocalDeviceConfig.CurrentGroupTypeIds )
-                    {
-                        var checkinType = GetCheckinType( groupTypeId );
-                        if ( checkinType != null )
-                        {
-                            LocalDeviceConfig.CurrentCheckinTypeId = checkinType.Id;
-                            break;
-                        }
-                    }
-                }
-
-                CurrentCheckInState = null;
-                CurrentWorkflow = null;
-                SaveState();
-
-                NavigateToNextPage();
-            }
-            else
+            if ( kiosk == null )
             {
                 TooFar();
+                return;
             }
+
+            SetDeviceIdCookie( kiosk );
+
+            LocalDeviceConfig.CurrentKioskId = kiosk.Id;
+            using ( var rockContext = new RockContext() )
+            {
+                LocalDeviceConfig.CurrentGroupTypeIds = GetAllKiosksGroupTypes( kiosk, rockContext );
+            }
+
+            if ( !LocalDeviceConfig.CurrentCheckinTypeId.HasValue )
+            {
+                foreach ( int groupTypeId in LocalDeviceConfig.CurrentGroupTypeIds )
+                {
+                    var checkinType = GetCheckinType( groupTypeId );
+                    if ( checkinType != null )
+                    {
+                        LocalDeviceConfig.CurrentCheckinTypeId = checkinType.Id;
+                        break;
+                    }
+                }
+            }
+
+            CurrentCheckInState = null;
+            CurrentWorkflow = null;
+            SaveState();
+
+            NavigateToNextPage();
         }
 
         /// <summary>
@@ -419,17 +460,20 @@ namespace RockWeb.Blocks.CheckIn
         /// </summary>
         private void TooFar()
         {
-            bool allowManualSetup = GetAttributeValue( AttributeKey.AllowManualSetup ).AsBoolean( true );
+            bool allowManualSetup = GetAttributeValue( "AllowManualSetup" ).AsBoolean( true );
 
             if ( allowManualSetup )
             {
-                pnlManualConfig.Visible = true;
-                lbOk.Visible = true;
-                maWarning.Show( "We could not automatically determine your configuration.", ModalAlertType.Information );
+                pnlGeoMessage.AddCssClass( "alert alert-warning" );
+                lGeoMessage.Text = "We could not automatically determine your configuration.";
             }
             else
             {
-                maWarning.Show( "You are too far. Try again later.", ModalAlertType.Alert );
+                pnlManualConfig.Visible = false;
+                lbOk.Visible = false;
+
+                pnlGeoMessage.AddCssClass( "alert alert-warning" );
+                lGeoMessage.Text = "You are too far. Try again later.";
             }
         }
 
@@ -459,7 +503,7 @@ namespace RockWeb.Blocks.CheckIn
                 SaveState();
             }
 
-            if ( !RockPage.Site.Theme.Equals(LocalDeviceConfig.CurrentTheme, StringComparison.OrdinalIgnoreCase ) )
+            if ( !RockPage.Site.Theme.Equals( LocalDeviceConfig.CurrentTheme, StringComparison.OrdinalIgnoreCase ) )
             {
                 // if the site's theme doesn't match the configured theme, reload the page with the theme parameter so that the correct theme gets loaded and the theme cookie gets set
                 Dictionary<string, string> themeParameters = new Dictionary<string, string>();
