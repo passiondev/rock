@@ -167,7 +167,7 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public bool? AllowGuests { get; set; }
-       
+
         /// <summary>
         /// Gets or sets a value indicating whether the group should be shown in group finders
         /// </summary>
@@ -589,32 +589,38 @@ namespace Rock.Model
                 var groupType = GroupTypeCache.Get( this.GroupTypeId );
                 if ( groupType != null )
                 {
-                    // For each occurrence of this person in this group, check to see if their role is valid
-                    // for the group type and if the role grants them authorization
-                    using ( var rockContext = new RockContext() )
+                    // For each role that could grant authorization, see if the person is a member with that role
+                    foreach ( var role in groupType.Roles )
                     {
-                        foreach ( int roleId in new GroupMemberService( rockContext )
-                            .Queryable().AsNoTracking()
-                            .Where( m =>
-                                m.PersonId == person.Id &&
-                                m.GroupId == this.Id &&
-                                m.GroupMemberStatus == GroupMemberStatus.Active )
-                            .Select( m => m.GroupRoleId ) )
+                        bool checkGroupMemberRole = false;
+                        if ( action == Authorization.VIEW && role.CanView )
                         {
-                            var role = groupType.Roles.FirstOrDefault( r => r.Id == roleId );
-                            if ( role != null )
+                            checkGroupMemberRole = true;
+                        }
+
+                        if ( action == Authorization.MANAGE_MEMBERS && ( role.CanEdit || role.CanManageMembers ) )
+                        {
+                            checkGroupMemberRole = true;
+                        }
+
+                        if ( action == Authorization.EDIT && role.CanEdit )
+                        {
+                            checkGroupMemberRole = true;
+                        }
+
+                        if ( checkGroupMemberRole )
+                        {
+                            using ( var rockContext = new RockContext() )
                             {
-                                if ( action == Authorization.VIEW && role.CanView )
-                                {
-                                    return true;
-                                }
+                                var groupMemberQry = new GroupMemberService( rockContext )
+                                    .Queryable().AsNoTracking()
+                                    .Where( m =>
+                                        m.PersonId == person.Id &&
+                                        m.GroupId == this.Id &&
+                                        m.GroupRoleId == role.Id &&
+                                        m.GroupMemberStatus == GroupMemberStatus.Active );
 
-                                if ( action == Authorization.MANAGE_MEMBERS && ( role.CanEdit || role.CanManageMembers ) )
-                                {
-                                    return true;
-                                }
-
-                                if ( action == Authorization.EDIT && role.CanEdit )
+                                if ( groupMemberQry.Any() )
                                 {
                                     return true;
                                 }
@@ -883,7 +889,7 @@ namespace Rock.Model
         /// <param name="dbContext">The database context.</param>
         public override void PostSaveChanges( Data.DbContext dbContext )
         {
-            var dataContext = (RockContext)dbContext;
+            var dataContext = ( RockContext ) dbContext;
 
             if ( HistoryChangeList != null && HistoryChangeList.Any() )
             {
