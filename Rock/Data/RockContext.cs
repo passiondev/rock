@@ -15,10 +15,12 @@
 // </copyright>
 //
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
 using System.Data.Entity.ModelConfiguration.Conventions;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -38,7 +40,7 @@ namespace Rock.Data
         /// </summary>
         /// <param name="path">The path.</param>
         [RockObsolete( "1.8" )]
-        [Obsolete("Does nothing. No longer needed,", true )]
+        [Obsolete( "Does nothing. No longer needed,", true )]
         public static void SetViewFactory( string path )
         {
         }
@@ -59,12 +61,50 @@ namespace Rock.Data
         {
         }
 
+        public static ConcurrentBag<WeakReference> _undisposedList = new ConcurrentBag<WeakReference>();
+        //public static ConcurrentDictionary<WeakReference, string> _stackTraces = new ConcurrentDictionary<WeakReference, string>();
+        private WeakReference weakReference;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RockContext"/> class.
         /// </summary>
         public RockContext()
             : base()
         {
+            //var st = new StackTrace( true );
+            //ShowDisposeMessage( 0, 0 );
+            weakReference = new WeakReference( this );
+            //_stackTraces.TryAdd( weakReference, st.ToString() );
+            _undisposedList.Add( weakReference );
+        }
+
+        protected override void Dispose( bool disposing )
+        {
+            //ShowDisposeMessage();
+            //_stackTraces.TryRemove( weakReference, out string asdf );
+            base.Dispose( disposing );
+        }
+
+        public static void ShowDisposeMessage( int threshHold = 0, int mod = 0 )
+        {
+            //_undisposedList.Remove( weakReference );
+            var screenshotList = _undisposedList.ToArray();
+            var undisposedCount = screenshotList.Where( a => a.IsAlive ).Count();
+
+            if ( undisposedCount > threshHold && ( mod == 0 || undisposedCount % mod == 0 ) )
+            {
+                Debug.WriteLine( $"total: {screenshotList.Length}, undisposedCount:{undisposedCount}" );
+            }
+
+            /*var undisposedStackTraces = _stackTraces.ToList().Where( a => a.Key.IsAlive ).Select( a => a.Value ).GroupBy( s => s ).ToDictionary( k => k.Key, v => v.Count() );
+
+            IEnumerable<KeyValuePair<string, int>> topTen = undisposedStackTraces.Where( v => v.Value > 100 ).OrderByDescending( v => v.Value ).Take( 10 );
+            if ( topTen.Any() )
+            {
+                var top = topTen.FirstOrDefault();
+                Debug.WriteLine( $"{top.Value} : {top.Key}" );
+            }
+            */
         }
 
         #region Models
