@@ -25,6 +25,8 @@ using System.Web.UI.WebControls;
 
 using Rock.Data;
 using Rock.Model;
+using Rock.Reporting;
+using Rock.Utility;
 using Rock.Web.Cache;
 
 namespace Rock
@@ -347,7 +349,7 @@ namespace Rock
                             && method.GetParameters().Length == 2 )
                     .MakeGenericMethod( typeof( T ), type )
                     .Invoke( null, new object[] { source, lambda } );
-            return (IOrderedQueryable<T>)result;
+            return ( IOrderedQueryable<T> ) result;
         }
 
         /// <summary>
@@ -394,11 +396,11 @@ namespace Rock
                     var result = new List<T>();
                     if ( sortProperty.Direction == SortDirection.Ascending )
                     {
-                        models.OrderBy( m => m.CustomSortValue ).ToList().ForEach( m => result.Add( (T)m ) );
+                        models.OrderBy( m => m.CustomSortValue ).ToList().ForEach( m => result.Add( ( T ) m ) );
                     }
                     else
                     {
-                        models.OrderByDescending( m => m.CustomSortValue ).ToList().ForEach( m => result.Add( (T)m ) );
+                        models.OrderByDescending( m => m.CustomSortValue ).ToList().ForEach( m => result.Add( ( T ) m ) );
                     }
 
                     return result.AsQueryable().OrderBy( r => 0 );
@@ -431,7 +433,7 @@ namespace Rock
             }
 
             return qry;
-            
+
         }
 
         /// <summary>
@@ -448,16 +450,21 @@ namespace Rock
         ///   </example>
         public static IQueryable<T> WhereAttributeValue<T>( this IQueryable<T> source, RockContext rockContext, string attributeKey, string attributeValue ) where T : Entity<T>, new()
         {
-            int entityTypeId = EntityTypeCache.GetId( typeof( T ) ) ?? 0;
+            var serviceInstance = new Service<T>( rockContext );
+            var parameterExpression = serviceInstance.ParameterExpression;
 
-            var avs = new AttributeValueService( rockContext ).Queryable()
-                .Where( a => a.Attribute.Key == attributeKey )
-                .Where( a => a.Attribute.EntityTypeId == entityTypeId )
-                .Where( a => a.Value == attributeValue )
-                .Select( a => a.EntityId );
+            var entityFields = EntityHelper.GetEntityFields( typeof( T ) );
+            var entityField = entityFields.Where( a => a.FieldKind == FieldKind.Attribute && a.AttributeGuid.HasValue && AttributeCache.Get( a.AttributeGuid.Value )?.Key == attributeKey ).FirstOrDefault();
+            if ( entityField == null )
+            {
+                return source;
+            }
 
-            var result = source.Where( a => avs.Contains( ( a as T ).Id ) );
-            return result;
+            var filterParameters = new List<string>();
+            filterParameters.Add( attributeValue );
+
+            var attributeWhereExpression = ExpressionHelper.GetAttributeExpression( serviceInstance, parameterExpression, entityField, filterParameters );
+            return source.Where( parameterExpression, attributeWhereExpression );
         }
 
         /// <summary>
