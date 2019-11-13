@@ -170,12 +170,14 @@ function() {
         /// <summary>
         /// The GroupTypePicker
         /// </summary>
-        private GroupTypePicker groupTypePicker = null;
+        [ThreadStatic]
+        private static GroupTypePicker _groupTypePicker = null;
 
         /// <summary>
         /// The GroupTypeRole CheckBoxList
         /// </summary>
-        private RockCheckBoxList cblRole = null;
+        [ThreadStatic]
+        private static RockCheckBoxList _cblRole = null;
 
         /// <summary>
         /// Creates the child controls.
@@ -184,26 +186,26 @@ function() {
         public override Control[] CreateChildControls( Type entityType, FilterField filterControl )
         {
             int? selectedGroupTypeId = null;
-            if ( groupTypePicker != null )
+            if ( _groupTypePicker != null )
             {
-                selectedGroupTypeId = groupTypePicker.SelectedGroupTypeId;
+                selectedGroupTypeId = _groupTypePicker.SelectedGroupTypeId;
             }
 
-            groupTypePicker = new GroupTypePicker();
-            groupTypePicker.ID = filterControl.ID + "_groupTypePicker";
-            groupTypePicker.Label = "Group Type";
-            groupTypePicker.GroupTypes = new GroupTypeService( new RockContext() ).Queryable().OrderBy( a => a.Order ).ThenBy( a => a.Name ).ToList();
-            groupTypePicker.SelectedIndexChanged += groupTypePicker_SelectedIndexChanged;
-            groupTypePicker.AutoPostBack = true;
-            groupTypePicker.SelectedGroupTypeId = selectedGroupTypeId;
-            filterControl.Controls.Add( groupTypePicker );
+            _groupTypePicker = new GroupTypePicker();
+            _groupTypePicker.ID = filterControl.ID + "_groupTypePicker";
+            _groupTypePicker.Label = "Group Type";
+            _groupTypePicker.GroupTypes = new GroupTypeService( new RockContext() ).Queryable().OrderBy( a => a.Order ).ThenBy( a => a.Name ).ToList();
+            _groupTypePicker.SelectedIndexChanged += groupTypePicker_SelectedIndexChanged;
+            _groupTypePicker.AutoPostBack = true;
+            _groupTypePicker.SelectedGroupTypeId = selectedGroupTypeId;
+            filterControl.Controls.Add( _groupTypePicker );
 
-            cblRole = new RockCheckBoxList();
-            cblRole.Label = "with Group Role(s)";
-            cblRole.ID = filterControl.ID + "_cblRole";
-            filterControl.Controls.Add( cblRole );
+            _cblRole = new RockCheckBoxList();
+            _cblRole.Label = "with Group Role(s)";
+            _cblRole.ID = filterControl.ID + "_cblRole";
+            filterControl.Controls.Add( _cblRole );
 
-            PopulateGroupRolesCheckList( groupTypePicker.SelectedGroupTypeId ?? 0 );
+            PopulateGroupRolesCheckList( _groupTypePicker.SelectedGroupTypeId ?? 0 );
 
             RockDropDownList ddlGroupMemberStatus = new RockDropDownList();
             ddlGroupMemberStatus.CssClass = "js-group-member-status";
@@ -224,7 +226,7 @@ function() {
             ddlGroupStatus.SetValue( true.ToString() );
             filterControl.Controls.Add( ddlGroupStatus );
 
-            return new Control[4] { groupTypePicker, cblRole, ddlGroupStatus, ddlGroupMemberStatus };
+            return new Control[4] { _groupTypePicker, _cblRole, ddlGroupStatus, ddlGroupMemberStatus };
         }
 
         /// <summary>
@@ -234,7 +236,7 @@ function() {
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void groupTypePicker_SelectedIndexChanged( object sender, EventArgs e )
         {
-            int groupTypeId = groupTypePicker.SelectedValueAsId() ?? 0;
+            int groupTypeId = _groupTypePicker.SelectedValueAsId() ?? 0;
             PopulateGroupRolesCheckList( groupTypeId );
         }
 
@@ -247,17 +249,17 @@ function() {
             var groupType = GroupTypeCache.Get( groupTypeId );
             if ( groupType != null )
             {
-                cblRole.Items.Clear();
+                _cblRole.Items.Clear();
                 foreach ( var item in new GroupTypeRoleService( new RockContext() ).GetByGroupTypeId( groupType.Id ) )
                 {
-                    cblRole.Items.Add( new ListItem( item.Name, item.Guid.ToString() ) );
+                    _cblRole.Items.Add( new ListItem( item.Name, item.Guid.ToString() ) );
                 }
 
-                cblRole.Visible = cblRole.Items.Count > 0;
+                _cblRole.Visible = _cblRole.Items.Count > 0;
             }
             else
             {
-                cblRole.Visible = false;
+                _cblRole.Visible = false;
             }
         }
 

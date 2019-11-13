@@ -82,17 +82,20 @@ namespace Rock.Reporting.DataSelect.Person
         /// <summary>
         /// The Registration Template picker (drop down list)
         /// </summary>
-        private RockDropDownList _ddlRegistrationTemplate = null;
+        [ThreadStatic]
+        private static RockDropDownList _ddlRegistrationTemplate = null;
 
         /// <summary>
         /// The Registration Instance picker (drop down list)
         /// </summary>
-        private RockDropDownList _ddlRegistrationInstance = null;
+        [ThreadStatic]
+        private static RockDropDownList _ddlRegistrationInstance = null;
 
         /// <summary>
         /// The registration type (registrar or registrant) radio button list
         /// </summary>
-        private RockRadioButtonList _rblRegistrationType = null;
+        [ThreadStatic]
+        private static RockRadioButtonList _rblRegistrationType = null;
 
         /// <summary>
         /// Formats the selection on the client-side.  When the filter is collapsed by the user, the Filterfield control

@@ -290,12 +290,14 @@ namespace Rock.Reporting.DataSelect.Group
         /// <summary>
         /// The GroupTypePicker
         /// </summary>
-        private GroupTypePicker groupTypePicker = null;
+        [ThreadStatic]
+        private static GroupTypePicker groupTypePicker = null;
 
         /// <summary>
         /// The GroupTypeRole CheckBoxList
         /// </summary>
-        private RockCheckBoxList cblRole = null;
+        [ThreadStatic]
+        private static RockCheckBoxList cblRole = null;
 
         /// <summary>
         /// Creates the child controls.

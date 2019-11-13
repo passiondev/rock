@@ -182,8 +182,8 @@ namespace Rock.Reporting.DataFilter.ContentChannelItem
             // add Empty option first
             ddlProperty.Items.Add( new ListItem() );
 
-            this.entityFields = GetContentChannelItemAttributes( contentChannelTypePicker.SelectedValue.AsIntegerOrNull() );
-            foreach ( var entityField in this.entityFields )
+            _entityFields = GetContentChannelItemAttributes( contentChannelTypePicker.SelectedValue.AsIntegerOrNull() );
+            foreach ( var entityField in _entityFields )
             {
                 string controlId = string.Format( "{0}_{1}", containerControl.ID, entityField.UniqueName );
                 var control = entityField.FieldType.Field.FilterControl( entityField.FieldConfig, controlId, true, filterControl.FilterMode );
@@ -227,7 +227,7 @@ namespace Rock.Reporting.DataFilter.ContentChannelItem
             var containerControl = ddlEntityField.FirstParentControlOfType<DynamicControlsPanel>();
             FilterField filterControl = ddlEntityField.FirstParentControlOfType<FilterField>();
 
-            var entityField = this.entityFields.FirstOrDefault( a => a.UniqueName == ddlEntityField.SelectedValue );
+            var entityField = _entityFields.FirstOrDefault( a => a.UniqueName == ddlEntityField.SelectedValue );
             if ( entityField != null )
             {
                 string controlId = string.Format( "{0}_{1}", containerControl.ID, entityField.UniqueName );
@@ -243,7 +243,8 @@ namespace Rock.Reporting.DataFilter.ContentChannelItem
             }
         }
 
-        private List<EntityField> entityFields = null;
+        [ThreadStatic]
+        private static List<EntityField> _entityFields = null;
 
         /// <summary>
         /// Renders the controls.

@@ -273,7 +273,7 @@ namespace Rock.Reporting.DataFilter.GroupMember
             DynamicControlsPanel containerControl = groupTypePicker.Parent as DynamicControlsPanel;
             FilterField filterControl = containerControl.FirstParentControlOfType<FilterField>();
 
-            this.entityFields = GetGroupMemberAttributes( groupTypePicker.SelectedGroupTypeId );
+            _entityFields = GetGroupMemberAttributes( groupTypePicker.SelectedGroupTypeId );
 
             // Create the field selection dropdown
             string propertyControlId = string.Format( "{0}_ddlProperty", containerControl.ID );
@@ -293,7 +293,7 @@ namespace Rock.Reporting.DataFilter.GroupMember
 
             // add Empty option first
             ddlProperty.Items.Add( new ListItem() );
-            foreach ( var entityField in this.entityFields )
+            foreach ( var entityField in _entityFields )
             {
                 // Add the field to the dropdown of available fields
                 ddlProperty.Items.Add( new ListItem( entityField.TitleWithoutQualifier, entityField.UniqueName ) );
@@ -304,7 +304,7 @@ namespace Rock.Reporting.DataFilter.GroupMember
                 ddlProperty.SetValue( groupTypePicker.Page.Request.Params[ddlProperty.UniqueID] );
             }
 
-            foreach ( var entityField in this.entityFields )
+            foreach ( var entityField in _entityFields )
             {
                 string controlId = string.Format( "{0}_{1}", containerControl.ID, entityField.UniqueName );
                 if ( !containerControl.Controls.OfType<Control>().Any( a => a.ID == controlId ) )
@@ -329,7 +329,7 @@ namespace Rock.Reporting.DataFilter.GroupMember
             var containerControl = ddlProperty.FirstParentControlOfType<DynamicControlsPanel>();
             FilterField filterControl = ddlProperty.FirstParentControlOfType<FilterField>();
 
-            var entityField = this.entityFields.FirstOrDefault( a => a.UniqueName == ddlProperty.SelectedValue );
+            var entityField = _entityFields.FirstOrDefault( a => a.UniqueName == ddlProperty.SelectedValue );
             if ( entityField != null )
             {
                 string controlId = string.Format( "{0}_{1}", containerControl.ID, entityField.UniqueName );
@@ -345,7 +345,8 @@ namespace Rock.Reporting.DataFilter.GroupMember
             }
         }
 
-        private List<EntityField> entityFields = null;
+        [ThreadStatic]
+        private static List<EntityField> _entityFields = null;
 
         /// <summary>
         /// Renders the controls.

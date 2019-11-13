@@ -126,12 +126,14 @@ function() {
         /// <summary>
         /// The Tag Type radio button list
         /// </summary>
-        private RockRadioButtonList _rblTagType = null;
+        [ThreadStatic]
+        private static RockRadioButtonList _rblTagType = null;
 
         /// <summary>
         /// The tag list dropdownlist
         /// </summary>
-        private RockDropDownList _ddlTagList = null;
+        [ThreadStatic]
+        private static RockDropDownList _ddlTagList = null;
 
         /// <summary>
         /// Creates the child controls.

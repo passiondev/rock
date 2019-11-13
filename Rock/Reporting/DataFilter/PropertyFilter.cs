@@ -202,8 +202,8 @@ namespace Rock.Reporting.DataFilter
             var rockBlock = filterControl.RockBlock();
             var entityTypeCache = EntityTypeCache.Get( entityType, true );
 
-            this.entityFields = this.GetEntityFields( entityType );
-            foreach ( var entityField in this.entityFields.OrderBy( a => !a.IsPreviewable ).ThenBy( a => a.FieldKind != FieldKind.Property ).ThenBy( a => a.Title ) )
+            _entityFields = this.GetEntityFields( entityType );
+            foreach ( var entityField in _entityFields.OrderBy( a => !a.IsPreviewable ).ThenBy( a => a.FieldKind != FieldKind.Property ).ThenBy( a => a.Title ) )
             {
                 bool isAuthorized = true;
                 bool includeField = true;
@@ -277,7 +277,8 @@ namespace Rock.Reporting.DataFilter
             var containerControl = ddlEntityField.FirstParentControlOfType<DynamicControlsPanel>();
             FilterField filterControl = ddlEntityField.FirstParentControlOfType<FilterField>();
 
-            var entityField = this.entityFields.FirstOrDefault( a => a.UniqueName == ddlEntityField.SelectedValue );
+            var entityField = _entityFields.FirstOrDefault( a => a.UniqueName == ddlEntityField.SelectedValue );
+
             if ( entityField != null )
             {
                 string controlId = string.Format( "{0}_{1}", containerControl.ID, entityField.UniqueName );
@@ -293,7 +294,8 @@ namespace Rock.Reporting.DataFilter
             }
         }
 
-        private List<EntityField> entityFields = null;
+        [ThreadStatic]
+        private static List<EntityField> _entityFields = null;
 
         /// <summary>
         /// Renders the controls.
@@ -356,7 +358,14 @@ namespace Rock.Reporting.DataFilter
         /// <value>
         /// The entity.
         /// </value>
-        public IEntity Entity { get; set; }
+        public IEntity Entity
+        {
+            get => _entity;
+            set => _entity = value;
+        }
+
+        [ThreadStatic]
+        private static IEntity _entity;
 
         /// <summary>
         /// Gets the entity fields.

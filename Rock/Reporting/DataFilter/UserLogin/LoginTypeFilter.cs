@@ -126,7 +126,8 @@ function() {
             return result;
         }
 
-        private RockDropDownList ddlLoginType = null;
+        [ThreadStatic]
+        private static RockDropDownList ddlLoginType = null;
 
         /// <summary>
         /// Creates the child controls.

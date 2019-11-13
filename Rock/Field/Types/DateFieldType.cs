@@ -75,7 +75,8 @@ namespace Rock.Field.Types
         /// <summary>
         /// The DateFormat configuration control
         /// </summary>
-        protected RockTextBox _tbDateFormat;
+        [ThreadStatic]
+        protected static RockTextBox _tbDateFormat;
 
         /// <summary>
         /// The 'Display as Elapsed Time' configuration control

@@ -171,12 +171,14 @@ function() {
         /// <summary>
         /// The ddlInteractionChannel RockDropDownList
         /// </summary>
-        private RockDropDownList ddlInteractionChannel = null;
+        [ThreadStatic]
+        private static RockDropDownList ddlInteractionChannel = null;
 
         /// <summary>
         /// The ddlInteractionComponent RockDropDownList
         /// </summary>
-        private RockDropDownList ddlInteractionComponent = null;
+        [ThreadStatic]
+        private static RockDropDownList ddlInteractionComponent = null;
 
         /// <summary>
         /// Creates the child controls.

@@ -151,7 +151,8 @@ namespace Rock.Reporting.DataSelect.Person
         /// <summary>
         /// The GroupTypePicker
         /// </summary>
-        private GroupTypePicker groupTypePicker = null;
+        [ThreadStatic]
+        private static GroupTypePicker groupTypePicker = null;
 
         /// <summary>
         /// Creates the child controls.

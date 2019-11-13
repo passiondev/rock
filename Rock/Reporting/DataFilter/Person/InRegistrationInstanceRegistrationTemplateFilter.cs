@@ -142,16 +142,7 @@ namespace Rock.Reporting.DataFilter.Person
 
             return result;
         }
-
-        /// <summary>
-        /// The RegistrationTemplatePicker
-        /// </summary>
-        private RegistrationTemplatePicker rp = null;
-
-        /// <summary>
-        /// The "Include Inactive" checkbox
-        /// </summary>
-        private RockCheckBox cbIncludeInactiveRegistrationInstances = null;
+      
 
         /// <summary>
         /// Creates the child controls.
@@ -159,7 +150,7 @@ namespace Rock.Reporting.DataFilter.Person
         /// <returns></returns>
         public override Control[] CreateChildControls( Type entityType, FilterField filterControl )
         {
-            rp = new RegistrationTemplatePicker();
+            var rp = new RegistrationTemplatePicker();
             rp.ID = filterControl.ID + "_rp";
             rp.Label = "RegistrationTemplate(s)";
             rp.CssClass = "js-group-picker";
@@ -167,7 +158,7 @@ namespace Rock.Reporting.DataFilter.Person
             rp.Help = "Select the registration templates that you want the registrants for. Leaving this blank will not restrict results to a registration template.";
             filterControl.Controls.Add( rp );
 
-            cbIncludeInactiveRegistrationInstances = new RockCheckBox();
+            var cbIncludeInactiveRegistrationInstances = new RockCheckBox();
             cbIncludeInactiveRegistrationInstances.ID = filterControl.ID + "_cbIncludeInactiveRegistrationInstances";
             cbIncludeInactiveRegistrationInstances.Text = "Include Inactive Registration Instances";
             cbIncludeInactiveRegistrationInstances.CssClass = "js-include-inactive-groups";
@@ -246,7 +237,7 @@ namespace Rock.Reporting.DataFilter.Person
             }
 
             RegistrationTemplatePicker registrationTemplatePicker = controls[0] as RegistrationTemplatePicker;
-            RockCheckBox cbInactiveRegistrationInstances = controls[1] as RockCheckBox;
+            RockCheckBox cbIncludeInactiveRegistrationInstances = controls[1] as RockCheckBox;
             SlidingDateRangePicker registeredOnDateRangePicker = controls[2] as SlidingDateRangePicker;
 
             List<int> registrationTemplateIdList = registrationTemplatePicker.SelectedValues.AsIntegerList();
@@ -276,7 +267,7 @@ namespace Rock.Reporting.DataFilter.Person
             }
 
             RegistrationTemplatePicker registrationTemplatePicker = controls[0] as RegistrationTemplatePicker;
-            RockCheckBox cbIncludeInactive = controls[1] as RockCheckBox;
+            RockCheckBox cbIncludeInactiveRegistrationInstances = controls[1] as RockCheckBox;
             SlidingDateRangePicker registeredOnDateRangePicker = controls[2] as SlidingDateRangePicker;
 
             string[] selectionValues = selection.Split( '|' );

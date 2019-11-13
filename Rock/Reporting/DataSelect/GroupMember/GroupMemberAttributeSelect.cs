@@ -43,7 +43,8 @@ namespace Rock.Reporting.DataSelect.GroupMember
     {
         #region Private Methods
 
-        private List<EntityField> _GroupMemberAttributes = null;
+        [ThreadStatic]
+        private static List<EntityField> _GroupMemberAttributes = null;
 
         /// <summary>
         /// Gets the Attributes for a Group Member of a specific Group Type.
