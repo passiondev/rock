@@ -266,6 +266,41 @@ namespace Rock.Model
 
             return null;
         }
+
+        public List<DefinedValue> GetInactiveReasonsForGroupType( int groupTypeId )
+        {
+            //TODO: Service method to return all Inactive Reasons for the given group type. Needs testing and refactoring.
+
+            var inactiveDefinedTypeGuid = Rock.SystemGuid.DefinedType.GROUPTYPE_INACTIVE_REASONS.AsGuid();
+            var inactiveDefinedTypeId = DefinedTypeCache.GetId( inactiveDefinedTypeGuid );
+
+            var rockContext = ( RockContext ) this.Context;
+            var definedValueService = new DefinedValueService( rockContext );
+
+            // Get all the reasons, see if this can be done in one go instead
+            var unfilteredReasons = definedValueService.GetByDefinedTypeGuid( inactiveDefinedTypeGuid ).ToList();
+
+            // This is the list that is returned with the valid reasons for this group type.
+            var filteredReasons = new List<DefinedValue>();
+
+            foreach( var reason in unfilteredReasons )
+            {
+                // Get the values
+                var attributeValues = reason.GetAttributeValues( Rock.SystemKey.GroupTypeAttributeKey.INACTIVE_REASONS_GROUPTYPE_FILTER );
+                if( !attributeValues.Any())
+                {
+                    // This means there is no filter for the value so it should be included for all group types.
+                    filteredReasons.Add( reason );
+                    continue;
+                }
+
+                // split the value to get the group types and then do a contains and add it to the list.
+                
+            }
+
+            return filteredReasons;
+
+        }
     }
 
     /// <summary>

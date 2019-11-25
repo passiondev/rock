@@ -128,5 +128,7 @@ namespace Rock.SystemKey
         public const string CHECKIN_SUCCESS_LAVA_TEMPLATE = "core_checkin_SuccessLavaTemplate";
 
         #endregion Display
+
+        public const string INACTIVE_REASONS_GROUPTYPE_FILTER = "core_InactiveReasonsGroupTypeFilter";
     }
 }
