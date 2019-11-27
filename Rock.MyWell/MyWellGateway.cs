@@ -621,8 +621,9 @@ namespace Rock.MyWell
         /// <param name="subscriptionRequestParameters">The subscription request parameters.</param>
         /// <param name="scheduleTransactionFrequencyValueGuid">The schedule transaction frequency value unique identifier.</param>
         /// <param name="startDate">The start date.</param>
-        private static void SetSubscriptionBillingPlanParameters( SubscriptionRequestParameters subscriptionRequestParameters, Guid scheduleTransactionFrequencyValueGuid, DateTime startDate )
+        private static bool SetSubscriptionBillingPlanParameters( SubscriptionRequestParameters subscriptionRequestParameters, Guid scheduleTransactionFrequencyValueGuid, DateTime startDate, out string errorMessage )
         {
+            errorMessage = string.Empty;
             BillingPlanParameters billingPlanParameters = subscriptionRequestParameters as BillingPlanParameters;
 
             // NOTE: Don't convert startDate to UTC, let the gateway worry about that
@@ -685,13 +686,15 @@ namespace Rock.MyWell
             }
             else
             {
-                throw new Exception( $"Unsupported Schedule Frequency {DefinedValueCache.Get(scheduleTransactionFrequencyValueGuid)?.Value}");
+                errorMessage = $"Unsupported Schedule Frequency {DefinedValueCache.Get( scheduleTransactionFrequencyValueGuid )?.Value}";
+                return false;
             }
 
             billingPlanParameters.BillingFrequency = billingFrequency;
             billingPlanParameters.BillingCycleInterval = billingCycleInterval;
             billingPlanParameters.BillingDays = billingDays;
             billingPlanParameters.Duration = billingDuration;
+            return true;
         }
 
         /// <summary>
@@ -1096,14 +1099,23 @@ namespace Rock.MyWell
                     Amount = paymentInfo.Amount
                 };
 
-                SetSubscriptionBillingPlanParameters( subscriptionParameters, schedule.TransactionFrequencyValue.Guid, schedule.StartDate );
+                string subscriptionId;
 
-                var subscriptionResult = this.CreateSubscription( this.GetGatewayUrl( financialGateway ), this.GetPrivateApiKey( financialGateway ), subscriptionParameters );
-                var subscriptionId = subscriptionResult.Data?.Id;
-
-                if ( subscriptionId.IsNullOrWhiteSpace() )
+                if ( SetSubscriptionBillingPlanParameters( subscriptionParameters, schedule.TransactionFrequencyValue.Guid, schedule.StartDate, out errorMessage ) )
                 {
-                    errorMessage = subscriptionResult.Message;
+
+                    var subscriptionResult = this.CreateSubscription( this.GetGatewayUrl( financialGateway ), this.GetPrivateApiKey( financialGateway ), subscriptionParameters );
+                    subscriptionId = subscriptionResult.Data?.Id;
+
+                    if ( subscriptionId.IsNullOrWhiteSpace() )
+                    {
+                        errorMessage = subscriptionResult.Message;
+                        return null;
+                    }
+                }
+                else
+                {
+                    // error from SetSubscriptionBillingPlanParameters
                     return null;
                 }
 
@@ -1187,17 +1199,27 @@ namespace Rock.MyWell
 
             var transactionFrequencyGuid = DefinedValueCache.Get( scheduledTransaction.TransactionFrequencyValueId ).Guid;
 
-            SetSubscriptionBillingPlanParameters( subscriptionParameters, transactionFrequencyGuid, scheduledTransaction.StartDate );
+            FinancialGateway financialGateway;
+            string gatewayUrl;
+            string apiKey;
 
-            FinancialGateway financialGateway = scheduledTransaction.FinancialGateway;
-
-            var gatewayUrl = this.GetGatewayUrl( financialGateway );
-            var apiKey = this.GetPrivateApiKey( financialGateway );
-
-            var subscriptionResult = this.UpdateSubscription( gatewayUrl, apiKey, subscriptionId, subscriptionParameters );
-            if ( !subscriptionResult.IsSuccessStatus() )
+            if ( SetSubscriptionBillingPlanParameters( subscriptionParameters, transactionFrequencyGuid, scheduledTransaction.StartDate, out errorMessage ) )
             {
-                errorMessage = subscriptionResult.Message;
+                financialGateway = scheduledTransaction.FinancialGateway;
+
+                gatewayUrl = this.GetGatewayUrl( financialGateway );
+                apiKey = this.GetPrivateApiKey( financialGateway );
+
+                var subscriptionResult = this.UpdateSubscription( gatewayUrl, apiKey, subscriptionId, subscriptionParameters );
+                if ( !subscriptionResult.IsSuccessStatus() )
+                {
+                    errorMessage = subscriptionResult.Message;
+                    return false;
+                }
+            }
+            else
+            {
+                // error from SetSubscriptionBillingPlanParameters
                 return false;
             }
 
