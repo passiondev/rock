@@ -78,7 +78,7 @@
                         <Rock:RockDropDownList ID="ddlNMIGateway" Label="NMI Gateway" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlNMIGateway_SelectedIndexChanged" />
                         <Rock:RockDropDownList ID="ddlMyWellGateway" Label="My Well Gateway" runat="server" />
 
-                        <Rock:RockControlWrapper ID="rcbNMIPersonFiles" runat="server" Label="Profiles" Help="Select the Profiles to migrate, or leave all un-select to migrate all">
+                        <Rock:RockControlWrapper ID="rcbNMIPersonFiles" runat="server" Label="Profiles" Help="Select the Profiles to migrate, or leave all un-selected to migrate all">
                             <Rock:Grid ID="gNMIPersonProfiles" runat="server" OnRowDataBound="gNMIPersonProfiles_RowDataBound" DataKeyNames="Id" AllowSorting="true" Label="People with NMI Profiles">
                                 <Columns>
                                     <Rock:SelectField />
@@ -93,7 +93,8 @@
 
                         <h4>Saved Accounts</h4>
                         <p>
-                            This will migrate Saved Accounts from NMI to My Well. To start the migration, select the Vault Import file that was sent to you from My Well.
+                            This will migrate Saved Accounts from NMI to My Well. It does this by modifying each Saved Account to use the MyWell CustomerId instead of the NMI CustomerId (nothing in either gateway is modified)
+                            To start the migration, select the Vault Import file that was sent to you from My Well.
                             Make sure the Vault Import file was generated <b>after</b> the last NMI Saved Account was saved.
                             Click the 'Migrate Saved Accounts' button to start.
                             It is safe to run this import more than once. It will only affect records that weren't successfully migrated previously.

@@ -94,7 +94,7 @@ namespace Rock.Model
         {
             if ( item.FinancialPaymentDetailId.HasValue )
             {
-                var paymentDetailsService = new FinancialPaymentDetailService( (Rock.Data.RockContext)this.Context );
+                var paymentDetailsService = new FinancialPaymentDetailService( ( Rock.Data.RockContext ) this.Context );
                 var paymentDetail = paymentDetailsService.Get( item.FinancialPaymentDetailId.Value );
                 if ( paymentDetail != null )
                 {
@@ -130,6 +130,13 @@ namespace Rock.Model
 
                     var lastTransactionDate = new FinancialTransactionService( rockContext ).Queryable().Where( a => a.ScheduledTransactionId.HasValue && a.ScheduledTransactionId == scheduledTransaction.Id ).Max( t => t.TransactionDateTime );
                     scheduledTransaction.NextPaymentDate = gateway.GetNextPaymentDate( scheduledTransaction, lastTransactionDate );
+                    if ( scheduledTransaction.TransactionFrequencyValueId == DefinedValueCache.GetId( Rock.SystemGuid.DefinedValue.TRANSACTION_FREQUENCY_ONE_TIME.AsGuid() ) )
+                    {
+                        if ( !scheduledTransaction.NextPaymentDate.HasValue || scheduledTransaction.NextPaymentDate < RockDateTime.Now )
+                        {
+                            scheduledTransaction.IsActive = false;
+                        }
+                    }
 
                     return result;
                 }
@@ -153,7 +160,7 @@ namespace Rock.Model
             {
                 if ( scheduledTransaction.FinancialGateway.Attributes == null )
                 {
-                    scheduledTransaction.FinancialGateway.LoadAttributes( (RockContext)this.Context );
+                    scheduledTransaction.FinancialGateway.LoadAttributes( ( RockContext ) this.Context );
                 }
 
                 var gateway = scheduledTransaction.FinancialGateway.GetGatewayComponent();
@@ -188,7 +195,7 @@ namespace Rock.Model
             {
                 if ( scheduledTransaction.FinancialGateway.Attributes == null )
                 {
-                    scheduledTransaction.FinancialGateway.LoadAttributes( (RockContext)this.Context );
+                    scheduledTransaction.FinancialGateway.LoadAttributes( ( RockContext ) this.Context );
                 }
 
                 var gateway = scheduledTransaction.FinancialGateway.GetGatewayComponent();

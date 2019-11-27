@@ -205,8 +205,12 @@ namespace RockWeb.Blocks.Finance
 
             var financialScheduledTransactionService = new FinancialScheduledTransactionService( rockContext );
 
-            var financialPersonSavedAccountsQuery = new FinancialPersonSavedAccountService( rockContext ).Queryable().Where( a => a.FinancialGatewayId == nmiGatewayId );
-            var scheduledTransactionsQuery = financialScheduledTransactionService.Queryable().Where( a => a.FinancialGatewayId == nmiGatewayId && a.IsActive );
+            var financialPersonSavedAccountsQuery = new FinancialPersonSavedAccountService( rockContext ).Queryable()
+                .Where( a => a.FinancialGatewayId == nmiGatewayId && a.PersonAliasId.HasValue );
+
+            var scheduledTransactionsQuery = financialScheduledTransactionService.Queryable()
+                .Where( a => a.FinancialGatewayId == nmiGatewayId && a.IsActive );
+
             foreach ( var scheduledTransaction in scheduledTransactionsQuery )
             {
                 string errorMessages;
@@ -278,7 +282,7 @@ namespace RockWeb.Blocks.Finance
                 lPersonScheduledTransactions.Text =
                     string.Format( rowFormat, "<strong>Amount</strong>", "<strong>Frequency</strong>", "<strong>Next Payment</strong>" )
                     +
-                    scheduledTransactions.Select( a => string.Format( rowFormat, a.TotalAmount.FormatAsCurrency(), a.TransactionFrequencyValue.Value, a.NextPaymentDate.Value.ToShortDateString() ) ).ToList().AsDelimited( "" );
+                    scheduledTransactions.Select( a => string.Format( rowFormat, a.TotalAmount.FormatAsCurrency(), DefinedValueCache.Get(a.TransactionFrequencyValueId), a.NextPaymentDate.ToShortDateString() ) ).ToList().AsDelimited( "" );
             }
         }
 
@@ -404,10 +408,10 @@ namespace RockWeb.Blocks.Finance
             var myWellGatewayComponent = myWellFinancialGateway.GetGatewayComponent() as IHostedGatewayComponent;
 
             var financialPersonSavedAccountService = new FinancialPersonSavedAccountService( rockContext );
-            var nmiPersonSavedAccountQry = financialPersonSavedAccountService.Queryable().Where( a => a.FinancialGatewayId == nmiFinancialGatewayID );
+            var nmiPersonSavedAccountQry = financialPersonSavedAccountService.Queryable().Where( a => a.FinancialGatewayId == nmiFinancialGatewayID && a.PersonAliasId.HasValue );
             string logFileUrl = string.Format( "~/App_Data/Logs/GatewayMigrationUtility_MigrateSavedAccounts_{0}.json", RockDateTime.Now.ToString( "yyyyMMddTHHmmss" ) );
 
-            List<int> personIdsToMigrate = gNMIPersonProfiles.SelectedKeys.Cast<int>().ToList();
+            List<int> personIdsToMigrate = gNMIPersonProfiles.SelectedKeys.Select( a => a as int? ).Where( a => a.HasValue ).Select( a => a.Value ).Distinct().ToList();
             if ( personIdsToMigrate.Any() )
             {
                 nmiPersonSavedAccountQry = nmiPersonSavedAccountQry.Where( a => personIdsToMigrate.Contains( a.PersonAlias.PersonId ) );
@@ -605,7 +609,7 @@ namespace RockWeb.Blocks.Finance
                 scheduledTransactionsQry = scheduledTransactionsQry.Where( a => personIdsToMigrate.Contains( a.AuthorizedPersonAlias.PersonId ) );
             }
 
-            var scheduledTransactions = scheduledTransactionsQry.AsNoTracking().ToList();
+            var scheduledTransactions = scheduledTransactionsQry.Include(a => a.ScheduledTransactionDetails).AsNoTracking().ToList();
 
             var earliestMyWellStartDate = myWellGatewayComponent.GetEarliestScheduledStartDate( myWellFinancialGateway );
             var oneTimeFrequencyId = DefinedValueCache.GetId( Rock.SystemGuid.DefinedValue.TRANSACTION_FREQUENCY_ONE_TIME.AsGuid() );
@@ -720,7 +724,8 @@ namespace RockWeb.Blocks.Finance
                     ReferencePaymentInfo referencePaymentInfo = new ReferencePaymentInfo
                     {
                         GatewayPersonIdentifier = scheduledTransactionMigrationResult.MyWellCustomerId,
-                        Description = string.Format( "Migrated from NMI SubscriptionID:{0}", scheduledTransactionMigrationResult.NMISubscriptionId )
+                        Description = string.Format( "Migrated from NMI SubscriptionID:{0}", scheduledTransactionMigrationResult.NMISubscriptionId ),
+                        Amount = scheduledTransaction.TotalAmount
                     };
 
                     var myWellGateway = ( myWellGatewayComponent as MyWellGateway );
