@@ -30,7 +30,7 @@ namespace Rock.Migrations
         public override void Up()
         {
             AddNewColumnsUp();
-
+            AddDefinedTypeUp();
         }
         
         /// <summary>
@@ -39,7 +39,7 @@ namespace Rock.Migrations
         public override void Down()
         {
             AddNewColumnsDown();
-
+            AddDefinedtypeDown();
         }
 
         /// <summary>
@@ -66,6 +66,25 @@ namespace Rock.Migrations
             DropColumn("dbo.GroupType", "EnableInactiveReason");
             DropColumn("dbo.Group", "InactiveReasonNote");
             DropColumn("dbo.Group", "InactiveReasonValueId");
+        }
+
+        /// <summary>
+        /// Adds the Inactive Group Reasons defined type.
+        /// </summary>
+        private void AddDefinedTypeUp()
+        {
+            RockMigrationHelper.AddDefinedType("Group","Inactive Group Reasons","List of reasons why a group might be inactivated.","EB5D9839-F770-4E22-8B56-0B09397307D9",@"");
+            RockMigrationHelper.AddDefinedTypeAttribute("EB5D9839-F770-4E22-8B56-0B09397307D9","F725B854-A15E-46AE-9D4C-0608D4154F1E","Group Type Filter","core_InactiveReasonsGroupTypeFilter","",1038,"","F3BE6600-F60A-45AB-B57A-1CC9231C873D");
+            RockMigrationHelper.AddAttributeQualifier("F3BE6600-F60A-45AB-B57A-1CC9231C873D","repeatColumns","","F2FEA6D1-E614-4780-814C-E0F87D87C938");
+        }
+
+        /// <summary>
+        /// Removes the Inactive Group Reasons defined type
+        /// </summary>
+        private void AddDefinedtypeDown()
+        {
+            RockMigrationHelper.DeleteAttribute("F3BE6600-F60A-45AB-B57A-1CC9231C873D"); // core_InactiveReasonsGroupTypeFilter
+            RockMigrationHelper.DeleteDefinedType("EB5D9839-F770-4E22-8B56-0B09397307D9"); // Inactive Group Reasons
         }
     }
 }
