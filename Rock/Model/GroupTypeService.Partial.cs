@@ -267,39 +267,30 @@ namespace Rock.Model
             return null;
         }
 
-        public List<DefinedValue> GetInactiveReasonsForGroupType( int groupTypeId )
+        /// <summary>
+        /// Gets a list of inactive reasons allowed for the group type
+        /// </summary>
+        /// <param name="groupTypeId">The group type identifier.</param>
+        /// <returns></returns>
+        public List<DefinedValueCache> GetInactiveReasonsForGroupType( int groupTypeId )
         {
-            //TODO: Service method to return all Inactive Reasons for the given group type. Needs testing and refactoring.
+            return GetInactiveReasonsForGroupType( GroupTypeCache.Get( groupTypeId ).Guid );
+        }
 
+        /// <summary>
+        /// Gets a list of inactive reasons allowed for the group type
+        /// </summary>
+        /// <param name="groupTypeGuid">The group type unique identifier.</param>
+        /// <returns></returns>
+        public List<DefinedValueCache> GetInactiveReasonsForGroupType( Guid groupTypeGuid )
+        {
             var inactiveDefinedTypeGuid = Rock.SystemGuid.DefinedType.GROUPTYPE_INACTIVE_REASONS.AsGuid();
-            var inactiveDefinedTypeId = DefinedTypeCache.GetId( inactiveDefinedTypeGuid );
+            string key = Rock.SystemKey.GroupTypeAttributeKey.INACTIVE_REASONS_GROUPTYPE_FILTER;
 
-            var rockContext = ( RockContext ) this.Context;
-            var definedValueService = new DefinedValueService( rockContext );
-
-            // Get all the reasons, see if this can be done in one go instead
-            var unfilteredReasons = definedValueService.GetByDefinedTypeGuid( inactiveDefinedTypeGuid ).ToList();
-
-            // This is the list that is returned with the valid reasons for this group type.
-            var filteredReasons = new List<DefinedValue>();
-
-            foreach( var reason in unfilteredReasons )
-            {
-                // Get the values
-                var attributeValues = reason.GetAttributeValues( Rock.SystemKey.GroupTypeAttributeKey.INACTIVE_REASONS_GROUPTYPE_FILTER );
-                if( !attributeValues.Any())
-                {
-                    // This means there is no filter for the value so it should be included for all group types.
-                    filteredReasons.Add( reason );
-                    continue;
-                }
-
-                // split the value to get the group types and then do a contains and add it to the list.
-                
-            }
-
-            return filteredReasons;
-
+            return DefinedTypeCache.Get( inactiveDefinedTypeGuid )
+                .DefinedValues
+                .Where( r => !r.GetAttributeValues( key ).Any() || r.GetAttributeValues( key ).Contains( groupTypeGuid.ToString() ) )
+                .ToList();
         }
     }
 
