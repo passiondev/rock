@@ -48,6 +48,7 @@ namespace Rock.NMI
     [TextField( "Admin Password", "The password of an NMI user", true, "", "", 2, "AdminPassword", true )]
     [TextField( "Three Step API URL", "The URL of the NMI Three Step API", true, "https://secure.networkmerchants.com/api/v2/three-step", "", 3, "APIUrl" )]
     [TextField( "Query API URL", "The URL of the NMI Query API", true, "https://secure.networkmerchants.com/api/query.php", "", 4, "QueryUrl" )]
+    [TextField( "Direct Post API URL", "The URL of the NMI Direct Post Query API", true, "https://secure.nmi.com/api/transact.php", "", 4, "DirectPostAPIUrl" )]
     [BooleanField( "Prompt for Name On Card", "Should users be prompted to enter name on the card", false, "", 5, "PromptForName" )]
     [BooleanField( "Prompt for Billing Address", "Should users be prompted to enter billing address", false, "", 7, "PromptForAddress" )]
     public class Gateway : GatewayComponent, IThreeStepGatewayComponent
@@ -651,9 +652,6 @@ namespace Rock.NMI
             if ( transaction != null &&
                 !string.IsNullOrWhiteSpace( transaction.GatewayScheduleId ) &&
                 transaction.FinancialGateway != null )
-
-
-
             {
                 /*
                 var rootElement = GetRoot( financialGateway, "add-subscription" );
@@ -671,14 +669,17 @@ namespace Rock.NMI
                  */
 
 
-                var rootElement = GetRoot( transaction.FinancialGateway, "update-subscription" );
+                /*
+                https://secure.nmi.com/api/transact.php?username=[ADD USERNAME HERE]&password=[ADD PASSWORD HERE]&ccnumber=4111111111111111&ccexp=1025&recurring=add_subscription&plan_payments=0&plan_amount=5.00&day_frequency=30&start_date&20180209
+                 */
 
-                rootElement.Add(
-                    new XElement( "subscription-id", transaction.GatewayScheduleId ),
-                    new XElement( "start-date", nextChargeDate.ToString( "yyyyMMdd" ) ) );
 
-                XDocument xdoc = new XDocument( new XDeclaration( "1.0", "UTF-8", "yes" ), rootElement );
-                var result = PostToGateway( transaction.FinancialGateway, xdoc );
+                var queryParameters = new Dictionary<string, string>();
+
+                queryParameters.Add( "recurring", "update_subscription" );
+                queryParameters.Add( "start_date", nextChargeDate.ToString( "yyyyMMdd" ) );
+
+                var result = PostToGatewayDirectPostAPI( transaction.FinancialGateway, queryParameters );
 
                 if ( result == null )
                 {
@@ -1019,9 +1020,70 @@ namespace Rock.NMI
         /// <param name="data">The data.</param>
         /// <returns></returns>
         /// <exception cref="System.Exception"></exception>
+        private Dictionary<string, string> PostToGatewayDirectPostAPI( FinancialGateway financialGateway, Dictionary<string, string> queryParameters )
+        {
+            var restClient = new RestClient( "https://secure.nmi.com/api/transact.php" );// GetAttributeValue( financialGateway, "DirectPostAPIUrl" ) ?? "https://secure.nmi.com/api/transact.php" );
+
+            var restRequest = new RestRequest( Method.POST );
+            restRequest.RequestFormat = DataFormat.Xml;
+            foreach ( var queryParameter in queryParameters )
+            {
+                restRequest.AddQueryParameter( queryParameter.Key, queryParameter.Value );
+            }
+
+            restRequest.AddParameter( "username", GetAttributeValue( financialGateway, "AdminUsername" ) );
+            restRequest.AddParameter( "password", GetAttributeValue( financialGateway, "AdminPassword" ) );
+
+            try
+            {
+                var response = restClient.Execute( restRequest );
+                var xdocResult = GetXmlResponse( response );
+                if ( xdocResult != null )
+                {
+                    // Convert XML result to a dictionary
+                    var result = new Dictionary<string, string>();
+                    foreach ( XElement element in xdocResult.Root.Elements() )
+                    {
+                        if ( element.HasElements )
+                        {
+                            string prefix = element.Name.LocalName;
+                            foreach ( XElement childElement in element.Elements() )
+                            {
+                                result.AddOrIgnore( prefix + "_" + childElement.Name.LocalName, childElement.Value.Trim() );
+                            }
+                        }
+                        else
+                        {
+                            result.AddOrIgnore( element.Name.LocalName, element.Value.Trim() );
+                        }
+                    }
+                    return result;
+                }
+            }
+            catch ( WebException webException )
+            {
+                string message = GetResponseMessage( webException.Response.GetResponseStream() );
+                throw new Exception( webException.Message + " - " + message );
+            }
+            catch ( Exception ex )
+            {
+                throw ex;
+            }
+
+            return null;
+
+        }
+
+        /// <summary>
+        /// Posts to gateway.
+        /// </summary>
+        /// <param name="financialGateway">The financial gateway.</param>
+        /// <param name="data">The data.</param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
         private Dictionary<string, string> PostToGateway( FinancialGateway financialGateway, XDocument data )
         {
-            var restClient = new RestClient( GetAttributeValue( financialGateway, "APIUrl" ) );
+            RestClient restClient = new RestClient( GetAttributeValue( financialGateway, "APIUrl" ) );
             var restRequest = new RestRequest( Method.POST );
             restRequest.RequestFormat = DataFormat.Xml;
             restRequest.AddParameter( "text/xml", data.ToString(), ParameterType.RequestBody );

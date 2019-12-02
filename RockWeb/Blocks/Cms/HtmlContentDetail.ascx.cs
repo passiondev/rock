@@ -130,9 +130,9 @@ namespace RockWeb.Blocks.Cms
             var rockContext = new RockContext();
             var nmiFinancialGateway = new FinancialGatewayService( rockContext ).Get( 3 );
             var nmiGateway = nmiFinancialGateway.GetGatewayComponent() as Rock.NMI.Gateway;
-            var scheduledTransaction = new FinancialScheduledTransactionService( rockContext ).Get( 1 );
+            var scheduledTransaction = new FinancialScheduledTransactionService( rockContext ).Get( 500012  );
             string errorMessage;
-            nmiGateway.GetScheduledPayment( scheduledTransaction, out errorMessage );
+            var scheduledPaymentXML = nmiGateway.GetScheduledPayment( scheduledTransaction, out errorMessage );
             nmiGateway.UpdateScheduledPaymentNextChargeDate( scheduledTransaction, new DateTime( 2030, 1, 1 ), out errorMessage );
         }
 
