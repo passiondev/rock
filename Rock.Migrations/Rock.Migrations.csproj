@@ -81,10 +81,6 @@
     <Compile Include="Migrations\201911152343096_FirstFifteenth.Designer.cs">
       <DependentUpon>201911152343096_FirstFifteenth.cs</DependentUpon>
     </Compile>
-    <Compile Include="Migrations\201911251639298_GroupInactiveReason.cs" />
-    <Compile Include="Migrations\201911251639298_GroupInactiveReason.Designer.cs">
-      <DependentUpon>201911251639298_GroupInactiveReason.cs</DependentUpon>
-    </Compile>
     <Compile Include="Migrations\Version 10.0\Version 1.10.1\201911080046206_Rollup_1107.cs" />
     <Compile Include="Migrations\Version 10.0\Version 1.10.1\201911080046206_Rollup_1107.Designer.cs">
       <DependentUpon>201911080046206_Rollup_1107.cs</DependentUpon>
@@ -937,9 +933,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\201911152343096_FirstFifteenth.resx">
       <DependentUpon>201911152343096_FirstFifteenth.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201911251639298_GroupInactiveReason.resx">
-      <DependentUpon>201911251639298_GroupInactiveReason.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\Version 10.0\Version 1.10.1\201911080046206_Rollup_1107.resx">
       <DependentUpon>201911080046206_Rollup_1107.cs</DependentUpon>
