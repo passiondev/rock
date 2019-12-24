@@ -152,17 +152,18 @@ namespace Rock.Communication
                 }
                 else
                 {
-#pragma warning disable CS0612 // Type or member is obsolete
-
                     // If a matching SystemCommunication could not be found, check if this is a reference to a legacy SystemEmail object.
+                    // This is necessary to provide backward-compatibility for third-party plugins.
+#pragma warning disable CS0618 // Type or member is obsolete
                     var systemEmail = new SystemEmailService( rockContext ).Get( systemGuid );
+#pragma warning restore CS0618 // Type or member is obsolete
 
                     if ( systemEmail != null )
                     {
+#pragma warning disable CS0612 // Type or member is obsolete
                         InitEmailMessage( systemEmail );
-                    }
-
 #pragma warning restore CS0612 // Type or member is obsolete
+                    }
                 }
             }
         }

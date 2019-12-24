@@ -792,9 +792,10 @@ namespace Rock.Web.Cache
             ScheduleReminderEmailOffsetDays = groupType.ScheduleReminderEmailOffsetDays;
             RequiresReasonIfDeclineSchedule = groupType.RequiresReasonIfDeclineSchedule;
 
+#pragma warning disable CS0618 // Type or member is obsolete
             ScheduleConfirmationSystemEmailId = groupType.ScheduleConfirmationSystemEmailId;
             ScheduleReminderSystemEmailId = groupType.ScheduleReminderSystemEmailId;
-
+#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         /// <summary>
