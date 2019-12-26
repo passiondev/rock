@@ -133,6 +133,12 @@ namespace RockWeb.Blocks.Cms
             var scheduledTransaction = new FinancialScheduledTransactionService( rockContext ).Get( 500012  );
             string errorMessage;
             var scheduledPaymentXML = nmiGateway.GetScheduledPayment( scheduledTransaction, out errorMessage );
+
+            var customerVaultAllXML = nmiGateway.GetCustomerVaultAll( scheduledTransaction, out errorMessage );
+
+            var customerVaultSingleXML = nmiGateway.GetCustomerVaultCustomerVaultId( scheduledTransaction, "1029582657", out errorMessage );
+
+
             nmiGateway.UpdateScheduledPaymentNextChargeDate( scheduledTransaction, new DateTime( 2030, 1, 1 ), out errorMessage );
         }
 

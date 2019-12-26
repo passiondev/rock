@@ -638,6 +638,58 @@ namespace Rock.NMI
             return null;
         }
 
+
+        public string GetCustomerVaultAll( FinancialScheduledTransaction transaction, out string errorMessage )
+        {
+            errorMessage = string.Empty;
+            var financialGateway = transaction.FinancialGateway;
+
+            var restClient = new RestClient( GetAttributeValue( financialGateway, "QueryUrl" ) );
+            var restRequest = new RestRequest( Method.GET );
+
+            restRequest.AddParameter( "username", GetAttributeValue( financialGateway, "AdminUsername" ) );
+            restRequest.AddParameter( "password", GetAttributeValue( financialGateway, "AdminPassword" ) );
+            restRequest.AddParameter( "report_type", "customer_vault" );
+
+            var response = restClient.Execute( restRequest );
+            if ( response != null )
+            {
+                if ( response.StatusCode == HttpStatusCode.OK )
+                {
+                    var xdocResult = GetXmlResponse( response );
+                    return xdocResult.ToString();
+                }
+            }
+
+            return null;
+        }
+
+        public string GetCustomerVaultCustomerVaultId( FinancialScheduledTransaction transaction, string customer_vault_id, out string errorMessage )
+        {
+            errorMessage = string.Empty;
+            var financialGateway = transaction.FinancialGateway;
+
+            var restClient = new RestClient( GetAttributeValue( financialGateway, "QueryUrl" ) );
+            var restRequest = new RestRequest( Method.GET );
+
+            restRequest.AddParameter( "username", GetAttributeValue( financialGateway, "AdminUsername" ) );
+            restRequest.AddParameter( "password", GetAttributeValue( financialGateway, "AdminPassword" ) );
+            restRequest.AddParameter( "report_type", "customer_vault" );
+            restRequest.AddParameter( "customer_vault_id", customer_vault_id );
+
+            var response = restClient.Execute( restRequest );
+            if ( response != null )
+            {
+                if ( response.StatusCode == HttpStatusCode.OK )
+                {
+                    var xdocResult = GetXmlResponse( response );
+                    return xdocResult.ToString();
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Updates the scheduled payment next charge date
         /// </summary>
