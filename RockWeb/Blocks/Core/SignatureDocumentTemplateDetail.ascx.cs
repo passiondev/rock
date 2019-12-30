@@ -45,8 +45,8 @@ namespace RockWeb.Blocks.Core
 
     [BinaryFileTypeField( "Default File Type", "The default file type to use when creating new documents.", false, 
         Rock.SystemGuid.BinaryFiletype.SIGNED_DOCUMENT_FILE_TYPE, "", 0 )]
-    [BinaryFileTypeField( "Default Invite Email", "The default system email to use when creating new document types.", false,
-        Rock.SystemGuid.SystemEmail.DIGITAL_SIGNATURE_INVITE, "", 1 )]
+    [SystemCommunicationField( "Default Invite Email", "The default system email to use when creating new document types.", false,
+        Rock.SystemGuid.SystemCommunication.DIGITAL_SIGNATURE_INVITE, "", 1 )]
     public partial class SignatureDocumentTemplateDetail : RockBlock, IDetailBlock
     {
         #region Base Control Methods
