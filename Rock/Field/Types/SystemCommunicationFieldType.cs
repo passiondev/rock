@@ -27,13 +27,10 @@ using Rock.Web.UI.Controls;
 namespace Rock.Field.Types
 {
     /// <summary>
-    /// Field Type to select a system email. Stored as SystemEmail.Guid
+    /// Field Type to select a system communication. Stored as SystemCommunication.Guid
     /// </summary>
-    [Obsolete( "Use SystemCommunicationFieldType instead." )]
-    [RockObsolete( "1.10" )]
-    public class SystemEmailFieldType : FieldType
+    public class SystemCommunicationFieldType : FieldType
     {
-
         #region Formatting
 
         /// <summary>
@@ -53,10 +50,10 @@ namespace Rock.Field.Types
             {
                 using ( var rockContext = new RockContext() )
                 {
-                    var systemEmail = new SystemEmailService( rockContext ).GetNoTracking( guid );
-                    if ( systemEmail != null )
+                    var SystemCommunication = new SystemCommunicationService( rockContext ).GetNoTracking( guid );
+                    if ( SystemCommunication != null )
                     {
-                        formattedValue = systemEmail.Title;
+                        formattedValue = SystemCommunication.Title;
                     }
                 }
             }
@@ -64,8 +61,8 @@ namespace Rock.Field.Types
             return base.FormatValue( parentControl, formattedValue, null, condensed );
         }
 
-        #endregion 
-        
+        #endregion
+
         #region Edit Control
 
         /// <summary>
@@ -76,20 +73,20 @@ namespace Rock.Field.Types
         /// <returns>
         /// The control
         /// </returns>
-        public override Control EditControl(Dictionary<string,ConfigurationValue> configurationValues, string id)
+        public override Control EditControl( Dictionary<string, ConfigurationValue> configurationValues, string id )
         {
             var editControl = new RockDropDownList { ID = id };
 
-            var systemEmails = new SystemEmailService( new RockContext() ).Queryable().OrderBy( e => e.Title );
-            
+            var SystemCommunications = new SystemCommunicationService( new RockContext() ).Queryable().OrderBy( e => e.Title );
+
             // add a blank for the first option
             editControl.Items.Add( new ListItem() );
 
-            if ( systemEmails.Any() )
+            if ( SystemCommunications.Any() )
             {
-                foreach ( var systemEmail in systemEmails )
+                foreach ( var SystemCommunication in SystemCommunications )
                 {
-                    editControl.Items.Add( new ListItem( systemEmail.Title, systemEmail.Guid.ToString() ) );
+                    editControl.Items.Add( new ListItem( SystemCommunication.Title, SystemCommunication.Guid.ToString() ) );
                 }
 
                 return editControl;
@@ -131,6 +128,5 @@ namespace Rock.Field.Types
         }
 
         #endregion
-
     }
 }

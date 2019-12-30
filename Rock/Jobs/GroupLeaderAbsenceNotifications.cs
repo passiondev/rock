@@ -40,7 +40,7 @@ namespace Rock.Jobs
         IsRequired = true,
         Order = 0 )]
 
-    [SystemEmailField( "Notification Email",
+    [SystemCommunicationField( "Notification Email",
         Key = AttributeKey.NotificationEmail,
         IsRequired = true,
         Order = 1 )]
