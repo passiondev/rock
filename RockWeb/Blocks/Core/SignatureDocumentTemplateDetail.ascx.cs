@@ -287,7 +287,7 @@ namespace RockWeb.Blocks.Core
             ddlSystemEmail.Items.Clear();
             using ( var rockContext = new RockContext()  )
             {
-                foreach( var systemEmail in new SystemEmailService( rockContext )
+                foreach( var systemEmail in new SystemCommunicationService( rockContext )
                     .Queryable().AsNoTracking()
                     .OrderBy( e => e.Title ) 
                     .Select( e => new
@@ -377,11 +377,11 @@ namespace RockWeb.Blocks.Core
                     Guid? inviteEmailGuid = GetAttributeValue( "DefaultInviteEmail" ).AsGuidOrNull();
                     if ( inviteEmailGuid.HasValue )
                     {
-                        var systemEmail = new SystemEmailService( rockContext ).Get( inviteEmailGuid.Value );
+                        var systemEmail = new SystemCommunicationService( rockContext ).Get( inviteEmailGuid.Value );
                         if ( systemEmail != null )
                         {
-                            signatureDocumentTemplate.InviteSystemEmail = systemEmail;
-                            signatureDocumentTemplate.InviteSystemEmailId = systemEmail.Id;
+                            signatureDocumentTemplate.InviteSystemCommunication = systemEmail;
+                            signatureDocumentTemplate.InviteSystemCommunicationId = systemEmail.Id;
                         }
                     }
 
