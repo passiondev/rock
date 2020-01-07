@@ -9,6 +9,7 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using Rock.Data;
 using Rock.Model;
+using Rock.Web.Cache;
 
 namespace Rock.Web.UI.Controls
 {
@@ -201,11 +202,6 @@ namespace Rock.Web.UI.Controls
         /// </summary>
         public HiddenField _hfValue;
 
-        /// <summary>
-        /// The hf disable VRM
-        /// </summary>
-        public HiddenField _hfValueDisableVrm;
-
         #endregion
 
         #region Properties
@@ -226,7 +222,6 @@ namespace Rock.Web.UI.Controls
                 return lava.ResolveMergeFields( mergeFields );
             }
         }
-
         /// <summary>
         /// Gets or sets the structured content.
         /// </summary>
@@ -245,6 +240,25 @@ namespace Rock.Web.UI.Controls
                 EnsureChildControls();
                 _hfValue.Value = value;
 
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the Structure Content Tool Id.
+        /// </summary>
+        /// <value>
+        /// The structure content tool value identifier.
+        /// </value>
+        public int? StructuredContentToolValueId
+        {
+            get
+            {
+                return ViewState["StructuredContentToolValueId"] as int?;
+            }
+
+            set
+            {
+                ViewState["StructuredContentToolValueId"] = value;
             }
         }
 
@@ -275,10 +289,6 @@ namespace Rock.Web.UI.Controls
 
             this.RequiredFieldValidator.InitialValue = "{}";
             this.RequiredFieldValidator.ControlToValidate = _hfValue.ID;
-
-            _hfValueDisableVrm = new HiddenField();
-            _hfValueDisableVrm.ID = _hfValue.ID + "_dvrm";
-            Controls.Add( _hfValueDisableVrm );
         }
 
         /// <summary>
@@ -331,12 +341,12 @@ namespace Rock.Web.UI.Controls
                 _hfValue.Value = "{}";
             }
             _hfValue.RenderControl( writer );
-            _hfValueDisableVrm.RenderControl( writer );
             writer.WriteLine();
 
             writer.AddStyleAttribute( HtmlTextWriterStyle.BackgroundColor, "#f7f7f7" );
             writer.AddAttribute( HtmlTextWriterAttribute.Id, this.ClientID );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
+            writer.RenderEndTag();
             writer.WriteLine();
 
             // add script on demand only when there will be an htmleditor rendered
@@ -355,6 +365,25 @@ namespace Rock.Web.UI.Controls
         /// </summary>
         private void RegisterJavascript()
         {
+            var structuredContentToolConfiguration = string.Empty;
+            if ( StructuredContentToolValueId.HasValue )
+            {
+                var structuredContentToolValue = DefinedValueCache.Get( StructuredContentToolValueId.Value );
+                if ( structuredContentToolValue != null )
+                {
+                    structuredContentToolConfiguration = structuredContentToolValue.Description; 
+                }
+            }
+
+            if ( structuredContentToolConfiguration.IsNullOrWhiteSpace() )
+            {
+                var structuredContentToolValue = DefinedValueCache.Get( SystemGuid.DefinedValue.STRUCTURE_CONTENT_EDITOR_DEFAULT );
+                if ( structuredContentToolValue != null )
+                {
+                    structuredContentToolConfiguration = structuredContentToolValue.Description;
+                }
+            }
+
             var script = string.Format( @"
 var fieldContent = $('#{1}').val();
  var output = document.getElementById('output');
@@ -364,59 +393,7 @@ var fieldContent = $('#{1}').val();
  */
 var editor = new EditorJS({{
 holderId: '{0}',
-tools: {{
-    header: {{
-    class: Header,
-    inlineToolbar: ['link'],
-    config: {{
-        placeholder: 'Header'
-    }},
-    shortcut: 'CMD+SHIFT+H'
-    }},
-    image: {{
-    class: ImageTool,
-    inlineToolbar: ['link'],
-    }},
-    list: {{
-    class: List,
-    inlineToolbar: true,
-    shortcut: 'CMD+SHIFT+L'
-    }},
-    checklist: {{
-    class: Checklist,
-    inlineToolbar: true,
-    }},
-    quote: {{
-    class: Quote,
-    inlineToolbar: true,
-    config: {{
-        quotePlaceholder: 'Enter a quote',
-        captionPlaceholder: 'Quote\'s author',
-    }},
-    shortcut: 'CMD+SHIFT+O'
-    }},
-    warning: Warning,
-    marker: {{
-    class:  Marker,
-    shortcut: 'CMD+SHIFT+M'
-    }},
-    code: {{
-    class:  CodeTool,
-    shortcut: 'CMD+SHIFT+C'
-    }},
-    delimiter: Delimiter,
-    inlineCode: {{
-    class: InlineCode,
-    shortcut: 'CMD+SHIFT+C'
-    }},
-    linkTool: LinkTool,
-    embed: Embed,
-    table: {{
-    class: Table,
-    inlineToolbar: true,
-    shortcut: 'CMD+ALT+T'
-    }}
-}},
+tools: {2},
 initialBlock: 'paragraph',
 data: JSON.parse(decodeURIComponent(fieldContent)),
 onChange: function() {{
@@ -427,8 +404,8 @@ onChange: function() {{
     }});
 }}
 }});
-", this.ClientID, _hfValue.ClientID );
-            ScriptManager.RegisterStartupScript( this, this.GetType(), "editor-script" + this.ClientID, script, true );
+", this.ClientID, _hfValue.ClientID, structuredContentToolConfiguration );
+            ScriptManager.RegisterStartupScript( this, this.GetType(), "structure-content-script" + this.ClientID, script, true );
         }
     }
 }

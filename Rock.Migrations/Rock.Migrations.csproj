@@ -233,6 +233,18 @@
     <Compile Include="Migrations\201911141852532_EntityDocuments.Designer.cs">
       <DependentUpon>201911141852532_EntityDocuments.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201912191346243_AddIsStructuredContent.cs" />
+    <Compile Include="Migrations\201912191346243_AddIsStructuredContent.Designer.cs">
+      <DependentUpon>201912191346243_AddIsStructuredContent.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\202001061531512_AddStructuredContentToolValue.cs" />
+    <Compile Include="Migrations\202001061531512_AddStructuredContentToolValue.Designer.cs">
+      <DependentUpon>202001061531512_AddStructuredContentToolValue.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\202001071142450_AddStructuredContentToolDefinedType.cs" />
+    <Compile Include="Migrations\202001071142450_AddStructuredContentToolDefinedType.Designer.cs">
+      <DependentUpon>202001071142450_AddStructuredContentToolDefinedType.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\Version 9.0\Version 1.9.0\201907082136571_Rollup0708.cs" />
     <Compile Include="Migrations\Version 9.0\Version 1.9.0\201907082136571_Rollup0708.Designer.cs">
       <DependentUpon>201907082136571_Rollup0708.cs</DependentUpon>
@@ -967,6 +979,15 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\201911141852532_EntityDocuments.resx">
       <DependentUpon>201911141852532_EntityDocuments.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201912191346243_AddIsStructuredContent.resx">
+      <DependentUpon>201912191346243_AddIsStructuredContent.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\202001061531512_AddStructuredContentToolValue.resx">
+      <DependentUpon>202001061531512_AddStructuredContentToolValue.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\202001071142450_AddStructuredContentToolDefinedType.resx">
+      <DependentUpon>202001071142450_AddStructuredContentToolDefinedType.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\Version 9.0\Version 1.9.0\201907082136571_Rollup0708.resx">
       <DependentUpon>201907082136571_Rollup0708.cs</DependentUpon>
