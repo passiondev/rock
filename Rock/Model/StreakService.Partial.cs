@@ -165,14 +165,15 @@ namespace Rock.Model
             }
 
             var streakTypeCache = StreakTypeCache.Get( streak.StreakTypeId );
+            var sortedAchievementTypes = StreakTypeAchievementTypeService.SortAccordingToPrerequisites( streakTypeCache.StreakTypeAchievementTypes );
 
-            foreach ( var streakTypeAchievementTypeCache in streakTypeCache.StreakTypeAchievementTypes )
+            foreach ( var streakTypeAchievementTypeCache in sortedAchievementTypes )
             {
+                var loopRockContext = new RockContext();
                 var component = streakTypeAchievementTypeCache.AchievementComponent;
-                component.Process( rockContext, streakTypeAchievementTypeCache, streak );
+                component.Process( loopRockContext, streakTypeAchievementTypeCache, streak );
+                loopRockContext.SaveChanges();
             }
-
-            rockContext.SaveChanges();
         }
     }
 }

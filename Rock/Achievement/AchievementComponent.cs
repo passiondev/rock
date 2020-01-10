@@ -245,6 +245,24 @@ namespace Rock.Achievement
                 return;
             }
 
+            // Determine the person id
+            var personAliasService = new PersonAliasService( rockContext );
+            var personId = personAliasService.GetPersonId( streak.PersonAliasId );
+
+            if ( !personId.HasValue )
+            {
+                return;
+            }
+
+            // If there are unmet prerequisites, then there is nothing to do
+            var streakTypeAchievementTypeService = new StreakTypeAchievementTypeService( rockContext );
+            var unmetPrerequisites = streakTypeAchievementTypeService.GetUnmetPrerequisites( streakTypeAchievementTypeCache.Id, personId.Value );
+
+            if ( unmetPrerequisites.Any() )
+            {
+                return;
+            }
+
             // Get all of the attempts for this streak and achievement combo, ordered by start date DESC so that
             // the most recent attempts can be found with FirstOrDefault
             var streakAchievementAttemptService = new StreakAchievementAttemptService( rockContext );
