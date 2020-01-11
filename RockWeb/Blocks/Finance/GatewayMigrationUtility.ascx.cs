@@ -23,7 +23,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-using CsvHelper;
 using Microsoft.AspNet.SignalR;
 
 using Rock;
@@ -46,27 +45,11 @@ namespace RockWeb.Blocks.Finance
 
     #region Block Attributes
 
-    [BooleanField(
-        "Cancel (Delete) NMI Subscription when converting",
-        Description = "If you have contacted MyWell and had them Disable all the NMI Subscriptions, you can set this to false.",
-        Key = AttributeKey.CancelNMISubscription,
-        DefaultBooleanValue = true,
-        Category = "Advanced",
-        Order = -1
-        )]
     #endregion Block Attributes
     public partial class GatewayMigrationUtility : RockBlock
     {
 
         #region Attribute Keys
-
-        /// <summary>
-        /// Keys to use for Block Attributes
-        /// </summary>
-        private static class AttributeKey
-        {
-            public const string CancelNMISubscription = "CancelNMISubscription";
-        }
 
         private static class UserPreferenceKey
         {
@@ -160,18 +143,6 @@ namespace RockWeb.Blocks.Finance
             }
 
             hfMigrateScheduledTransactionsResultFileURL.Value = this.GetBlockUserPreference( UserPreferenceKey.MigrateScheduledTransactionsResultFileURL );
-
-            bool cancelNMISubscription = this.GetAttributeValue( AttributeKey.CancelNMISubscription ).AsBoolean();
-            if ( cancelNMISubscription == false )
-            {
-                nbMigrationScheduledConfigurationWarning.Text = "Warning: This block is configured to not modify or cancel NMI subscriptions. Only do this if you have made arrangements with MyWell to disable NMI subscriptions prior to running this migration.";
-                nbMigrationScheduledConfigurationWarning.Visible = true;
-            }
-            else
-            {
-                nbMigrationScheduledConfigurationWarning.Visible = false;
-            }
-
             nbMigrateScheduledTransactionsResult.Text = string.Empty;
 
             ShowScheduledTransactionResults();
@@ -234,14 +205,12 @@ namespace RockWeb.Blocks.Finance
                 .Where( a => a.FinancialGatewayId == nmiGatewayId && a.IsActive )
                 .Include( a => a.FinancialGateway );
 
-                
-            var scheduledTransactionsList = scheduledTransactionsQuery.ToList();   
+            var financialGatewayService = new FinancialGatewayService( rockContext );
+            var nmiFinancialGatewayID = ddlNMIGateway.SelectedValue.AsInteger();
+            var nmiFinancialGateway = financialGatewayService.Get( nmiFinancialGatewayID );
+            var nmiGatewayComponent = nmiFinancialGateway.GetGatewayComponent() as Rock.NMI.Gateway;
 
-            foreach ( var scheduledTransaction in scheduledTransactionsList )
-            {
-                string errorMessages;
-                financialScheduledTransactionService.GetStatus( scheduledTransaction, out errorMessages );
-            }
+            var scheduledTransactionsList = scheduledTransactionsQuery.ToList();
 
             var nmiPersonQuery = new PersonService( rockContext ).Queryable()
                 .Where( p =>
@@ -308,7 +277,7 @@ namespace RockWeb.Blocks.Finance
                 lPersonScheduledTransactions.Text =
                     string.Format( rowFormat, "<strong>Amount</strong>", "<strong>Frequency</strong>", "<strong>Next Payment</strong>" )
                     +
-                    scheduledTransactions.Select( a => string.Format( rowFormat, a.TotalAmount.FormatAsCurrency(), DefinedValueCache.Get(a.TransactionFrequencyValueId), a.NextPaymentDate.ToShortDateString() ) ).ToList().AsDelimited( "" );
+                    scheduledTransactions.Select( a => string.Format( rowFormat, a.TotalAmount.FormatAsCurrency(), DefinedValueCache.Get( a.TransactionFrequencyValueId ), a.NextPaymentDate.ToShortDateString() ) ).ToList().AsDelimited( "" );
             }
         }
 
@@ -388,6 +357,11 @@ namespace RockWeb.Blocks.Finance
         {
             public int ScheduledTransactionId { get; set; }
             public string NMISubscriptionId { get; internal set; }
+            public bool ShiftedNextPaymentDateToEarliestMyWellStartDate { get; internal set; }
+
+            public DateTime? OriginalNextPaymentDate { get; internal set; }
+
+            public DateTime MyWellSubscriptionStartDate { get; internal set; }
 
             public override string GetSummaryDetails()
             {
@@ -406,24 +380,7 @@ namespace RockWeb.Blocks.Finance
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnMigrateSavedAccounts_Click( object sender, EventArgs e )
         {
-            BinaryFile binaryFile = null;
             var rockContext = new RockContext();
-            var binaryFileService = new BinaryFileService( rockContext );
-            var binaryFileId = fuCustomerVaultImportFile.BinaryFileId;
-            if ( binaryFileId.HasValue )
-            {
-                binaryFile = binaryFileService.Get( binaryFileId.Value );
-            }
-
-            Dictionary<string, string> nmiToMyWellCustomerIdLookup = null;
-
-            var importData = binaryFile.ContentsToString();
-
-            StringReader stringReader = new StringReader( importData );
-            CsvReader csvReader = new CsvReader( stringReader );
-            csvReader.Configuration.HasHeaderRecord = false;
-
-            nmiToMyWellCustomerIdLookup = csvReader.GetRecords<CustomerVaultImportRecord>().DistinctBy(a => a.NMICustomerId).ToDictionary( k => k.NMICustomerId, v => v.MyWellCustomerId );
 
             var financialGatewayService = new FinancialGatewayService( rockContext );
             var nmiFinancialGatewayID = ddlNMIGateway.SelectedValue.AsInteger();
@@ -477,7 +434,8 @@ namespace RockWeb.Blocks.Finance
 
                 if ( migrateSavedAccountResult.NMICustomerId.IsNotNullOrWhiteSpace() )
                 {
-                    migrateSavedAccountResult.MyWellCustomerId = nmiToMyWellCustomerIdLookup.GetValueOrNull( migrateSavedAccountResult.NMICustomerId );
+                    // NMI/MyWell transfer will use the same CustomerId
+                    migrateSavedAccountResult.MyWellCustomerId = migrateSavedAccountResult.NMICustomerId;
                 }
 
                 migrateSavedAccountResult.MigrationDateTime = RockDateTime.Now;
@@ -600,25 +558,6 @@ namespace RockWeb.Blocks.Finance
         {
             var rockContext = new RockContext();
 
-            var binaryFileService = new BinaryFileService( rockContext );
-            var binaryFileId = fuScheduleImportFile.BinaryFileId;
-
-            BinaryFile binaryFile = null;
-            if ( binaryFileId.HasValue )
-            {
-                binaryFile = binaryFileService.Get( binaryFileId.Value );
-            }
-
-            Dictionary<string, string> subscriptionImportRecordLookup = null;
-
-            var importData = binaryFile.ContentsToString();
-
-            StringReader stringReader = new StringReader( importData );
-            CsvReader csvReader = new CsvReader( stringReader );
-            csvReader.Configuration.HasHeaderRecord = false;
-
-            subscriptionImportRecordLookup = csvReader.GetRecords<SubscriptionCustomerImportRecord>().ToDictionary( k => k.NMISubscriptionId, v => v.MyWellCustomerId );
-
             var financialGatewayService = new FinancialGatewayService( rockContext );
             var nmiFinancialGatewayId = ddlNMIGateway.SelectedValue.AsInteger();
             var nmiFinancialGateway = financialGatewayService.Get( nmiFinancialGatewayId );
@@ -639,12 +578,10 @@ namespace RockWeb.Blocks.Finance
                 scheduledTransactionsQry = scheduledTransactionsQry.Where( a => personIdsToMigrate.Contains( a.AuthorizedPersonAlias.PersonId ) );
             }
 
-            var scheduledTransactions = scheduledTransactionsQry.Include(a => a.ScheduledTransactionDetails).AsNoTracking().ToList();
+            var scheduledTransactions = scheduledTransactionsQry.Include( a => a.ScheduledTransactionDetails ).ToList();
 
             var earliestMyWellStartDate = myWellGatewayComponent.GetEarliestScheduledStartDate( myWellFinancialGateway );
             var oneTimeFrequencyId = DefinedValueCache.GetId( Rock.SystemGuid.DefinedValue.TRANSACTION_FREQUENCY_ONE_TIME.AsGuid() );
-            bool cancelNMISubscription = this.GetAttributeValue( AttributeKey.CancelNMISubscription ).AsBoolean();
-
             string errorMessage;
 
             List<ScheduledTransactionMigrationResult> scheduledTransactionMigrationResults = new List<ScheduledTransactionMigrationResult>();
@@ -674,7 +611,13 @@ namespace RockWeb.Blocks.Finance
                     scheduledTransactionMigrationResult.NMISubscriptionId = scheduledTransaction.GatewayScheduleId;
                     if ( scheduledTransactionMigrationResult.NMISubscriptionId.IsNotNullOrWhiteSpace() )
                     {
-                        scheduledTransactionMigrationResult.MyWellCustomerId = subscriptionImportRecordLookup.GetValueOrNull( scheduledTransactionMigrationResult.NMISubscriptionId );
+                        /*
+	                    01/10/2020 - MP
+                        When MyWell transfers CustomerVault data from NMI to MyWell, they will use the NMI *SubscriptionId* as the MyWell *CustomerId*.
+                        NOTE: This is not a typo! The customer vault that is extracted from the NMI Subscription into MyWell will be assigned the Id of the NMI Subscription Id
+                        This makes for easy mapping 
+                        */
+                        scheduledTransactionMigrationResult.MyWellCustomerId = scheduledTransactionMigrationResult.NMISubscriptionId;
                     }
 
                     scheduledTransactionMigrationResult.ScheduledTransactionId = scheduledTransaction.Id;
@@ -709,6 +652,7 @@ namespace RockWeb.Blocks.Finance
                     if ( scheduledTransaction.NextPaymentDate == null || scheduledTransaction.NextPaymentDate < earliestMyWellStartDate )
                     {
                         financialScheduledTransactionService.GetStatus( scheduledTransaction, out errorMessage );
+                        rockContext.SaveChanges();
                     }
 
                     if ( scheduledTransaction.NextPaymentDate == null )
@@ -723,6 +667,7 @@ namespace RockWeb.Blocks.Finance
                         continue;
                     }
 
+                    scheduledTransactionMigrationResult.OriginalNextPaymentDate = scheduledTransaction.NextPaymentDate;
 
                     if ( scheduledTransaction.NextPaymentDate < earliestMyWellStartDate )
                     {
@@ -730,6 +675,7 @@ namespace RockWeb.Blocks.Finance
                         {
                             // if the NextPaymentDate is after Today but before the Earliest My Well Start Date, it'll be off by less than 24 hrs, so just reschedule it for the Earliest My Well Start Date
                             scheduledTransaction.NextPaymentDate = earliestMyWellStartDate;
+                            scheduledTransactionMigrationResult.ShiftedNextPaymentDateToEarliestMyWellStartDate = true;
                         }
                         else
                         {
@@ -752,6 +698,8 @@ namespace RockWeb.Blocks.Finance
                         StartDate = scheduledTransaction.NextPaymentDate.Value,
                         PersonId = scheduledTransaction.AuthorizedPersonAlias.PersonId
                     };
+
+                    scheduledTransactionMigrationResult.MyWellSubscriptionStartDate = paymentSchedule.StartDate;
 
                     ReferencePaymentInfo referencePaymentInfo = new ReferencePaymentInfo
                     {
@@ -778,15 +726,10 @@ namespace RockWeb.Blocks.Finance
                         var tempFinancialScheduledTransaction = myWellGatewayComponent.AddScheduledPayment( myWellFinancialGateway, paymentSchedule, referencePaymentInfo, out errorMessage );
                         if ( tempFinancialScheduledTransaction != null )
                         {
-                            if ( cancelNMISubscription )
-                            {
-                                //////////// This cannot be undone!! 
-                                nmiGatewayComponent.CancelScheduledPayment( scheduledTransaction, out errorMessage );
-                            }
-                            else
-                            {
-                                // If arrangements have been made to set the NMI subscriptions to be disabled( vs cancelled ), then we don't need to cancel the NMI subscription
-                            }
+                            
+                             //////////// This cannot be undone!! 
+                             nmiGatewayComponent.CancelScheduledPayment( scheduledTransaction, out errorMessage );
+                            
 
                             // update the scheduled transaction to point to the MyWell scheduled transaction
                             using ( var updateRockContext = new RockContext() )

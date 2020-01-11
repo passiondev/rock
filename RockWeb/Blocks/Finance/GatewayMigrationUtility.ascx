@@ -67,9 +67,9 @@
                             <li>Replace any Transaction Entry blocks and Scheduled Transaction Edit blocks with the "V2" versions of these blocks that you want to use the MyWell Gateway.
                                 Registration will need to continue to use the NMI gateway, but people's saved accounts will no longer be available to choose from (they'll have to enter Credit Card information every time).</li>
                             <li>Disable saved account and scheduled transaction options on any remaining Transaction Entry blocks that use the NMI gateway.</li>
+                            <li>Get confirmation from MyWell that VaultIds have been tranferred from NMI to MyWell</li>
                             <li>Run the 'Download Payments' job to get any NMI scheduled transactions that have occurred.</li>
-                            <li>Get freshly generated Import files from My Well.</li>
-                            <li>Run the migrations immediately after getting the import files.
+                            <li>Run the migration operations
                             <ul>
                                 <li>The two migration operations can be run in any order, and can safely be run multiple times. They are not dependent on each other.</li>
                             </ul>
@@ -103,8 +103,7 @@
                             Click the 'Migrate Saved Accounts' button to start.
                             It is safe to run this import more than once. It will only affect records that weren't successfully migrated previously.
                         </p>
-
-                        <Rock:FileUploader ID="fuCustomerVaultImportFile" runat="server" Label="Select Customer Vault Import File" IsBinaryFile="true" UploadAsTemporary="true" DisplayMode="DropZone" OnFileUploaded="fuCustomerVaultImportFile_FileUploaded" />
+                        
                         <div class="actions margin-b-md">
                             <asp:LinkButton ID="btnMigrateSavedAccounts" runat="server" CssClass="btn btn-primary" OnClick="btnMigrateSavedAccounts_Click" Enabled="false">Migrate Saved Accounts</asp:LinkButton>
                         </div>
@@ -125,7 +124,7 @@
                             Click the 'Migrate Scheduled Transactions' button to start. Depending on the number of scheduled transactions on your system, this may take a few minutes.
                             It is safe to run this import more than once. It will only affect records that weren't successfully migrated previously.
                         </p>
-                        <Rock:FileUploader ID="fuScheduleImportFile" runat="server" Label="Select Schedule Import File" IsBinaryFile="true" UploadAsTemporary="true" DisplayMode="DropZone" OnFileUploaded="fuScheduleImportFile_FileUploaded" />
+
                         <div class="actions margin-b-md">
                             <Rock:NotificationBox ID="nbMigrationScheduledConfigurationWarning" runat="server" NotificationBoxType="Warning" Visible="false" />
                             <asp:LinkButton ID="btnMigrateScheduledTransactions" runat="server" CssClass="btn btn-primary js-migrate-scheduled-transactions-button" OnClick="btnMigrateScheduledTransactions_Click" Enabled="false">Migrate Scheduled Transactions</asp:LinkButton>
