@@ -28,75 +28,6 @@ namespace Rock.Model
     /// </summary>
     public partial class CommunicationService
     {
-
-        /// <summary>
-        /// Creates the email communication.
-        /// </summary>
-        /// <param name="recipientEmails">The recipient emails.</param>
-        /// <param name="fromName">From name.</param>
-        /// <param name="fromAddress">From address.</param>
-        /// <param name="replyTo">The reply to.</param>
-        /// <param name="subject">The subject.</param>
-        /// <param name="htmlMessage">The HTML message.</param>
-        /// <param name="textMessage">The text message.</param>
-        /// <param name="bulkCommunication">if set to <c>true</c> [bulk communication].</param>
-        /// <param name="recipientStatus">The recipient status.</param>
-        /// <param name="senderPersonAliasId">The sender person alias identifier.</param>
-        /// <returns></returns>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use method without textMessage argument", true )]
-        public Communication CreateEmailCommunication
-        (
-            List<string> recipientEmails,
-            string fromName,
-            string fromAddress,
-            string replyTo,
-            string subject,
-            string htmlMessage,
-            string textMessage,
-            bool bulkCommunication,
-            CommunicationRecipientStatus recipientStatus = CommunicationRecipientStatus.Delivered,
-            int? senderPersonAliasId = null )
-        {
-            return CreateEmailCommunication( recipientEmails, fromName, fromAddress, replyTo, subject, htmlMessage, bulkCommunication, recipientStatus, senderPersonAliasId );
-        }
-
-        /// <summary>
-        /// Creates the email communication.
-        /// </summary>
-        /// <param name="recipientEmails">The recipient emails.</param>
-        /// <param name="fromName">From name.</param>
-        /// <param name="fromAddress">From address.</param>
-        /// <param name="replyTo">The reply to.</param>
-        /// <param name="subject">The subject.</param>
-        /// <param name="message">The message.</param>
-        /// <param name="bulkCommunication">if set to <c>true</c> [bulk communication].</param>
-        /// <param name="recipientStatus">The recipient status.</param>
-        /// <param name="senderPersonAliasId">The sender person alias identifier.</param>
-        /// <returns></returns>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use method with send date time argument", true )]
-        public Communication CreateEmailCommunication
-        (
-            List<string> recipientEmails,
-            string fromName,
-            string fromAddress,
-            string replyTo,
-            string subject,
-            string message,
-            bool bulkCommunication,
-            CommunicationRecipientStatus recipientStatus = CommunicationRecipientStatus.Delivered,
-            int? senderPersonAliasId = null )
-        {
-            DateTime? sendDateTime = null;
-            if ( recipientStatus == CommunicationRecipientStatus.Delivered )
-            {
-                sendDateTime = RockDateTime.Now;
-            }
-
-            return CreateEmailCommunication( recipientEmails, fromName, fromAddress, replyTo, subject, message, bulkCommunication, sendDateTime, recipientStatus, senderPersonAliasId );
-        }
-
         /// <summary>
         /// Creates the email communication 
         /// </summary>
@@ -223,7 +154,6 @@ namespace Rock.Model
 
         /// <summary>
         /// Creates an SMS communication with a CommunicationRecipient and adds it to the context.
-        /// NOTE: This method is normally just used when logging a communication (not creating a new one)
         /// </summary>
         /// <param name="fromPerson">the Sender for the communication (For the communication.SenderPersonAlias). If null the name for the communication will be From: unknown person.</param>
         /// <param name="toPersonAliasId">To person alias identifier. If null the CommunicationRecipient is not created</param>

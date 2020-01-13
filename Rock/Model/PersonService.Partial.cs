@@ -212,7 +212,15 @@ namespace Rock.Model
 
             if ( excludedPersonRecordTypeIds.Any() )
             {
-                qry = qry.Where( a => a.RecordTypeValueId.HasValue && !excludedPersonRecordTypeIds.Contains( a.RecordTypeValueId.Value ) );
+                if ( excludedPersonRecordTypeIds.Count == 1 )
+                {
+                    var excludedPersonRecordTypeId = excludedPersonRecordTypeIds[0];
+                    qry = qry.Where( a => a.RecordTypeValueId.HasValue && excludedPersonRecordTypeId != a.RecordTypeValueId.Value );
+                }
+                else
+                {
+                    qry = qry.Where( a => a.RecordTypeValueId.HasValue && !excludedPersonRecordTypeIds.Contains( a.RecordTypeValueId.Value ) );
+                }
             }
 
             if ( personQueryOptions.IncludeDeceased == false )
@@ -255,7 +263,7 @@ namespace Rock.Model
         /// An enumerable collection of <see cref="Rock.Model.Person"/> entities that match the search criteria.
         /// </returns>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use FindPersons instead.", false )]
+        [Obsolete( "Use FindPersons instead.", true )]
         public IEnumerable<Person> GetByMatch( string firstName, string lastName, string email, bool includeDeceased = false, bool includeBusinesses = false )
         {
             return this.FindPersons( firstName, lastName, email, includeDeceased, includeBusinesses );
@@ -775,7 +783,7 @@ namespace Rock.Model
         /// An enumerable collection of <see cref="Rock.Model.Person"/> entities that match the search criteria.
         /// </returns>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use FindBusinesses instead.", false )]
+        [Obsolete( "Use FindBusinesses instead.", true )]
         public IEnumerable<Person> GetBusinessByMatch( string businessName, string email )
         {
             businessName = businessName ?? string.Empty;
@@ -2482,6 +2490,7 @@ namespace Rock.Model
         /// <summary>
         /// Special override of Entity.GetByUrlEncodedKey for Person. Gets the Person by impersonation token (rckipid) and validates it against a Rock.Model.PersonToken
         /// NOTE: You might want to use GetByImpersonationToken instead to prevent a token from being used that was limited to a specific page
+        /// The Person.Aliases will be eager-loaded.
         /// </summary>
         /// <param name="encodedKey">The encoded key.</param>
         /// <returns></returns>
@@ -2492,6 +2501,7 @@ namespace Rock.Model
 
         /// <summary>
         /// Gets the Person by impersonation token (rckipid) and validates it against a Rock.Model.PersonToken
+        /// The Person.Aliases will be eager-loaded.
         /// </summary>
         /// <param name="impersonationToken">The impersonation token.</param>
         /// <param name="incrementUsage">if set to <c>true</c> [increment usage].</param>
@@ -2505,6 +2515,7 @@ namespace Rock.Model
         /// <summary>
         /// Gets the Person by impersonation token but does not validate against token properties (e.g. expiration)
         /// Use this method if needing to get the person from a token that may be expired.
+        /// The Person.Aliases will be eager-loaded.
         /// </summary>
         /// <param name="encryptedKey">The encrypted key.</param>
         /// <returns></returns>
@@ -2519,7 +2530,7 @@ namespace Rock.Model
                     if ( personToken.PersonAlias != null )
                     {
                         // refetch using PersonService using rockContext instead of personTokenRockContext which was used to save the changes to personKey
-                        return this.Get( personToken.PersonAlias.PersonId );
+                        return this.GetInclude( personToken.PersonAlias.PersonId, p => p.Aliases );
                     }
                 }
             }
@@ -2533,21 +2544,6 @@ namespace Rock.Model
         /// <param name="encryptedKey">The encrypted key.</param>
         /// <returns></returns>
         public override Person GetByEncryptedKey( string encryptedKey )
-        {
-            return GetByEncryptedKey( encryptedKey, true, true, null );
-        }
-
-        /// <summary>
-        /// Returns a <see cref="Rock.Model.Person" /> by their encrypted key value.
-        /// </summary>
-        /// <param name="encryptedKey">A <see cref="System.String" /> containing an encrypted key value.</param>
-        /// <param name="followMerges">if set to <c>true</c> [follow merges].</param>
-        /// <returns>
-        /// The <see cref="Rock.Model.Person" /> associated with the provided Key, otherwise null.
-        /// </returns>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use GetByEncryptedKey( string encryptedKey, bool followMerges, int? pageId ) instead", true )]
-        public Person GetByEncryptedKey( string encryptedKey, bool followMerges )
         {
             return GetByEncryptedKey( encryptedKey, true, true, null );
         }
@@ -2605,8 +2601,8 @@ namespace Rock.Model
 
                     if ( personToken.PersonAlias != null )
                     {
-                        // refetch using PersonService using rockContext instead of personTokenRockContext which was used to save the changes to personKey
-                        return this.Get( personToken.PersonAlias.PersonId );
+                        // re-fetch using PersonService using rockContext instead of personTokenRockContext which was used to save the changes to personKey
+                        return this.GetInclude( personToken.PersonAlias.PersonId, p => p.Aliases );
                     }
                 }
             }
@@ -2782,6 +2778,7 @@ namespace Rock.Model
                 return null;
             }
             return GetFamilyMembers( family, person.Id, true )
+                .Where( m => !m.Person.IsDeceased )
                 .OrderBy( m => m.GroupRole.Order )
                 .ThenBy( m => m.Person.Gender )
                 .Select( a => a.Person )
@@ -2806,6 +2803,7 @@ namespace Rock.Model
                 return null;
             }
             return GetFamilyMembers( family, person.Id, true )
+                .Where( m => !m.Person.IsDeceased )
                 .OrderBy( m => m.GroupRole.Order )
                 .ThenBy( m => m.Person.Gender )
                 .Select( a => a.Person )
@@ -2857,7 +2855,7 @@ namespace Rock.Model
         /// <param name="reasonNote">The reason note.</param>
         /// <returns></returns>
         [RockObsolete( "1.8" )]
-        [Obsolete]
+        [Obsolete( "", true ) ]
         public List<string> InactivatePerson( Person person, Web.Cache.DefinedValueCache reason, string reasonNote )
         {
             History.HistoryChangeList historyChangeList;
@@ -3078,16 +3076,20 @@ namespace Rock.Model
                 UPDATE Person
                     SET [BirthDate] = (
 		                    CASE 
-			                    WHEN (
-					                    [BirthYear] IS NOT NULL
-					                    AND [BirthYear] > 1800
-					                    )
+			                    WHEN ([BirthYear] IS NOT NULL AND [BirthYear] > 1800)
 				                    THEN TRY_CONVERT([date], (((CONVERT([varchar], [BirthYear]) + '-') + CONVERT([varchar], [BirthMonth])) + '-') + CONVERT([varchar], [BirthDay]), (126))
 			                    ELSE NULL
 			                    END
 		                    )
                     FROM Person
-                    WHERE IsDeceased = 0
+                    WHERE [BirthDate] != (
+		                    CASE 
+			                    WHEN ([BirthYear] IS NOT NULL AND [BirthYear] > 1800)
+				                    THEN TRY_CONVERT([date], (((CONVERT([varchar], [BirthYear]) + '-') + CONVERT([varchar], [BirthMonth])) + '-') + CONVERT([varchar], [BirthDay]), (126))
+			                    ELSE NULL
+			                    END
+		                    )
+                    AND IsDeceased = 0
                     AND RecordStatusValueId <> {inactiveStatusId}";
 
             rockContext = rockContext ?? new RockContext();
@@ -3946,6 +3948,31 @@ FROM (
         public static int UpdateGivingLeaderIdAll( RockContext rockContext )
         {
             return UpdatePersonGivingLeaderId( null, rockContext );
+        }
+
+        /// <summary>
+        /// Ensures the GivingId is correct for all person records in the database
+        /// </summary>
+        /// <param name="rockContext">The rock context.</param>
+        /// <returns></returns>
+        public static int UpdateGivingIdAll( RockContext rockContext )
+        {
+            return rockContext.Database.ExecuteSqlCommand( @"
+UPDATE Person
+SET GivingId = (
+		CASE 
+			WHEN [GivingGroupId] IS NOT NULL
+				THEN 'G' + CONVERT([varchar], [GivingGroupId])
+			ELSE 'P' + CONVERT([varchar], [Id])
+			END
+		)
+WHERE GivingId IS NULL OR GivingId != (
+		CASE 
+			WHEN [GivingGroupId] IS NOT NULL
+				THEN 'G' + CONVERT([varchar], [GivingGroupId])
+			ELSE 'P' + CONVERT([varchar], [Id])
+			END
+		)" );
         }
 
         /// <summary>

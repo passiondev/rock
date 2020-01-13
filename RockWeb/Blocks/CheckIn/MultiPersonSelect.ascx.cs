@@ -83,7 +83,7 @@ namespace RockWeb.Blocks.CheckIn
             }}
         }}
 
-        $('a.js-person-select').click( function() {{
+        $('a.js-person-select').on('click', function() {{
             $(this).toggleClass('active');
             $(this).find('i').toggleClass('fa-check-square').toggleClass('fa-square-o');
             var ids = '';
@@ -110,7 +110,7 @@ namespace RockWeb.Blocks.CheckIn
             }}
         }}
 
-        $('a.js-option-select').click( function() {{
+        $('a.js-option-select').on('click', function() {{
             $(this).removeClass('btn-dimmed');
             $(this).find('i').toggleClass('fa-check-square').toggleClass('fa-square-o');
             var scheduleId = $(this).attr('data-schedule-id');
@@ -253,7 +253,7 @@ namespace RockWeb.Blocks.CheckIn
                         var pnlChangeButton = e.Item.FindControl( "pnlChangeButton" ) as Panel;
                         if ( pnlPersonButton != null && pnlChangeButton != null )
                         {
-                            pnlPersonButton.CssClass = "col-xs-12 col-sm-9 col-md-10";
+                            pnlPersonButton.CssClass = "checkin-person-btn checkin-person-has-change col-xs-12 col-sm-9 col-md-10";
                             pnlChangeButton.Visible = selectedOptions.Count > 1 || AnyUnselectedOptions( person );
                         }
                     }

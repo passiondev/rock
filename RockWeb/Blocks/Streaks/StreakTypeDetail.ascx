@@ -21,12 +21,14 @@
 
                 <div id="pnlViewDetails" runat="server">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-lg-4">
                             <asp:Literal ID="lStreakTypeDescription" runat="server" />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-lg-8 text-right">
+                            <asp:LinkButton ID="btnAchievements" runat="server" CssClass="btn btn-default" OnClick="btnAchievements_Click" CausesValidation="false"><i class="fa fa-medal"></i> Achievements</asp:LinkButton>
                             <asp:LinkButton ID="btnMapEditor" runat="server" CssClass="btn btn-default" OnClick="btnMapEditor_Click" CausesValidation="false"><i class="fa fa-calendar-check"></i> Map Editor</asp:LinkButton>
-                            <asp:LinkButton ID="btnExclusions" runat="server" CssClass="btn btn-default" OnClick="btnExclusions_Click" CausesValidation="false"><i class="fa fa-calendar-times"></i> Exclusions</asp:LinkButton>
+                            <asp:LinkButton ID="btnExclusions" runat="server" CssClass="btn btn-default" OnClick="btnExclusions_Click" CausesValidation="false"><i class="fa fa-calendar-times"></i> Exclusions</asp:LinkButton>                            
+                            <asp:LinkButton ID="btnRebuild" runat="server" CausesValidation="false" OnClick="btnRebuild_Click" CssClass="btn btn-danger"><i class="fa fa-redo-alt"></i> Rebuild</asp:LinkButton>
                         </div>
                     </div>
 
@@ -35,8 +37,7 @@
                         <Rock:ModalAlert ID="mdDeleteWarning" runat="server" />
                         <asp:LinkButton ID="btnDelete" runat="server" Text="Delete" CssClass="btn btn-link" CausesValidation="false" OnClick="btnDelete_Click" />
                         <span class="pull-right">
-                            <Rock:SecurityButton ID="btnSecurity" runat="server" class="btn btn-sm btn-security" />
-                            <asp:LinkButton runat="server" ID="btnRebuild" CausesValidation="false" OnClick="btnRebuild_Click" CssClass="btn btn-danger btn-sm margin-l-md" Text="Rebuild" />
+                            <Rock:SecurityButton ID="btnSecurity" runat="server" class="btn btn-sm btn-security" />                            
                         </span>
                     </div>
                 </div>
@@ -71,7 +72,8 @@
                             <Rock:DefinedValuePicker ID="dvpStructureGroupTypePurposePicker" runat="server" Visible="false" />
                         </div>
                         <div class="col-md-6">
-                            <Rock:DataDropDownList ID="ddlFrequencyOccurrence" runat="server" SourceTypeName="Rock.Model.StreakType, Rock" Label="Frequency" PropertyName="OccurrenceFrequency" DataTextField="Text" DataValueField="Value" />
+                            <Rock:DataDropDownList ID="ddlFrequencyOccurrence" runat="server" SourceTypeName="Rock.Model.StreakType, Rock" Label="Frequency" PropertyName="OccurrenceFrequency" DataTextField="Text" DataValueField="Value" OnSelectedIndexChanged="ddlFrequencyOccurrence_SelectedIndexChanged" AutoPostBack="true" />
+                            <Rock:DayOfWeekPicker ID="dowPicker" runat="server" Label="Day of Week Start" Help="Allows this weekly streak type to calculate streaks based off a custom first day of the week setting. Leave this blank to use the system setting." />
                         </div>
                     </div>
 

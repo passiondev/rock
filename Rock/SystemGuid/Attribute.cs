@@ -342,7 +342,7 @@ namespace Rock.SystemGuid
         /// </summary>
         ///
         [RockObsolete( "1.8" )]
-        [Obsolete( "Check-in identifiers are no longer stored as a family attribute. They are stored as a PersonSearchValue.")]
+        [Obsolete( "Check-in identifiers are no longer stored as a family attribute. They are stored as a PersonSearchValue.", true )]
         public const string FAMILY_CHECKIN_IDENTIFIERS = "8F528431-A438-4488-8DC3-CA42E66C1B37";
 
         #region eRA Attributes
@@ -409,6 +409,20 @@ namespace Rock.SystemGuid
         /// Group attribute to store the birthdate range of the group
         /// </summary>
         public const string GROUP_BIRTHDATE_RANGE = "F1A43EAB-D682-403F-A05E-CCFFBF879F32";
+
+        #endregion
+
+        #region Communication Module
+
+        /// <summary>
+        /// Communication Entry Wizard Block configuration setting.
+        /// </summary>
+        public const string COMMUNICATION_ENTRY_WIZARD_DEFAULT_AS_BULK = "23C883A6-AD9B-4C91-BAE6-16E0076C5D67";
+
+        /// <summary>
+        /// Communication Entry Block configuration setting.
+        /// </summary>
+        public const string COMMUNICATION_ENTRY_DEFAULT_AS_BULK = "679E5FBB-AB03-4DE4-BB24-1C7CEFEACD3E";
 
         #endregion
 

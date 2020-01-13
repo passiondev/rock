@@ -7,17 +7,16 @@
 </script>
 
 <style>
-.chart-banner
-{
-    width: 100%;
-}
-.chart-banner canvas
-{
-    height: 350px;
-}
+    .chart-banner {
+        width: 100%;
+    }
+
+        .chart-banner canvas {
+            height: 350px;
+        }
 </style>
 
-<asp:UpdatePanel ID="upPanel" runat="server">
+<asp:UpdatePanel ID="upPanel" runat="server" UpdateMode="Conditional">
     <ContentTemplate>
 
         <div class="panel panel-block">
@@ -92,7 +91,7 @@
                                 <Rock:NotificationBox ID="nbAnalyticsNotAvailable" runat="server" NotificationBoxType="Info" Text="Analytics not available for this communication." />
                             </div>
 
-                            <asp:UpdatePanel ID="upAnalytics" runat="server">
+                            <asp:UpdatePanel ID="upAnalytics" runat="server" UpdateMode="Conditional">
                                 <ContentTemplate>
                                     <asp:HiddenField ID="hfCommunicationId" runat="server" />
                                     <div class="panel-analytics">
@@ -242,41 +241,47 @@
                     <%-- Tab Pane: Message Details --%>
                     <div id="tabPaneMessageDetails" runat="server" class="tab-pane fade in">
                         <asp:Panel ID="pnlMessage" runat="server" CssClass="tab-panel">
-                            <div class="margin-t-lg">
-                                <div class="form-horizontal">
-                                    <asp:Literal ID="lFutureSend" runat="server"></asp:Literal>
-                                    <div class="row margin-b-lg">
-                                        <div class="col-md-6">
-                                            <asp:Literal ID="lCreatedBy" runat="server"></asp:Literal>
+                            <asp:UpdatePanel runat="server" UpdateMode="Conditional">
+                                <ContentTemplate>
+                                    <div class="margin-t-lg">
+                                        <div class="form-horizontal">
+                                            <asp:Literal ID="lFutureSend" runat="server"></asp:Literal>
+                                            <div class="row margin-b-lg">
+                                                <div class="col-md-6">
+                                                    <asp:Literal ID="lCreatedBy" runat="server"></asp:Literal>
+                                                </div>
+                                                <div class="col-md-6 text-right">
+                                                    <asp:Literal ID="lApprovedBy" runat="server"></asp:Literal>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="col-md-6 text-right">
-                                            <asp:Literal ID="lApprovedBy" runat="server"></asp:Literal>
+
+                                        <%-- Message Content --%>
+                                        <asp:Literal ID="lDetails" runat="server" />
+
+                                        <%-- Message Actions --%>
+                                        <div class="actions">
+                                            <asp:LinkButton ID="btnApprove" runat="server" Text="Approve" CssClass="btn btn-success" OnClick="btnApprove_Click" />
+                                            <asp:LinkButton ID="btnDeny" runat="server" Text="Deny" CssClass="btn btn-danger" OnClick="btnDeny_Click" />
+                                            <asp:LinkButton ID="btnEdit" runat="server" Text="Edit" CssClass="btn btn-default" OnClick="btnEdit_Click" />
+                                            <asp:LinkButton ID="btnCancel" runat="server" Text="Cancel Send" CssClass="btn btn-link" OnClick="btnCancel_Click" />
+                                            <asp:LinkButton ID="btnCopy" runat="server" Text="Copy Communication" CssClass="btn btn-link" OnClick="btnCopy_Click" />
+                                            <asp:LinkButton ID="btnTemplate" runat="server" Text="Create Personal Template" CssClass="btn btn-link" OnClick="btnTemplate_Click" Visible="False" />
+
+                                            <Rock:NotificationBox ID="nbTemplateCreated" runat="server" NotificationBoxType="Success" Visible="False" Text="A new personal communication template was created." Dismissable="True"></Rock:NotificationBox>
+
                                         </div>
+
+                                        <asp:Panel ID="pnlResult" runat="server" Visible="false">
+                                            <Rock:NotificationBox ID="nbResult" runat="server" NotificationBoxType="Success" />
+                                            <br />
+                                            <asp:HyperLink ID="hlViewCommunication" runat="server" Text="View Communication" />
+                                        </asp:Panel>
+
                                     </div>
-                                </div>
+                                </ContentTemplate>
+                            </asp:UpdatePanel>
 
-                                <asp:Literal ID="lDetails" runat="server" />
-
-                                <%-- Message Actions --%>
-                                <div class="actions">
-                                    <asp:LinkButton ID="btnApprove" runat="server" Text="Approve" CssClass="btn btn-success" OnClick="btnApprove_Click" />
-                                    <asp:LinkButton ID="btnDeny" runat="server" Text="Deny" CssClass="btn btn-danger" OnClick="btnDeny_Click" />
-                                    <asp:LinkButton ID="btnEdit" runat="server" Text="Edit" CssClass="btn btn-default" OnClick="btnEdit_Click" />
-                                    <asp:LinkButton ID="btnCancel" runat="server" Text="Cancel Send" CssClass="btn btn-link" OnClick="btnCancel_Click" />
-                                    <asp:LinkButton ID="btnCopy" runat="server" Text="Copy Communication" CssClass="btn btn-link" OnClick="btnCopy_Click" />
-                                    <asp:LinkButton ID="btnTemplate" runat="server" Text="Create Personal Template" CssClass="btn btn-link" OnClick="btnTemplate_Click" Visible="False" />
-
-                                    <Rock:NotificationBox ID="nbTemplateCreated" runat="server" NotificationBoxType="Success" Visible="False" Text="A new personal communication template was created." Dismissable="True"></Rock:NotificationBox>
-
-                                </div>
-
-                                <asp:Panel ID="pnlResult" runat="server" Visible="false">
-                                    <Rock:NotificationBox ID="nbResult" runat="server" NotificationBoxType="Success" />
-                                    <br />
-                                    <asp:HyperLink ID="hlViewCommunication" runat="server" Text="View Communication" />
-                                </asp:Panel>
-
-                            </div>
                         </asp:Panel>
                     </div>
                     <%-- Tab Pane: Activity --%>
@@ -305,64 +310,77 @@
                     <%-- Tab Pane: Recipient Details --%>
                     <div id="tabPaneRecipientDetails" runat="server" class="tab-pane fade in">
                         <asp:Panel ID="pnlRecipients" runat="server" CssClass="tab-panel">
-                            <%-- Column Selection --%>
-                            <Rock:RockCheckBoxList ID="cblProperties" runat="server" RepeatDirection="Horizontal" Label="Person Properties" />
-                            <Rock:RockListBox ID="lbAttributes" runat="server" Label="Person Attributes" />
+                            <asp:UpdatePanel ID="upnlRecipients" runat="server" UpdateMode="Conditional">
+                                <ContentTemplate>
+                                    <%-- Column Selection --%>
+                                    <Rock:RockCheckBoxList ID="cblProperties" runat="server" RepeatDirection="Horizontal" Label="Person Properties" />
+                                    <Rock:RockListBox ID="lbAttributes" runat="server" Label="Person Attributes" />
 
-                            <%-- Message Actions --%>
-                            <div class="actions">
-                                <asp:LinkButton ID="btnUpdateRecipientsList" runat="server" Text="Update" CssClass="btn btn-primary btn-xs" OnClick="btnUpdateRecipientsList_Click" />
-                            </div>
+                                    <%-- Message Actions --%>
+                                    <div class="actions">
+                                        <asp:LinkButton ID="btnUpdateRecipientsList" runat="server" Text="Update" CssClass="btn btn-primary btn-xs" OnClick="btnUpdateRecipientsList_Click" />
+                                    </div>
 
-                            <div class="grid grid-panel margin-t-lg">
-                                <Rock:GridFilter ID="rFilter" runat="server">
-                                    <%-- Block-specific Filter Fields --%>
-                                    <Rock:RockTextBox ID="txbFirstNameFilter" runat="server" Label="First Name" />
-                                    <Rock:RockTextBox ID="txbLastNameFilter" runat="server" Label="Last Name" />
-                                    <Rock:RockCheckBoxList ID="cblDeliveryStatus" runat="server" Label="Delivery Status">
-                                        <asp:ListItem Text="Pending" />
-                                        <asp:ListItem Text="Delivered" />
-                                        <asp:ListItem Text="Failed" />
-                                        <asp:ListItem Text="Cancelled" />
-                                    </Rock:RockCheckBoxList>
-                                    <Rock:RockCheckBoxList ID="cblOpenedStatus" runat="server" Label="Opened Status">
-                                        <asp:ListItem Text="Opened" />
-                                        <asp:ListItem Text="Unopened" />
-                                    </Rock:RockCheckBoxList>
-                                    <Rock:RockCheckBoxList ID="cblClickedStatus" runat="server" Label="Clicked Status">
-                                        <asp:ListItem Text="Clicked" />
-                                        <asp:ListItem Text="Not Clicked" />
-                                    </Rock:RockCheckBoxList>
-                                </Rock:GridFilter>
-                                <Rock:Grid ID="gRecipients" runat="server" EmptyDataText="No Recipients Found" AllowSorting="true">
-                                    <Columns>
-                                        <%-- Columns are dynamically added based on user selection --%>
-                                    </Columns>
-                                </Rock:Grid>
-                            </div>
+                                    <div class="grid grid-panel margin-t-lg">
+                                        <Rock:GridFilter ID="rFilter" runat="server">
+                                            <%-- Block-specific Filter Fields --%>
+                                            <Rock:RockTextBox ID="txbFirstNameFilter" runat="server" Label="First Name" />
+                                            <Rock:RockTextBox ID="txbLastNameFilter" runat="server" Label="Last Name" />
+                                            <Rock:RockCheckBoxList ID="cblMedium" runat="server" Label="Communication Medium">
+                                                <asp:ListItem Text="Email" />
+                                                <asp:ListItem Text="SMS" />
+                                            </Rock:RockCheckBoxList>
+                                            <Rock:RockCheckBoxList ID="cblDeliveryStatus" runat="server" Label="Delivery Status">
+                                                <asp:ListItem Text="Pending" />
+                                                <asp:ListItem Text="Delivered" />
+                                                <asp:ListItem Text="Failed" />
+                                                <asp:ListItem Text="Cancelled" />
+                                            </Rock:RockCheckBoxList>
+                                            <Rock:RockCheckBoxList ID="cblOpenedStatus" runat="server" Label="Opened Status">
+                                                <asp:ListItem Text="Opened" />
+                                                <asp:ListItem Text="Unopened" />
+                                            </Rock:RockCheckBoxList>
+                                            <Rock:RockCheckBoxList ID="cblClickedStatus" runat="server" Label="Clicked Status">
+                                                <asp:ListItem Text="Clicked" />
+                                                <asp:ListItem Text="Not Clicked" />
+                                            </Rock:RockCheckBoxList>
+                                            <Rock:RockTextBox ID="txbDeliveryStatusNote" runat="server" Label="Delivery Note" />
+                                        </Rock:GridFilter>
+                                        <Rock:Grid ID="gRecipients" runat="server" EmptyDataText="No Recipients Found" AllowSorting="true">
+                                            <Columns>
+                                                <%-- Columns are dynamically added based on user selection --%>
+                                            </Columns>
+                                        </Rock:Grid>
+                                    </div>
+                                </ContentTemplate>
+                            </asp:UpdatePanel>
                         </asp:Panel>
                     </div>
                 </div>
             </div>
         </div>
 
-        <asp:HiddenField ID="hfActiveDialog" runat="server" />
+        <asp:UpdatePanel ID="upDialog" runat="server" UpdateMode="Conditional">
+            <ContentTemplate>
+                <asp:HiddenField ID="hfActiveDialog" runat="server" />
 
-        <Rock:ModalDialog ID="mdCreateTemplate" runat="server" Title="New Personal Template" OnCancelScript="clearActiveDialog();">
-            <Content>
-                <asp:ValidationSummary ID="valCreateTemplate" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" />
-                <Rock:NotificationBox ID="nbTemplate" runat="server" NotificationBoxType="Info" Text="This will create a new personal communication template based off the current communication." Dismissable="True"></Rock:NotificationBox>
-                <div class="row">
-                    <div class="col-sm-6">
-                        <Rock:RockTextBox ID="tbTemplateName" runat="server" Label="Template Name" />
-                    </div>
-                    <div class="col-sm-6">
-                        <Rock:CategoryPicker ID="cpTemplateCategory" runat="server" AllowMultiSelect="false" Label="Category" EntityTypeName="Rock.Model.CommunicationTemplate" />
-                    </div>
-                </div>
-                <Rock:RockTextBox ID="tbTemplateDescription" runat="server" Label="Description" TextMode="MultiLine" Rows="3" />
-            </Content>
-        </Rock:ModalDialog>
+                <Rock:ModalDialog ID="mdCreateTemplate" runat="server" Title="New Personal Template" OnCancelScript="clearActiveDialog();">
+                    <Content>
+                        <asp:ValidationSummary ID="valCreateTemplate" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" />
+                        <Rock:NotificationBox ID="nbTemplate" runat="server" NotificationBoxType="Info" Text="This will create a new personal communication template based off the current communication." Dismissable="True"></Rock:NotificationBox>
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <Rock:RockTextBox ID="tbTemplateName" runat="server" Label="Template Name" />
+                            </div>
+                            <div class="col-sm-6">
+                                <Rock:CategoryPicker ID="cpTemplateCategory" runat="server" AllowMultiSelect="false" Label="Category" EntityTypeName="Rock.Model.CommunicationTemplate" />
+                            </div>
+                        </div>
+                        <Rock:RockTextBox ID="tbTemplateDescription" runat="server" Label="Description" TextMode="MultiLine" Rows="3" />
+                    </Content>
+                </Rock:ModalDialog>
+            </ContentTemplate>
+        </asp:UpdatePanel>
 
         <script>
             $('.js-date-rollover').tooltip();
@@ -371,14 +389,20 @@
         <script>
             Sys.Application.add_load(function () {
                 loadCharts();
+                refreshMessageContent();
 
                 <%-- Hook the bootstrap tab change event to force the charts on a previously inactive tab to reload.
                      If we don't do this, the charts will not be visible following a postback from a different tab. --%>
                 $('.js-chart-tab').on('shown.bs.tab', function (e) {
                     loadCharts();
                 });
-
             });
+
+            <%-- Load the Message Content --%>
+            function refreshMessageContent() {
+                var scriptText = $('#load-email-body').html();
+                eval(scriptText);
+            }
 
             <%-- Load the Analytics Charts --%>
             function loadCharts() {

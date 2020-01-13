@@ -560,22 +560,6 @@ namespace Rock.Web.UI
         }
 
         /// <summary>
-        /// Find the <see cref="Rock.Web.UI.Controls.Zone"/> for the specified zone name.  Looks in the
-        /// <see cref="Zones"/> property to see if it has been defined.  If an existing zone
-        /// <see cref="Rock.Web.UI.Controls.Zone"/> cannot be found, the <see cref="HtmlForm"/> control
-        /// is returned
-        /// </summary>
-        /// <param name="zoneName">A <see cref="System.String"/> representing the name of the zone.</param>
-        /// <returns>The <see cref="System.Web.UI.Control"/> for the zone, if the zone is not found, the form control is returned.</returns>
-        [RockObsolete( "1.7" )]
-        [Obsolete("Use the other FindZone()", true )]
-        protected virtual Control FindZone( string zoneName )
-        {
-            // Find the zone, or use the Form if not found
-            return FindZone( zoneName, this.Form );
-        }
-
-        /// <summary>
         /// Find the <see cref="Rock.Web.UI.Controls.Zone" /> for the specified zone name.  Looks in the
         /// <see cref="Zones" /> property to see if it has been defined.  If an existing zone
         /// <see cref="Rock.Web.UI.Controls.Zone" /> cannot be found, the defaultZone will be returned
@@ -2671,40 +2655,41 @@ Sys.Application.add_load(function () {
         {
             if ( page != null && page.Header != null )
             {
-                if ( !HtmlMetaExists( page, htmlMeta ) )
-                {
-                    // Find last meta element
-                    int index = 0;
-                    for ( int i = page.Header.Controls.Count - 1; i >= 0; i-- )
-                    {
-                        if ( page.Header.Controls[i] is HtmlMeta )
-                        {
-                            index = i;
-                            break;
-                        }
-                    }
+                RemoveExistingHtmlMeta( page, htmlMeta );
 
-                    if ( index == page.Header.Controls.Count )
+                // Find last meta element
+                int index = 0;
+                for ( int i = page.Header.Controls.Count - 1; i >= 0; i-- )
+                {
+                    if ( page.Header.Controls[i] is HtmlMeta )
                     {
-                        page.Header.Controls.Add( new LiteralControl( "\n\t" ) );
-                        page.Header.Controls.Add( htmlMeta );
-                    }
-                    else
-                    {
-                        page.Header.Controls.AddAt( ++index, new LiteralControl( "\n\t" ) );
-                        page.Header.Controls.AddAt( ++index, htmlMeta );
+                        index = i;
+                        break;
                     }
                 }
+
+                if ( index == page.Header.Controls.Count )
+                {
+                    page.Header.Controls.Add( new LiteralControl( "\n\t" ) );
+                    page.Header.Controls.Add( htmlMeta );
+                }
+                else
+                {
+                    page.Header.Controls.AddAt( ++index, new LiteralControl( "\n\t" ) );
+                    page.Header.Controls.AddAt( ++index, htmlMeta );
+                }
+
             }
         }
 
         /// <summary>
-        /// Returns a flag indicating if a meta tag exists on the page.
+        /// Removes an existing HtmlMeta control if all attributes match except for Content.
+        /// Returns <c>true</c> if the meta tag already exists and was removed.
         /// </summary>
         /// <param name="page">The <see cref="System.Web.UI.Page"/>.</param>
-        /// <param name="newMeta">The <see cref="System.Web.UI.HtmlControls.HtmlMeta"/> tag to check for..</param>
+        /// <param name="newMeta">The <see cref="System.Web.UI.HtmlControls.HtmlMeta"/> tag to check for.</param>
         /// <returns>A <see cref="System.Boolean"/> that is <c>true</c> if the meta tag already exists; otherwise <c>false</c>.</returns>
-        private static bool HtmlMetaExists( Page page, HtmlMeta newMeta )
+        private static bool RemoveExistingHtmlMeta( Page page, HtmlMeta newMeta )
         {
             bool existsAlready = false;
 
@@ -2714,22 +2699,27 @@ Sys.Application.add_load(function () {
                 {
                     if ( control is HtmlMeta )
                     {
-                        HtmlMeta existingMeta = (HtmlMeta)control;
+                        HtmlMeta existingMeta = ( HtmlMeta )control;
 
                         bool sameAttributes = true;
+                        bool hasContentAttribute_ExistingMeta = ( existingMeta.Attributes["Content"] != null );
 
                         foreach ( string attributeKey in newMeta.Attributes.Keys )
                         {
-                            if ( existingMeta.Attributes[attributeKey] == null ||
-                                existingMeta.Attributes[attributeKey].ToLower() != newMeta.Attributes[attributeKey].ToLower() )
-                            {
-                                sameAttributes = false;
-                                break;
+                            if ( attributeKey.ToLower() != "content" ) // ignore content attribute.
+                            { 
+                                if ( existingMeta.Attributes[attributeKey] == null ||
+                                    existingMeta.Attributes[attributeKey].ToLower() != newMeta.Attributes[attributeKey].ToLower() )
+                                {
+                                    sameAttributes = false;
+                                    break;
+                                }
                             }
                         }
 
                         if ( sameAttributes )
                         {
+                            page.Header.Controls.Remove( existingMeta );
                             existsAlready = true;
                             break;
                         }

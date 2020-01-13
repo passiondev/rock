@@ -36,7 +36,11 @@
                             <asp:Literal ID="lblMainDetails" runat="server" />
                         </div>
                     </div>
-
+                    <div>
+                        <div class="col-md-12">
+                            <Rock:AttributeValuesContainer ID="avcDisplayAttributes" runat="server" />
+                        </div>
+                    </div>
                 </div>
 
                 <div id="pnlEditDetails" runat="server">
@@ -66,7 +70,7 @@
                                 <Rock:RockControlWrapper ID="rcGroupTypes" runat="server" Label="Child Group Types"
                                     Help="The types of child groups that can be added to groups of this type. This is used to define the group hierarchy. To allow an unlimited hierarchy add this type as an allowed child group type.">
                                     <div class="grid">
-                                        <Rock:Grid ID="gChildGroupTypes" runat="server" DisplayType="Light" ShowHeader="false" RowItemText="Group Type">
+                                        <Rock:Grid ID="gChildGroupTypes" runat="server" DisplayType="Light" ShowHeader="false" RowItemText="Group Type" HideDeleteButtonForIsSystem="false">
                                             <Columns>
                                                 <Rock:RockBoundField DataField="Name" />
                                                 <Rock:DeleteField OnClick="gChildGroupTypes_Delete" />
@@ -143,7 +147,15 @@
                                         <Rock:RockCheckBox ID="cbGroupRSVPEnabled" runat="server" Label="Group RSVP Enabled" Text="Yes"
                                             Help="This option will allow group RSVP." />
                                     </div>
-                        </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <Rock:RockCheckBox ID="cbEnableInactiveReason" runat="server" Label="Enable Inactive Reason" Help="Allows a reason for inactivation to be selected. The reasons are setup in the Defined Type 'Inactive Group Reasons'" AutoPostBack="true" OnCheckedChanged="cbEnableInactiveReason_CheckedChanged" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <Rock:RockCheckBox ID="cbRequireInactiveReason" runat="server" Label="Require Inactive Reason" Help="Requires an Inactive Reason to be selected for the group when inactivating it. The reasons are setup in the Defined Type 'Inactive Group Reasons'" Enabled="false" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </Rock:PanelWidget>
@@ -345,6 +357,7 @@
                                 </Columns>
                             </Rock:Grid>
                         </div>
+                        <Rock:AttributeValuesContainer ID="avcEditAttributes" runat="server" />
                     </Rock:PanelWidget>
 
                     <Rock:PanelWidget ID="wpGroupTypeGroupRequirements" runat="server" Title="Group Requirements">

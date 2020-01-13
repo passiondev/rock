@@ -68,6 +68,12 @@ namespace Rock.Client
         public DateTime? InactiveDateTime { get; set; }
 
         /// <summary />
+        public string InactiveReasonNote { get; set; }
+
+        /// <summary />
+        public int? InactiveReasonValueId { get; set; }
+
+        /// <summary />
         public bool IsActive { get; set; } = true;
 
         /// <summary />
@@ -86,11 +92,6 @@ namespace Rock.Client
         /// If the ModifiedByPersonAliasId is being set manually and should not be overwritten with current user when saved, set this value to true
         /// </summary>
         public bool ModifiedAuditValuesAlreadyUpdated { get; set; }
-
-        /// <summary />
-        // Made Obsolete in Rock "1.7"
-        [Obsolete( "This no longer is functional. Please use GroupRequirement.MustMeetRequirementToAddMember instead.", true )]
-        public bool? MustMeetRequirementsToAddMember { get; set; }
 
         /// <summary />
         public string Name { get; set; }
@@ -160,6 +161,8 @@ namespace Rock.Client
             this.GroupCapacity = source.GroupCapacity;
             this.GroupTypeId = source.GroupTypeId;
             this.InactiveDateTime = source.InactiveDateTime;
+            this.InactiveReasonNote = source.InactiveReasonNote;
+            this.InactiveReasonValueId = source.InactiveReasonValueId;
             this.IsActive = source.IsActive;
             this.IsArchived = source.IsArchived;
             this.IsPublic = source.IsPublic;

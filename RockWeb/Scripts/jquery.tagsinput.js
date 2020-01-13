@@ -117,14 +117,16 @@
                         tagTitle = value,
                         tag = "";
 
-				    // check for class name
+                    // Deserialize the tag properties
+                    // This logic needs to sync with C# code in TagList.SerializeTag:
+                    // $"{name}^{tagCssClass}^{iconCssClass}^{backgroundColor}";
                     var array = value.split("^");
-				    if (array.length > 1) {
-				        className = array[3];
-                        tagTitle = array[2];
-                        tagColor = array[1];
-                        iconClass = array[0];
-				    }
+                    if (array.length > 1) {
+                        tagTitle = array[0];
+                        className = array[1];
+                        iconClass = array[2];
+                        tagColor = array[3];
+                    }
 
                     tag = $('<span class="tag">').append(
                         $('<span>').text(tagTitle)
@@ -137,7 +139,7 @@
                                 href  : '#',
                                 title : 'Remove tag',
                                 text  : '×'
-                            }).click(function () {
+                            }).on('click', function () {
                                 return $('#' + id).removeTag(escape(value));
                             })
                         )
@@ -161,9 +163,9 @@
 
 					$('#'+id+'_tag').val('');
 					if (options.focus) {
-						$('#'+id+'_tag').focus();
+						$('#'+id+'_tag').trigger("focus");
 					} else {
-						$('#'+id+'_tag').blur();
+						$('#'+id+'_tag').trigger("blur");
 					}
 
 					$.fn.tagsInput.updateTagsField(this,tagslist);
@@ -204,11 +206,16 @@
 
 				if (tags_callbacks[id] && tags_callbacks[id]['onRemoveTag']) {
                     var f = tags_callbacks[id]['onRemoveTag'];
+
+                    // Deserialize the tag properties
+                    // This logic needs to sync with C# code in TagList.SerializeTag:
+                    // $"{name}^{tagCssClass}^{iconCssClass}^{backgroundColor}";
                     var array = value.split("^");
-				    if (array.length > 1) {
-                        value = array[2];
-				    }
-					f.call(this, value);
+                    if (array.length > 1) {
+                        value = array[0];
+                    }
+
+                    f.call(this, value);
 				}
 			});
 
@@ -319,7 +326,7 @@
 		        $(data.fake_input).resetAutosize(settings);
 
 				$(data.holder).bind('click',data,function(event) {
-					$(event.data.fake_input).focus();
+					$(event.data.fake_input).trigger('focus');
 				});
 
 				$(data.fake_input).bind('focus',data,function(event) {
@@ -386,18 +393,18 @@
 					if(event.keyCode == 8 && $(this).val() == '')
 					{
 						 event.preventDefault();
-						 var last_tag = $(this).closest('.tagsinput').find('.tag:last').text();
+						 var last_tag = $(this).closest('.tagsinput').find('.tag').last().text();
 						 var id = $(this).attr('id').replace(/_tag$/, '');
 						 last_tag = last_tag.replace(/[\s]+x$/, '');
 						 $('#' + id).removeTag(escape(last_tag));
 						 $(this).trigger('focus');
 					}
 				});
-				$(data.fake_input).blur();
+				$(data.fake_input).trigger("blur");
 
 				//Removes the not_valid class when user changes the value of the fake input
 				if(data.unique) {
-				    $(data.fake_input).keydown(function(event){
+				    $(data.fake_input).on("keydown", function(event){
 				        if(event.keyCode == 8 || String.fromCharCode(event.which).match(/\w+|[áéíóúÁÉÍÓÚñÑ,/]+/)) {
 				            $(this).removeClass('not_valid');
 				        }

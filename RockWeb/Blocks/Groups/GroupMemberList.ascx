@@ -123,7 +123,7 @@
                                                 contentType: 'application/json; charset=utf-8',
                                                 async: false }).responseText;
 
-                            var resultObject = jQuery.parseJSON(result);
+                            var resultObject = JSON.parse(result);
 
                             return resultObject.PickerItemDetailsHtml;
 
@@ -146,7 +146,7 @@
                    // $('.js-person-popover').popover('show'); // uncomment for styling
 
                     // delete/archive prompt
-                    $('table.js-grid-group-members a.grid-delete-button').click(function (e) {
+                    $('table.js-grid-group-members a.grid-delete-button').on('click', function (e) {
                         var $btn = $(this);
                         var $row = $btn.closest('tr');
                         var actionName = 'delete';

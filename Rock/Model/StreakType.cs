@@ -99,6 +99,16 @@ namespace Rock.Model
         private DateTime _startDate = RockDateTime.Now;
 
         /// <summary>
+        /// Gets or sets the first day of the week for <see cref="StreakOccurrenceFrequency.Weekly"/> streak type calculations.
+        /// Leave this null to assume the system setting, which is accessed via <see cref="RockDateTime.FirstDayOfWeek"/>.
+        /// </summary>
+        /// <value>
+        /// The first day of week.
+        /// </value>
+        [DataMember]
+        public DayOfWeek? FirstDayOfWeek { get; set; }
+
+        /// <summary>
         /// The sequence of bits that represent occurrences where engagement was possible. The least significant bit (right side) is
         /// representative of the StartDate. More significant bits (going left) are more recent dates.
         /// </summary>
@@ -165,21 +175,21 @@ namespace Rock.Model
         }
         private ICollection<StreakTypeExclusion> _streakTypeExclusions;
 
-        #endregion Virtual Properties
-
-        #region Update Hook
-
         /// <summary>
-        /// Method that will be called on an entity immediately after the item is saved by context
+        /// Gets or sets the streak type achievement types.
         /// </summary>
-        /// <param name="dbContext">The database context.</param>
-        public override void PostSaveChanges( Data.DbContext dbContext )
+        /// <value>
+        /// The streak type achievement types.
+        /// </value>
+        [DataMember]
+        public virtual ICollection<StreakTypeAchievementType> StreakTypeAchievementTypes
         {
-            StreakTypeService.UpdateEnrollmentStreakPropertiesAsync( Id );
-            base.PostSaveChanges( dbContext );
+            get => _streakTypeAchievementTypes ?? ( _streakTypeAchievementTypes = new Collection<StreakTypeAchievementType>() );
+            set => _streakTypeAchievementTypes = value;
         }
+        private ICollection<StreakTypeAchievementType> _streakTypeAchievementTypes;
 
-        #endregion Update Hook
+        #endregion Virtual Properties
     }
 
     #region Enumerations

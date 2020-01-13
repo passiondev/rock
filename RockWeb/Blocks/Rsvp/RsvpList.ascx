@@ -25,10 +25,10 @@
                                 </Rock:RockDropDownList>
                                 <Rock:RockDropDownList ID="ddlSchedule" runat="server" Label="Schedule" DataValueField="Key" DataTextField="Value"  />
                             </Rock:GridFilter>
-                            <Rock:Grid ID="gRSVPItems" runat="server" DisplayType="Full" AllowSorting="true" OnRowSelected="gRSVPItems_RowSelected" DataKeyNames="Id">
+                            <Rock:Grid ID="gRSVPItems" runat="server" DisplayType="Full" AllowSorting="true" OnRowSelected="gRSVPItems_RowSelected" DataKeyNames="Id" OnSorting="gRSVPItems_Sorting">
                                 <Columns>
                                     <Rock:DateField DataField="OccurrenceDate" HeaderText="Date" ItemStyle-HorizontalAlign="Left" HeaderStyle-HorizontalAlign="Left" SortExpression="OccurrenceDate" />
-                                    <Rock:RockBoundField DataField="ScheduleName" HeaderText="Schedule" SortExpression="ScheduleName" />
+                                    <Rock:RockBoundField DataField="ScheduleName" HeaderText="Schedule" SortExpression="ScheduleName" HtmlEncode="false" />
                                     <Rock:RockBoundField DataField="LocationName" HeaderText="Location" SortExpression="LocationName" />
                                     <Rock:RockTemplateField>
                                         <ItemTemplate>

@@ -693,38 +693,34 @@ namespace RockWeb.Blocks.Groups
 
                 groupLocation.CopyPropertiesFrom( groupLocationState );
 
+                // Update Group Location Schedules
                 var existingSchedules = groupLocation.Schedules.Select( s => s.Guid ).ToList();
                 var existingGroupLocationConfigs = groupLocation.GroupLocationScheduleConfigs.Select( g => g );
-
-                var addedSchedules = new List<int>();
 
                 foreach ( var scheduleState in groupLocationState.Schedules.Where( s => !existingSchedules.Contains( s.Guid ) ).ToList() )
                 {
                     var schedule = scheduleService.Get( scheduleState.Guid );
                     if ( schedule != null )
                     {
-                        addedSchedules.Add( schedule.Id );
                         groupLocation.Schedules.Add( schedule );
                     }
                 }
 
-
-                // Select group configs with min, desired or max values 
+                // Get existing configurations with modified capacity values.
                 var modifiedScheduleConfigs = groupLocationState.GroupLocationScheduleConfigs
                     .Where( s => groupLocation.GroupLocationScheduleConfigs
                         .Where( exs => ( exs.ScheduleId == s.ScheduleId )
                             && exs.GroupLocationId == s.GroupLocationId
                             && ( exs.MinimumCapacity != s.MinimumCapacity
                             || exs.DesiredCapacity != s.DesiredCapacity
-                            || exs.MaximumCapacity != s.MaximumCapacity ) ).Any() );
+                            || exs.MaximumCapacity != s.MaximumCapacity ) ).Any() )
+                    .ToList();
 
-                // Handles case where group location schedules exisited without group location schedule configs
-                var newGroupLocationScheduleConfigs = existingGroupLocationConfigs.Count() > 0 
-                    ? groupLocationState.GroupLocationScheduleConfigs
-                    .Where( s => addedSchedules.Contains( s.ScheduleId ) ).ToList()
-                    : groupLocationState.GroupLocationScheduleConfigs;
+                // Add new scheduling configurations.
+                var newGroupLocationScheduleConfigs = groupLocationState.GroupLocationScheduleConfigs
+                    .Where( s => !existingGroupLocationConfigs.Any( a => a.ScheduleId == s.ScheduleId ) )
+                    .ToList();
 
-                // Add scheduling configs
                 foreach ( var addedGroupLocationScheduleConfigs in newGroupLocationScheduleConfigs )
                 {
                     groupLocation.GroupLocationScheduleConfigs.Add(
@@ -802,6 +798,10 @@ namespace RockWeb.Blocks.Groups
             group.IsSecurityRole = cbIsSecurityRole.Checked;
             group.IsActive = cbIsActive.Checked;
             group.IsPublic = cbIsPublic.Checked;
+
+            // Don't save inactive properties if the group is active.
+            group.InactiveReasonValueId = cbIsActive.Checked ? null : ddlInactiveReason.SelectedValueAsInt();
+            group.InactiveReasonNote = cbIsActive.Checked ? null : tbInactiveNote.Text;
 
             group.SchedulingMustMeetRequirements = cbSchedulingMustMeetRequirements.Checked;
             group.AttendanceRecordRequiredForCheckIn = ddlAttendanceRecordRequiredForCheckIn.SelectedValueAsEnum<AttendanceRecordRequiredForCheckIn>();
@@ -1532,15 +1532,34 @@ namespace RockWeb.Blocks.Groups
             cbIsPublic.Checked = group.IsPublic;
 
             var rockContext = new RockContext();
-
             var groupService = new GroupService( rockContext );
             var attributeService = new AttributeService( rockContext );
+
+            if ( group.GroupType != null && group.GroupType.EnableInactiveReason )
+            {
+                ddlInactiveReason.Visible = true;
+                ddlInactiveReason.Items.Add( new ListItem() );
+                ddlInactiveReason.Required = group.GroupType.RequiresInactiveReason;
+
+                foreach ( var reason in new GroupTypeService( rockContext ).GetInactiveReasonsForGroupType( group.GroupTypeId ).Select(r => new { Text = r.Value, Value = r.Id } ) )
+                {
+                    ddlInactiveReason.Items.Add( new ListItem( reason.Text, reason.Value.ToString() ) );
+                }
+
+                ddlInactiveReason.SelectedValue = group.InactiveReasonValueId.ToString();
+
+                tbInactiveNote.Visible = true;
+                tbInactiveNote.Text = group.InactiveReasonNote;
+
+            }
+
+            // The inactivate child groups checkbox should only be visible if there are children to inactivate. js on the page will consume this.
+            hfHasChildGroups.Value = groupService.GetAllDescendentGroupIds( group.Id, false ).Any() ? "true" : "false";
 
             LoadDropDowns( rockContext );
 
             ddlSignatureDocumentTemplate.SetValue( group.RequiredSignatureDocumentTemplateId );
             gpParentGroup.SetValue( group.ParentGroup ?? groupService.Get( group.ParentGroupId ?? 0 ) );
-
 
             // Hide sync and requirements panel if no admin access
             bool canAdministrate = group.IsAuthorized( Authorization.ADMINISTRATE, CurrentPerson );
@@ -1854,7 +1873,7 @@ namespace RockWeb.Blocks.Groups
         /// <param name="group">The group.</param>
         private void ShowReadonlyDetails( Group group )
         {
-            btnDelete.Visible = !group.IsSystem;
+            btnDelete.Visible = btnDelete.Visible && !group.IsSystem;
             btnArchive.Visible = false;
 
             var rockContext = new RockContext();
@@ -3372,7 +3391,7 @@ namespace RockWeb.Blocks.Groups
 
             if ( GroupMemberAttributesState.Any( a => a.Guid.Equals( attribute.Guid ) ) )
             {
-                // get the non-editable stuff from the GroupTypeAttributesState and put it back into the object...
+                // get the non-editable stuff from the state and put it back into the object...
                 var attributeState = GroupMemberAttributesState.Where( a => a.Guid.Equals( attribute.Guid ) ).FirstOrDefault();
                 if ( attributeState != null )
                 {
@@ -3403,7 +3422,8 @@ namespace RockWeb.Blocks.Groups
         /// </summary>
         private void BindGroupMemberAttributesInheritedGrid()
         {
-            if ( CurrentGroupTypeCache != null )
+            // Don't make the Group Member Attributes PanelWidget visible if it's already hidden (due to permissions)
+            if ( CurrentGroupTypeCache != null && wpGroupMemberAttributes.Visible )
             {
                 wpGroupMemberAttributes.Visible = GroupMemberAttributesInheritedState.Any() || GroupMemberAttributesState.Any() || CurrentGroupTypeCache.AllowSpecificGroupMemberAttributes;
                 rcwGroupMemberAttributes.Visible = GroupMemberAttributesInheritedState.Any() || GroupMemberAttributesState.Any() || CurrentGroupTypeCache.AllowSpecificGroupMemberAttributes;

@@ -493,24 +493,22 @@ namespace Rock.Web.Cache
                         {
                             using ( var rockContext = new RockContext() )
                             {
-                                Roles = new List<GroupTypeRoleCache>();
+                                _roles = new List<GroupTypeRoleCache>();
                                 new GroupTypeRoleService( rockContext )
                                     .Queryable().AsNoTracking()
                                     .Where( r => r.GroupTypeId == Id )
                                     .OrderBy( r => r.Order )
                                     .ToList()
-                                    .ForEach( r => Roles.Add( new GroupTypeRoleCache( r ) ) );
+                                    .ForEach( r => _roles.Add( new GroupTypeRoleCache( r ) ) );
                             }
                         }
                     }
                 }
+
                 return _roles;
             }
-            private set
-            {
-                _roles = value;
-            }
         }
+
         private List<GroupTypeRoleCache> _roles = null;
 
         /// <summary>
@@ -770,7 +768,7 @@ namespace Rock.Web.Cache
         /// <param name="guid">The unique identifier.</param>
         /// <returns></returns>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use Get Instead" )]
+        [Obsolete( "Use Get Instead", true )]
         public static GroupTypeCache Read( string guid )
         {
             return Get( new Guid( guid ) );

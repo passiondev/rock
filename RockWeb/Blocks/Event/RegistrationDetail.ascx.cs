@@ -350,7 +350,7 @@ namespace RockWeb.Blocks.Event
 
                     if ( !registration.IsValid )
                     {
-                        // Controls will render the error messages                    
+                        // Controls will render the error messages
                         return;
                     }
 
@@ -390,7 +390,7 @@ namespace RockWeb.Blocks.Event
                             // ...Add, reload again
                             Registration = GetRegistration( Registration.Id );
                         }
-                        
+
                         lWizardRegistrationName.Text = Registration.ToString();
                         ShowReadonlyDetails( Registration );
                     }
@@ -445,7 +445,7 @@ namespace RockWeb.Blocks.Event
                         .FirstOrDefault();
                 }
             }
-            
+
             if ( pageCache != null && pageCache.ParentPage != null && pageCache.ParentPage.ParentPage != null  )
             {
                 qryParams.Add( "RegistrationTemplateId", templateId.ToString() );
@@ -707,7 +707,7 @@ namespace RockWeb.Blocks.Event
             nbDiscountPercentage.Text = discount != null && discount.DiscountPercentage != 0.0m ? (discount.DiscountPercentage * 100.0m).ToString("N0") : "";
             cbDiscountAmount.Text = discount != null && discount.DiscountAmount != 0.0m ? discount.DiscountAmount.ToString( "N2" ) : "";
         }
-        
+
         protected void lbResendConfirmation_Click( object sender, EventArgs e )
         {
             if ( RegistrationId.HasValue )
@@ -835,6 +835,14 @@ namespace RockWeb.Blocks.Event
                     personAliasId = Registration.PersonAliasId;
                 }
 
+                if ( RegistrationTemplateState.FinancialGateway == null )
+                {
+                    nbPaymentError.Heading = "Error Processing Payment";
+                    nbPaymentError.Text = "A Financial Gateway must be set on the Registration Template.";
+                    nbPaymentError.Visible = true;
+                    return;
+                }
+
                 try
                 {
                     var rockContext = new RockContext();
@@ -870,7 +878,6 @@ namespace RockWeb.Blocks.Event
                     nbPaymentError.Heading = "Error Processing Payment";
                     nbPaymentError.Text = ex.Message;
                     nbPaymentError.Visible = true;
-
                 }
             }
             else
@@ -1046,10 +1053,10 @@ namespace RockWeb.Blocks.Event
                         var personService = new PersonService(rockContext);
                         var signatureDocumentTemplateService = new SignatureDocumentTemplateService(rockContext);
                         var registrant = new RegistrationRegistrantService( rockContext ).Get( registrantId.Value );
-                        if ( registrant != null && 
+                        if ( registrant != null &&
                             registrant.PersonAlias != null &&
                             registrant.PersonAlias.Person != null &&
-                            Registration != null && 
+                            Registration != null &&
                             Registration.RegistrationInstance != null &&
                             Registration.RegistrationInstance.RegistrationTemplate != null )
                         {
@@ -1083,7 +1090,7 @@ namespace RockWeb.Blocks.Event
                             var sendErrorMessages = new List<string>();
                             if ( new SignatureDocumentTemplateService( rockContext ).SendDocument(
                                 signatureDocumentTemplateService.Get(Registration.RegistrationInstance.RegistrationTemplate.RequiredSignatureDocumentTemplateId.Value),
-                                appliesTo, 
+                                appliesTo,
                                 assignedTo,
                                 Registration.RegistrationInstance.Name,
                                 email,
@@ -1488,7 +1495,7 @@ namespace RockWeb.Blocks.Event
             RegistrantsState = new List<RegistrantInfo>();
             registration.Registrants.ToList().ForEach( r => RegistrantsState.Add( new RegistrantInfo( r, rockContext ) ) );
 
-            if ( registration.RegistrationInstance != null && 
+            if ( registration.RegistrationInstance != null &&
                 registration.RegistrationInstance.RegistrationTemplate != null &&
                 registration.RegistrationInstance.RegistrationTemplate.RequiredSignatureDocumentTemplateId.HasValue )
             {
@@ -1544,7 +1551,7 @@ namespace RockWeb.Blocks.Event
                 decimal balanceDue = registration.BalanceDue;
                 hlBalance.Visible = true;
                 hlBalance.Text = balanceDue.FormatAsCurrency();
-                hlBalance.LabelType = balanceDue > 0 ? LabelType.Danger : 
+                hlBalance.LabelType = balanceDue > 0 ? LabelType.Danger :
                     balanceDue < 0 ? LabelType.Warning : LabelType.Success;
             }
             else
@@ -1581,7 +1588,7 @@ namespace RockWeb.Blocks.Event
 
             string deleteScript = @"
 
-    $('a.js-delete-registration').click(function( e ){
+    $('a.js-delete-registration').on('click', function( e ){
         e.preventDefault();
         Rock.dialogs.confirm('Are you sure you want to delete this Registration? All of the registrants will also be deleted!', function (result) {
             if (result) {
@@ -2046,7 +2053,7 @@ namespace RockWeb.Blocks.Event
                     // Get all the transactions related to this registration
                     var qry = new FinancialTransactionService( rockContext )
                         .Queryable().AsNoTracking()
-                        .Where( t => 
+                        .Where( t =>
                             t.TransactionDateTime.HasValue &&
                             t.TransactionDetails
                                 .Any( d =>
@@ -2093,7 +2100,7 @@ namespace RockWeb.Blocks.Event
         private string FormatDetails( FinancialTransaction txn )
         {
             var details = new List<string>();
-            
+
             if ( txn.AuthorizedPersonAlias != null && txn.AuthorizedPersonAlias.Person != null )
             {
                 details.Add( txn.AuthorizedPersonAlias.Person.FullNameFormalReversed );
@@ -2368,7 +2375,7 @@ namespace RockWeb.Blocks.Event
             if ( registrant.PersonId.HasValue )
             {
                 var aProfileLink = new HtmlAnchor();
-                aProfileLink.HRef = ResolveRockUrl( string.Format( "~/Person/{0}", registrant.PersonId.Value ) ); 
+                aProfileLink.HRef = ResolveRockUrl( string.Format( "~/Person/{0}", registrant.PersonId.Value ) );
                 divLabels.Controls.Add( aProfileLink );
                 aProfileLink.AddCssClass( "btn btn-default btn-xs margin-l-sm" );
                 var iProfileLink = new HtmlGenericControl( "i" );
@@ -2612,7 +2619,7 @@ namespace RockWeb.Blocks.Event
             {
                 var rlField = new RockLiteral();
                 rlField.ID = string.Format( "rlFee_{0}_{1}_{2}", registrant.Id, fee.Id, feeInfo.FeeLabel );
-                
+
                 rlField.Label = fee.Name;
 
                 if ( fee.FeeType == RegistrationFeeType.Multiple && feeInfo.FeeLabel.IsNotNullOrWhiteSpace() )
@@ -2671,7 +2678,7 @@ namespace RockWeb.Blocks.Event
                             var campus = CampusCache.Get( fieldValue.ToString().AsInteger() );
                             rlField.Text = campus != null ? campus.Name : string.Empty;
                             break;
-                            
+
                         case RegistrationPersonFieldType.Address:
                             var location = fieldValue.ToString();
                             rlField.Text = location != null ? location.ToString() : string.Empty;
@@ -2695,7 +2702,7 @@ namespace RockWeb.Blocks.Event
                             var gender = fieldValue.ToString().ConvertToEnumOrNull<Gender>() ?? Gender.Unknown;
                             rlField.Text = gender.ConvertToString();
                             break;
-                            
+
                         case RegistrationPersonFieldType.MaritalStatus:
                             var maritalStatusDv = DefinedValueCache.Get( fieldValue.ToString().AsInteger() );
                             rlField.Text = maritalStatusDv != null ? maritalStatusDv.Value : string.Empty;
@@ -2749,57 +2756,66 @@ namespace RockWeb.Blocks.Event
         /// <param name="tab"></param>
         private void SetActiveAccountPanel( RegistrationDetailAccountPanelSpecifier tab )
         {
-            bool showTabAccount = false;
-            bool showTabFees = false;
-            bool showTabPayments = false;
+            ShowTabAccont( false );
+            ShowTabFees( false );
+            ShowTabPayments( false );
 
-            bool showCCDetails = false;
-            bool showPaymentInfo = false;
-            bool showPaymentAmount = false;
-            bool showPaymentManual = false;
-            bool showPaymentSubmit = false;
-            bool showPaymentSubmitStep2 = false;
+            pnlPaymentInfo.Visible = false;
+            phPaymentAmount.Visible = false;
+            phManualDetails.Visible = false;
+            phCCDetails.Visible = false;
+            aStep2Submit.Visible = false;
+            lbSubmitPayment.Visible = false;
 
-            if ( tab == RegistrationDetailAccountPanelSpecifier.AccountSummary )
+            switch ( tab )
             {
-                showTabAccount = true;
-            }
-            else if ( tab == RegistrationDetailAccountPanelSpecifier.FeeList )
-            {
-                showTabFees = true;
-            }
-            else if ( tab == RegistrationDetailAccountPanelSpecifier.PaymentList )
-            {
-                showTabPayments = true;
-            }
-            else if ( tab == RegistrationDetailAccountPanelSpecifier.PaymentManualDetails )
-            {
-                showTabPayments = true;
+                case RegistrationDetailAccountPanelSpecifier.AccountSummary:
+                    ShowTabAccont( true );
+                    break;
 
-                showPaymentInfo = true;
-                showPaymentAmount = true;
-                showPaymentManual = true;
-                showPaymentSubmit = true;
-            }
-            else if ( tab == RegistrationDetailAccountPanelSpecifier.PaymentProcess )
-            {
-                showTabPayments = true;
+                case RegistrationDetailAccountPanelSpecifier.FeeList:
+                    ShowTabFees( true );
+                    break;
 
-                showPaymentInfo = true;
-                showPaymentAmount = true;
-                showPaymentSubmit = true;
+                case RegistrationDetailAccountPanelSpecifier.PaymentList:
+                    ShowTabPayments( true );
+                    break;
 
-            }
-            else if ( tab == RegistrationDetailAccountPanelSpecifier.PaymentCardDetails )
-            {
-                showTabPayments = true;
+                case RegistrationDetailAccountPanelSpecifier.PaymentManualDetails:
+                    ShowTabPayments( true );
+                    pnlPaymentInfo.Visible = true;
+                    phPaymentAmount.Visible = true;
+                    phManualDetails.Visible = true;
+                    lbSubmitPayment.Visible = true;
+                    break;
 
-                showCCDetails = true;
-                showPaymentSubmitStep2 = true;
+                case RegistrationDetailAccountPanelSpecifier.PaymentCardDetails:
+                    ShowTabPayments( true );
+                    pnlPaymentInfo.Visible = true;
+                    phCCDetails.Visible = true;
+                    aStep2Submit.Visible = true;
+                    break;
+
+                case RegistrationDetailAccountPanelSpecifier.PaymentProcess:
+                    ShowTabPayments( true );
+                    pnlPaymentInfo.Visible = true;
+                    phPaymentAmount.Visible = true;
+                    lbSubmitPayment.Visible = true;
+                    break;
+
+                default:
+                    break;
             }
+
+            pnlPaymentDetails.Visible = !pnlPaymentInfo.Visible;
 
             lnkTabAccount.Attributes["href"] = "#" + tabPaneAccount.ClientID;
+            lnkTabFees.Attributes["href"] = "#" + tabPaneFees.ClientID;
+            lnkTabPayments.Attributes["href"] = "#" + tabPanePayments.ClientID;
+        }
 
+        private void ShowTabAccont( bool showTabAccount)
+        {
             if ( showTabAccount )
             {
                 tabAccount.AddCssClass( "active" );
@@ -2810,9 +2826,10 @@ namespace RockWeb.Blocks.Event
                 tabAccount.RemoveCssClass( "active" );
                 tabPaneAccount.RemoveCssClass( "active" );
             }
+        }
 
-            lnkTabFees.Attributes["href"] = "#" + tabPaneFees.ClientID;
-
+        private void ShowTabFees( bool showTabFees )
+        {
             if ( showTabFees )
             {
                 tabFees.AddCssClass( "active" );
@@ -2824,8 +2841,10 @@ namespace RockWeb.Blocks.Event
                 tabPaneFees.RemoveCssClass( "active" );
             }
 
-            lnkTabPayments.Attributes["href"] = "#" + tabPanePayments.ClientID;
+        }
 
+        private void ShowTabPayments( bool showTabPayments )
+        {
             if ( showTabPayments )
             {
                 tabPayments.AddCssClass( "active" );
@@ -2836,19 +2855,6 @@ namespace RockWeb.Blocks.Event
                 tabPayments.RemoveCssClass( "active" );
                 tabPanePayments.RemoveCssClass( "active" );
             }
-
-            // Payments Pane shows either Payments List or Payment Details, depending upon state.
-            pnlPaymentInfo.Visible = showPaymentInfo;
-            pnlPaymentDetails.Visible = !showPaymentInfo;
-
-            // Set the status of the Payment Details pane controls.
-            phCCDetails.Visible = showCCDetails;
-
-            lbSubmitPayment.Visible = showPaymentSubmit;
-            aStep2Submit.Visible = showPaymentSubmitStep2;
-
-            phManualDetails.Visible = showPaymentManual;
-            phPaymentAmount.Visible = showPaymentAmount;
         }
 
         #endregion

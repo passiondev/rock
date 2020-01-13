@@ -55,12 +55,44 @@ namespace RockWeb.Blocks.Event
     [TextField( "Batch Name Prefix", "The batch prefix name to use when creating a new batch", false, "Event Registration", "", 3 )]
     [BooleanField( "Display Progress Bar", "Display a progress bar for the registration.", true, "", 4 )]
     [BooleanField( "Allow InLine Digital Signature Documents", "Should inline digital documents be allowed? This requires that the registration template is configured to display the document inline", true, "", 6, "SignInline" )]
-    [SystemEmailField( "Confirm Account Template", "Confirm Account Email Template", false, Rock.SystemGuid.SystemEmail.SECURITY_CONFIRM_ACCOUNT, "", 7 )]
-    [TextField( "Family Term", "The term to use for specifying which household or family a person is a member of.", true, "immediate family", "", 8 )]
-    [BooleanField( "Force Email Update", "Force the email to be updated on the person's record.", false, "", 9 )]
-    [BooleanField( "Show Field Descriptions", "Show the field description as help text", defaultValue: true, order: 10, key: "ShowFieldDescriptions" )]
+    [SystemEmailField( "Confirm Account Template", "Confirm Account Email Template", false, Rock.SystemGuid.SystemEmail.SECURITY_CONFIRM_ACCOUNT, Category = "", Order = 7,
+        Key = AttributeKey.ConfirmAccountTemplate )]
+
+    [TextField( "Family Term",
+        Description = "The term to use for specifying which household or family a person is a member of.",
+        IsRequired = true,
+        DefaultValue = "immediate family",
+        Order = 8,
+        Key = AttributeKey.FamilyTerm )]
+
+    [BooleanField( "Force Email Update",
+        Description = "Force the email to be updated on the person's record.",
+        DefaultBooleanValue = false,
+        Order = 9,
+        Key = AttributeKey.ForceEmailUpdate )]
+
+    [BooleanField( "Show Field Descriptions",
+        Description = "Show the field description as help text",
+        DefaultBooleanValue = true,
+        Order = 10,
+        Key = AttributeKey.ShowFieldDescriptions )]
+
+    [BooleanField( "Enabled Saved Account",
+        Key = AttributeKey.EnableSavedAccount,
+        Description = "Set this to false to disable the using Saved Account as a payment option, and to also disable the option to create saved account for future use.",
+        DefaultBooleanValue = true,
+        Order = 11 )]
     public partial class RegistrationEntry : RockBlock
     {
+        private static class AttributeKey
+        {
+            public const string ConfirmAccountTemplate = "ConfirmAccountTemplate";
+            public const string FamilyTerm = "FamilyTerm";
+            public const string ForceEmailUpdate = "ForceEmailUpdate";
+            public const string ShowFieldDescriptions = "ShowFieldDescriptions";
+            public const string EnableSavedAccount = "EnableSavedAccount";
+        }
+
         #region Fields
 
         private bool _saveNavigationHistory = false;
@@ -235,7 +267,7 @@ namespace RockWeb.Blocks.Event
         private decimal? minimumPayment { get; set; }
 
         /// <summary>
-        /// Gets or sets the default payment (combined for all registrants for this registration) 
+        /// Gets or sets the default payment (combined for all registrants for this registration)
         /// </summary>
         /// <value>
         /// The default payment.
@@ -684,17 +716,41 @@ namespace RockWeb.Blocks.Event
             var breadCrumbs = new List<BreadCrumb>();
 
             int? registrationInstanceId = PageParameter( REGISTRATION_INSTANCE_ID_PARAM_NAME ).AsIntegerOrNull();
+            string registrationSlug = PageParameter( SLUG_PARAM_NAME );
 
             if ( registrationInstanceId.HasValue )
             {
-                var registrationInstanceName = new RegistrationInstanceService( new RockContext() ).GetSelect( registrationInstanceId.Value, a => a.Name );
+                string registrationInstanceName = new RegistrationInstanceService( new RockContext() ).GetSelect( registrationInstanceId.Value, a => a.Name );
 
                 RockPage.Title = registrationInstanceName;
                 breadCrumbs.Add( new BreadCrumb( registrationInstanceName, pageReference ) );
-                return breadCrumbs;
+            }
+            else if ( registrationSlug.IsNotNullOrWhiteSpace() )
+            {
+                var dateTime = RockDateTime.Now;
+                var linkage = new EventItemOccurrenceGroupMapService( new RockContext() )
+                    .Queryable()
+                    .AsNoTracking()
+                    .Where( l => l.UrlSlug == registrationSlug )
+                    .Where( l => l.RegistrationInstance != null )
+                    .Where( l => l.RegistrationInstance.IsActive )
+                    .Where( l => l.RegistrationInstance.RegistrationTemplate != null )
+                    .Where( l => l.RegistrationInstance.RegistrationTemplate.IsActive )
+                    .Where( l => ( !l.RegistrationInstance.StartDateTime.HasValue || l.RegistrationInstance.StartDateTime <= dateTime ) )
+                    .Where( l => ( !l.RegistrationInstance.EndDateTime.HasValue || l.RegistrationInstance.EndDateTime > dateTime ) )
+                    .FirstOrDefault();
+
+                if ( linkage != null )
+                {
+                    RockPage.Title = linkage.RegistrationInstance.Name;
+                    breadCrumbs.Add( new BreadCrumb( linkage.RegistrationInstance.Name, pageReference ) );
+                }
+            }
+            else
+            {
+                breadCrumbs.Add( new BreadCrumb( this.PageCache.PageTitle, pageReference ) );
             }
 
-            breadCrumbs.Add( new BreadCrumb( this.PageCache.PageTitle, pageReference ) );
             return breadCrumbs;
         }
 
@@ -1408,7 +1464,7 @@ namespace RockWeb.Blocks.Event
                 CreateDynamicControls( true );
 
                 // If the registration was previously saved then save it again to update the discount
-                if ( RegistrationState.RegistrationId != null || RegistrationState.RegistrationId != 0 )
+                if ( RegistrationState.RegistrationId != null && RegistrationState.RegistrationId != 0 )
                 {
                     // This should be false, but it is possible to fill this in before clicking the disount button
                     bool hasPayment = ( RegistrationState.PaymentAmount ?? 0.0m ) > 0.0m;
@@ -1795,13 +1851,15 @@ namespace RockWeb.Blocks.Event
 
             if ( RegistrationState != null )
             {
-                // Calculate the available slots. If maxAttendees is 0 that means unlimited since this is not a nullable.
+                // Calculate the available slots. If maxAttendees is null that means unlimited registrants and RegistrationState.SlotsAvailable should not be calculated.
                 if ( !RegistrationState.RegistrationId.HasValue && RegistrationInstanceState != null && RegistrationInstanceState.MaxAttendees.HasValue )
                 {
                     var existingRegistrantIds = RegistrationState.Registrants.Select( r => r.Id ).ToList();
-                    var otherRegistrantsCount = new RegistrationRegistrantService( new RockContext() ).Queryable()
+                    var otherRegistrantsCount = new RegistrationRegistrantService( new RockContext() )
+                        .Queryable()
                         .Where( a => a.Registration.RegistrationInstanceId == registrationInstanceId && !a.Registration.IsTemporary )
-                        .Where( a => !existingRegistrantIds.Contains( a.Id ) ).Count();
+                        .Where( a => !existingRegistrantIds.Contains( a.Id ) )
+                        .Count();
 
                     int otherRegistrants = RegistrationInstanceState.Registrations
                         .Where( r => !r.IsTemporary )
@@ -3031,7 +3089,7 @@ namespace RockWeb.Blocks.Event
                     familyGroup,
                     true,
                     false );
-                
+
                 var homeLocationType = DefinedValueCache.Get( Rock.SystemGuid.DefinedValue.GROUP_LOCATION_TYPE_HOME.AsGuid() );
                 if ( homeLocationType != null && familyGroup != null )
                 {
@@ -3391,7 +3449,7 @@ namespace RockWeb.Blocks.Event
                     {
                         rockContext.SaveChanges();
                     }
-              
+
                     transaction.BatchId = batch.Id;
 
                     // use the financialTransactionService to add the transaction instead of batch.Transactions to avoid lazy-loading the transactions already associated with the batch
@@ -3581,12 +3639,13 @@ namespace RockWeb.Blocks.Event
                 RegistrationTemplate.RegistrationInstructions :
                 RegistrationInstanceState.RegistrationInstructions;
 
-            if ( !string.IsNullOrEmpty( instructions ) )
+            // Sanitize for empty check catches things like empty paragraph tags.
+            if ( !string.IsNullOrEmpty( instructions.SanitizeHtml() ) )
             {
                 lInstructions.Text = string.Format( "<div class='text-left'>{0}</div>", instructions );
             }
 
-            return instructions.IsNotNullOrWhiteSpace();
+            return instructions.SanitizeHtml().IsNotNullOrWhiteSpace();
         }
 
         /// <summary>
@@ -3625,7 +3684,7 @@ namespace RockWeb.Blocks.Event
                 {
                     max = RegistrationState.SlotsAvailable.Value;
                 }
-                
+
                 if ( max > MinRegistrants )
                 {
                     // If registration allows multiple registrants show the 'How Many' panel
@@ -3662,32 +3721,34 @@ namespace RockWeb.Blocks.Event
         /// </summary>
         private void ShowWaitingListNotice()
         {
-            if ( RegistrationTemplate.WaitListEnabled )
+            if ( !RegistrationTemplate.WaitListEnabled || !RegistrationState.SlotsAvailable.HasValue )
             {
-                nbWaitingList.Title = string.Format( "{0} Full", RegistrationTerm );
+                return;
+            }
 
-                if ( !RegistrationState.SlotsAvailable.HasValue || RegistrationState.SlotsAvailable.Value <= 0 )
+            nbWaitingList.Title = string.Format( "{0} Full", RegistrationTerm );
+
+            if ( RegistrationState.SlotsAvailable.Value <= 0 )
+            {
+                nbWaitingList.Text = string.Format( "<p>This {0} has reached its capacity. Complete the registration below to be added to the waitlist.</p>", RegistrationTerm );
+                nbWaitingList.Visible = true;
+            }
+            else
+            {
+                if ( numHowMany.Value > RegistrationState.SlotsAvailable )
                 {
-                    nbWaitingList.Text = string.Format( "<p>This {0} has reached its capacity. Complete the registration below to be added to the waitlist.</p>", RegistrationTerm );
+                    int slots = RegistrationState.SlotsAvailable.Value;
+                    int wait = numHowMany.Value - slots;
+                    nbWaitingList.Text = string.Format(
+                        "<p>This {0} only has capacity for {1} more {2}. The first {3}{2} you add will be registered for {4}. The remaining {5}{6} will be added to the waitlist.",
+                        RegistrationTerm.ToLower(),
+                        slots,
+                        RegistrantTerm.PluralizeIf( slots > 1 ).ToLower(),
+                        slots > 1 ? slots.ToString() + " " : string.Empty,
+                        RegistrationInstanceState.Name,
+                        wait > 1 ? wait.ToString() + " " : string.Empty,
+                        RegistrantTerm.PluralizeIf( wait > 1 ).ToLower() );
                     nbWaitingList.Visible = true;
-                }
-                else
-                {
-                    if ( numHowMany.Value > RegistrationState.SlotsAvailable )
-                    {
-                        int slots = RegistrationState.SlotsAvailable.Value;
-                        int wait = numHowMany.Value - slots;
-                        nbWaitingList.Text = string.Format(
-                            "<p>This {0} only has capacity for {1} more {2}. The first {3}{2} you add will be registered for {4}. The remaining {5}{6} will be added to the waitlist.",
-                            RegistrationTerm.ToLower(),
-                            slots,
-                            RegistrantTerm.PluralizeIf( slots > 1 ).ToLower(),
-                            slots > 1 ? slots.ToString() + " " : string.Empty,
-                            RegistrationInstanceState.Name,
-                            wait > 1 ? wait.ToString() + " " : string.Empty,
-                            RegistrantTerm.PluralizeIf( wait > 1 ).ToLower() );
-                        nbWaitingList.Visible = true;
-                    }
                 }
             }
         }
@@ -4050,7 +4111,9 @@ namespace RockWeb.Blocks.Event
                     }
                 }
 
-                if ( nbAmountPaid.Visible = true &&
+                var enableSavedAccount = this.GetAttributeValue( AttributeKey.EnableSavedAccount ).AsBoolean();
+
+                if ( enableSavedAccount && ( nbAmountPaid.Visible = true ) &&
                     nbAmountPaid.Text.AsDecimalOrNull().HasValue &&
                     nbAmountPaid.Text.AsDecimalOrNull().Value > 0.0M &&
                     ( rblSavedCC.Items.Count == 0 || ( rblSavedCC.SelectedValueAsId() ?? 0 ) == 0 ) )
@@ -4238,10 +4301,12 @@ namespace RockWeb.Blocks.Event
 
     // Detect credit card type
     $('.credit-card').creditCardTypeDetector({{ 'credit_card_logos': '.card-logos' }});
+    // Trigger the keyup event in situations where the user has clicked the Previous button and is returning to this page
+    $('.credit-card').keyup();
 
     // Toggle credit card display if saved card option is available
     $('div.radio-content').prev('div.radio-list').find('input:radio').unbind('click').on('click', function () {{
-        $content = $(this).parents('div.radio-list:first').next('.radio-content');
+        $content = $(this).parents('div.radio-list').first().next('.radio-content');
         var radioDisplay = $content.css('display');
         if ($(this).val() == 0 && radioDisplay == 'none') {{
             $content.slideToggle();
@@ -4719,7 +4784,7 @@ namespace RockWeb.Blocks.Event
                     foreach ( var fee in RegistrationTemplate.Fees )
                     {
                         List<FeeInfo> feeValues = fee.GetFeeInfoFromControls( phFees );
-                        if ( fee != null )
+                        if ( feeValues != null )
                         {
                             registrant.FeeValues.AddOrReplace( fee.Id, feeValues );
                         }
@@ -5102,49 +5167,46 @@ namespace RockWeb.Blocks.Event
                 var costs = new List<RegistrationCostSummaryInfo>();
                 foreach ( var registrant in RegistrationState.Registrants )
                 {
-                    if ( registrant.Cost > 0 )
-                    {
-                        var costSummary = new RegistrationCostSummaryInfo();
-                        costSummary.Type = RegistrationCostSummaryType.Cost;
-                        costSummary.Description = string.Format(
-                            "{0} {1}",
-                            registrant.GetFirstName( RegistrationTemplate ),
-                            registrant.GetLastName( RegistrationTemplate ) );
+                    var costSummary = new RegistrationCostSummaryInfo();
+                    costSummary.Type = RegistrationCostSummaryType.Cost;
+                    costSummary.Description = string.Format(
+                        "{0} {1}",
+                        registrant.GetFirstName( RegistrationTemplate ),
+                        registrant.GetLastName( RegistrationTemplate ) );
 
-                        if ( registrant.OnWaitList )
+                    if ( registrant.OnWaitList )
+                    {
+                        costSummary.Description += " (Waiting List)";
+                        costSummary.Cost = 0.0M;
+                        costSummary.DiscountedCost = 0.0M;
+                        costSummary.MinPayment = 0.0M;
+                        costSummary.DefaultPayment = 0.0M;
+                    }
+                    else
+                    {
+                        costSummary.Cost = registrant.Cost;
+                        if ( RegistrationState.DiscountPercentage > 0.0m && registrant.DiscountApplies )
                         {
-                            costSummary.Description += " (Waiting List)";
-                            costSummary.Cost = 0.0M;
-                            costSummary.DiscountedCost = 0.0M;
-                            costSummary.MinPayment = 0.0M;
-                            costSummary.DefaultPayment = 0.0M;
-                        }
-                        else
-                        {
-                            costSummary.Cost = registrant.Cost;
-                            if ( RegistrationState.DiscountPercentage > 0.0m && registrant.DiscountApplies )
+                            if ( RegistrationState.DiscountPercentage >= 1.0m )
                             {
-                                if ( RegistrationState.DiscountPercentage >= 1.0m )
-                                {
-                                    costSummary.DiscountedCost = 0.0m;
-                                }
-                                else
-                                {
-                                    costSummary.DiscountedCost = costSummary.Cost - ( costSummary.Cost * RegistrationState.DiscountPercentage );
-                                }
+                                costSummary.DiscountedCost = 0.0m;
                             }
                             else
                             {
-                                costSummary.DiscountedCost = costSummary.Cost;
+                                costSummary.DiscountedCost = costSummary.Cost - ( costSummary.Cost * RegistrationState.DiscountPercentage );
                             }
-
-                            // If registration allows a minimum payment calculate that amount, otherwise use the discounted amount as minimum
-                            costSummary.MinPayment = minimumInitialPaymentPerRegistrant.HasValue ? minimumInitialPaymentPerRegistrant.Value : costSummary.DiscountedCost;
-                            costSummary.DefaultPayment = defaultPaymentAmountPerRegistrant;
+                        }
+                        else
+                        {
+                            costSummary.DiscountedCost = costSummary.Cost;
                         }
 
-                        costs.Add( costSummary );
+                        // If registration allows a minimum payment calculate that amount, otherwise use the discounted amount as minimum
+                        costSummary.MinPayment = minimumInitialPaymentPerRegistrant.HasValue ? minimumInitialPaymentPerRegistrant.Value : costSummary.DiscountedCost;
+                        costSummary.DefaultPayment = defaultPaymentAmountPerRegistrant;
                     }
+
+                    costs.Add( costSummary );
 
                     foreach ( var fee in registrant.FeeValues )
                     {
@@ -5161,31 +5223,31 @@ namespace RockWeb.Blocks.Event
                                     feeInfo.Quantity,
                                     cost.FormatAsCurrency() );
 
-                                var costSummary = new RegistrationCostSummaryInfo();
-                                costSummary.Type = RegistrationCostSummaryType.Fee;
-                                costSummary.Description = desc;
-                                costSummary.Cost = feeInfo.Quantity * cost;
+                                var feeCostSummary = new RegistrationCostSummaryInfo();
+                                feeCostSummary.Type = RegistrationCostSummaryType.Fee;
+                                feeCostSummary.Description = desc;
+                                feeCostSummary.Cost = feeInfo.Quantity * cost;
 
                                 if ( RegistrationState.DiscountPercentage > 0.0m && templateFee != null && templateFee.DiscountApplies && registrant.DiscountApplies )
                                 {
                                     if ( RegistrationState.DiscountPercentage >= 1.0m )
                                     {
-                                        costSummary.DiscountedCost = 0.0m;
+                                        feeCostSummary.DiscountedCost = 0.0m;
                                     }
                                     else
                                     {
-                                        costSummary.DiscountedCost = costSummary.Cost - ( costSummary.Cost * RegistrationState.DiscountPercentage );
+                                        feeCostSummary.DiscountedCost = feeCostSummary.Cost - ( feeCostSummary.Cost * RegistrationState.DiscountPercentage );
                                     }
                                 }
                                 else
                                 {
-                                    costSummary.DiscountedCost = costSummary.Cost;
+                                    feeCostSummary.DiscountedCost = feeCostSummary.Cost;
                                 }
 
                                 // If template allows a minimum payment, then fees are not included, otherwise it is included
-                                costSummary.MinPayment = minimumInitialPaymentPerRegistrant.HasValue ? 0 : costSummary.DiscountedCost;
+                                feeCostSummary.MinPayment = minimumInitialPaymentPerRegistrant.HasValue ? 0 : feeCostSummary.DiscountedCost;
 
-                                costs.Add( costSummary );
+                                costs.Add( feeCostSummary );
                             }
                         }
                     }
@@ -5281,12 +5343,12 @@ namespace RockWeb.Blocks.Event
                                 // default Payment is more than min and less than balance due, so we can use it
                                 RegistrationState.PaymentAmount = defaultPayment;
                             }
-                            else if (defaultPayment <= minimumPayment)
+                            else if ( defaultPayment <= minimumPayment )
                             {
                                 // default Payment is less than min, so use min instead
                                 RegistrationState.PaymentAmount = minimumPayment;
                             }
-                            else if (defaultPayment >= balanceDue)
+                            else if ( defaultPayment >= balanceDue )
                             {
                                 // default Payment is more than balance due, so use balance due
                                 RegistrationState.PaymentAmount = balanceDue;
@@ -5465,6 +5527,11 @@ namespace RockWeb.Blocks.Event
             var currentValue = rblSavedCC.SelectedValue;
 
             rblSavedCC.Items.Clear();
+
+            if ( this.GetAttributeValue( AttributeKey.EnableSavedAccount ).AsBoolean() == false )
+            {
+                return;
+            }
 
             if ( CurrentPerson != null )
             {

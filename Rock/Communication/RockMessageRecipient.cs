@@ -44,10 +44,8 @@ namespace Rock.Communication
         {
             this.PersonId = person?.Id;
             this.Name = person?.FullName;
-            this.PersonAliasId = person?.PrimaryAliasId;
             this.To = to;
             this.MergeFields = mergeFields ?? new Dictionary<string, object>();
-            this.MergeFields.AddOrIgnore( PersonMergeFieldKey, person );
         }
 
         /// <summary>
@@ -78,14 +76,6 @@ namespace Rock.Communication
         /// The person identifier.
         /// </value>
         public int? PersonId { get; set; }
-
-        /// <summary>
-        /// Gets the person alias identifier.
-        /// </summary>
-        /// <value>
-        /// The person alias identifier.
-        /// </value>
-        public int? PersonAliasId { get; private set; }
 
         /// <summary>
         /// Gets or sets the merge fields.
