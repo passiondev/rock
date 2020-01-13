@@ -400,7 +400,18 @@ namespace Rock.Web.Cache
         /// The scheduled communication template identifier.
         /// </value>
         [DataMember]
+        [Obsolete( "Use ScheduleConfirmationSystemCommunicationId instead." )]
+        [RockObsolete( "1.10" )]
         public int? ScheduleConfirmationSystemEmailId { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the communication template to use when a person is scheduled or when the schedule has been updated
+        /// </summary>
+        /// <value>
+        /// The scheduled communication template identifier.
+        /// </value>
+        [DataMember]
+        public int? ScheduleConfirmationSystemCommunicationId { get; private set; }
 
         /// <summary>
         /// Gets or sets the communication template to use when sending a schedule reminder
@@ -409,7 +420,18 @@ namespace Rock.Web.Cache
         /// The schedule reminder communication template identifier.
         /// </value>
         [DataMember]
+        [Obsolete( "Use ScheduleReminderSystemCommunicationId instead." )]
+        [RockObsolete( "1.10" )]
         public int? ScheduleReminderSystemEmailId { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the communication template to use when sending a schedule reminder
+        /// </summary>
+        /// <value>
+        /// The schedule reminder communication template identifier.
+        /// </value>
+        [DataMember]
+        public int? ScheduleReminderSystemCommunicationId { get; private set; }
 
         /// <summary>
         /// Gets or sets the WorkflowType to execute when a person indicates they won't be able to attend at their scheduled time
@@ -743,12 +765,16 @@ namespace Rock.Web.Cache
             GroupStatusDefinedTypeId = groupType.GroupStatusDefinedTypeId;
             EnableRSVP = groupType.EnableRSVP;
             IsSchedulingEnabled = groupType.IsSchedulingEnabled;
-            ScheduleConfirmationSystemEmailId = groupType.ScheduleConfirmationSystemEmailId;
-            ScheduleReminderSystemEmailId = groupType.ScheduleReminderSystemEmailId;
+            ScheduleConfirmationSystemCommunicationId = groupType.ScheduleConfirmationSystemCommunicationId;
+            ScheduleReminderSystemCommunicationId = groupType.ScheduleReminderSystemCommunicationId;
             ScheduleCancellationWorkflowTypeId = groupType.ScheduleCancellationWorkflowTypeId;
             ScheduleConfirmationEmailOffsetDays = groupType.ScheduleConfirmationEmailOffsetDays;
             ScheduleReminderEmailOffsetDays = groupType.ScheduleReminderEmailOffsetDays;
             RequiresReasonIfDeclineSchedule = groupType.RequiresReasonIfDeclineSchedule;
+
+            ScheduleConfirmationSystemEmailId = groupType.ScheduleConfirmationSystemEmailId;
+            ScheduleReminderSystemEmailId = groupType.ScheduleReminderSystemEmailId;
+
         }
 
         /// <summary>

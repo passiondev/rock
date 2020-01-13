@@ -65,9 +65,9 @@ namespace Rock.Jobs
             JobDataMap dataMap = context.JobDetail.JobDataMap;
             Guid? systemEmailGuid = dataMap.GetString( "BirthdayEmail" ).AsGuidOrNull();
 
-            SystemEmailService emailService = new SystemEmailService( rockContext );
+            var emailService = new SystemCommunicationService( rockContext );
 
-            SystemEmail systemEmail = null;
+            SystemCommunication systemEmail = null;
             if ( systemEmailGuid.HasValue )
             {
                 systemEmail = emailService.Get( systemEmailGuid.Value );

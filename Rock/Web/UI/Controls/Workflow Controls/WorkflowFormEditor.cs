@@ -73,7 +73,7 @@ namespace Rock.Web.UI.Controls
             form.Guid = _hfFormGuid.Value.AsGuid();
             if ( form.Guid != Guid.Empty )
             {
-                form.NotificationSystemEmailId = _ddlNotificationSystemEmail.SelectedValueAsId();
+                form.NotificationSystemCommunicationId = _ddlNotificationSystemEmail.SelectedValueAsId();
                 form.IncludeActionsInNotification = _cbIncludeActions.Checked;
                 form.Header = _ceHeaderText.Text;
                 form.Footer = _ceFooterText.Text;
@@ -114,7 +114,7 @@ namespace Rock.Web.UI.Controls
             if ( value != null )
             {
                 _hfFormGuid.Value = value.Guid.ToString();
-                _ddlNotificationSystemEmail.SetValue( value.NotificationSystemEmailId );
+                _ddlNotificationSystemEmail.SetValue( value.NotificationSystemCommunicationId );
                 _cbIncludeActions.Checked = value.IncludeActionsInNotification;
                 _ceHeaderText.Text = value.Header;
                 _ceFooterText.Text = value.Footer;
@@ -243,7 +243,7 @@ namespace Rock.Web.UI.Controls
             {
                 using ( var rockContext = new RockContext() )
                 {
-                    _ddlNotificationSystemEmail.DataSource = new SystemEmailService( rockContext ).Queryable()
+                    _ddlNotificationSystemEmail.DataSource = new SystemCommunicationService( rockContext ).Queryable()
                         .Where( e => e.CategoryId == systemEmailCategory.Id )
                         .OrderBy( e => e.Title )
                         .Select( a => new { a.Id, a.Title } )

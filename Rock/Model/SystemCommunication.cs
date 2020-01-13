@@ -14,7 +14,6 @@
 // limitations under the License.
 // </copyright>
 //
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity.ModelConfiguration;
@@ -28,14 +27,10 @@ namespace Rock.Model
     /// Represents a Rock email template.
     /// </summary>
     [RockDomain( "Communication" )]
-    [Table( "SystemEmail" )]
-    [Obsolete( "Use SystemCommunication instead." )]
-    [RockObsolete( "1.10" )]
-
+    [Table( "SystemCommunication" )]
     [DataContract]
-    public partial class SystemEmail : Model<SystemEmail>
+    public partial class SystemCommunication : Model<SystemCommunication>
     {
-
         #region Entity Properties
 
         /// <summary>
@@ -49,6 +44,15 @@ namespace Rock.Model
         public bool IsSystem { get; set; }
 
         /// <summary>
+        /// Gets or sets a flag indicating if this item is available for use.
+        /// </summary>
+        /// <value>
+        /// A <see cref="System.Boolean"/> value that is <c>true</c> if this item is available for use.
+        /// </value>
+        [DataMember]
+        public bool? IsActive { get; set; }
+
+        /// <summary>
         /// Gets or sets the category identifier.
         /// </summary>
         /// <value>
@@ -56,7 +60,7 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public int? CategoryId { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the Title of the EmailTemplate 
         /// </summary>
@@ -67,7 +71,7 @@ namespace Rock.Model
         [MaxLength( 100 )]
         [DataMember( IsRequired = true )]
         public string Title { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the From email address.
         /// </summary>
@@ -109,7 +113,7 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public string Cc { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the email addresses that should be sent a BCC or blind carbon copy of an email using this template. If there is not a predetermined distribution list; this property 
         /// can remain empty.
@@ -120,7 +124,7 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public string Bcc { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the subject of an email that uses this template.
         /// </summary>
@@ -131,7 +135,7 @@ namespace Rock.Model
         [MaxLength( 1000 )]
         [DataMember( IsRequired = true )]
         public string Subject { get; set; }
-
+        
         /// <summary>
         /// Gets or sets the Body template that is used for emails that use this template.
         /// </summary>
@@ -141,6 +145,61 @@ namespace Rock.Model
         [Required]
         [DataMember( IsRequired = true )]
         public string Body { get; set; }
+
+        #region SMS Properties
+
+        /// <summary>
+        /// Gets or sets the SMS message content.
+        /// </summary>
+        /// <value>
+        /// A <see cref="System.String" /> containing the message text.
+        /// </value>
+        [DataMember]
+        public string SMSMessage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the SMS from number.
+        /// </summary>
+        /// <value>
+        /// The identifier of a Defined Value that identifies the SMS Sender.
+        /// </value>
+        [DataMember]
+        public int? SMSFromDefinedValueId { get; set; }
+
+        #endregion
+
+        #region Push Notification Properties
+
+        /// <summary>
+        /// Gets or sets the title of the notification.
+        /// </summary>
+        /// <value>
+        /// A <see cref="System.String" /> containing the notification title.
+        /// </value>
+        [DataMember]
+        [MaxLength( 100 )]
+        public string PushTitle { get; set; }
+
+        /// <summary>
+        /// Gets or sets the message text.
+        /// </summary>
+        /// <value>
+        /// A <see cref="System.String" /> containing the notification text.
+        /// </value>
+        [DataMember]
+        public string PushMessage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the sound alert to use for the notification.
+        /// </summary>
+        /// <value>
+        /// From number.
+        /// </value>
+        [DataMember]
+        [MaxLength( 100 )]
+        public string PushSound { get; set; }
+
+        #endregion
 
         #endregion
 
@@ -154,6 +213,15 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public virtual Category Category { get; set; }
+
+        /// <summary>
+        /// Gets or sets the SMS from defined value.
+        /// </summary>
+        /// <value>
+        /// The SMS from defined value.
+        /// </value>
+        [DataMember]
+        public virtual DefinedValue SMSFromDefinedValue { get; set; }
 
         #endregion
 
@@ -174,23 +242,22 @@ namespace Rock.Model
     }
 
     #region Entity Configuration
-
+        
     /// <summary>
     /// Email Template Configuration class.
     /// </summary>
-
-    [Obsolete( "Use SystemCommunication instead." )]
-    [RockObsolete( "1.10" )]
-    public partial class SystemEmailConfiguration : EntityTypeConfiguration<SystemEmail>
+    public partial class SystemCommunicationConfiguration : EntityTypeConfiguration<SystemCommunication>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="SystemEmailConfiguration"/> class.
+        /// Initializes a new instance of the <see cref="SystemCommunicationConfiguration"/> class.
         /// </summary>
-        public SystemEmailConfiguration()
+        public SystemCommunicationConfiguration()
         {
             this.HasOptional( t => t.Category ).WithMany().HasForeignKey( t => t.CategoryId ).WillCascadeOnDelete( false );
+            this.HasOptional( c => c.SMSFromDefinedValue ).WithMany().HasForeignKey( c => c.SMSFromDefinedValueId ).WillCascadeOnDelete( false );
         }
     }
 
     #endregion
+
 }
