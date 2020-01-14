@@ -279,7 +279,8 @@ namespace RockWeb.Blocks.Cms
                 }
                 else
                 {
-                    contentItem.Content = sceContent.StructuredContent;
+                    contentItem.StructuredContent = sceContent.StructuredContent;
+                    contentItem.Content = sceContent.HtmlContent;
                 }
                 contentItem.Priority = nbPriority.Text.AsInteger();
                 contentItem.ItemGlobalKey = contentItem.Id != 0 ? lblItemGlobalKey.Text : CreateItemGlobalKey();
@@ -910,7 +911,7 @@ namespace RockWeb.Blocks.Cms
                 {
                     if ( contentItem.ContentChannel.IsStructuredContent )
                     {
-                        sceContent.StructuredContent = contentItem.Content;
+                        sceContent.StructuredContent = contentItem.StructuredContent;
                         sceContent.StructuredContentToolValueId = contentItem.ContentChannel.StructuredContentToolValueId;
                         sceContent.Visible = true;
                     }
