@@ -5,15 +5,22 @@
     $(function () {
         var proxy = $.connection.rockMessageHub;
 
-        proxy.client.showProgress = function (name, message, results) {
+        proxy.client.showProgress = function (name, message, results, jsTarget) {
             if (name == '<%=this.SignalRNotificationKey %>') {
 
-                var $notificationBox = $('.js-migrate-scheduled-notification');
+                var $notificationBox = $(jsTarget);
 
                 $notificationBox.show();
 
+                debugger
+
                 $('.js-notification-text', $notificationBox).html(message);
-                $('.js-notification-details', $notificationBox).html('<pre>' + results + '</pre>');
+                if (results != '') {
+                    $('.js-notification-details', $notificationBox).html('<pre>' + results + '</pre>');
+                }
+                else {
+                    $('.js-notification-details', $notificationBox).html('');
+                }
             }
         }
 
@@ -134,6 +141,7 @@
                             It is safe to run this import more than once. It will only affect records that weren't successfully migrated previously.
                         </p>
 
+                        <Rock:NotificationBox ID="nbScheduledTransactionsDownloadPayments" runat="server" NotificationBoxType="Warning" />
 
                         <div class="actions margin-b-md">
                             <Rock:BootstrapButton ID="btnMigrateScheduledTransactions" runat="server" CssClass="btn btn-primary margin-t-md js-migrate-scheduled-transactions-button" OnClick="btnMigrateScheduledTransactions_Click" Enabled="true">Migrate Scheduled Transactions</Rock:BootstrapButton>
@@ -141,6 +149,7 @@
                         <asp:Panel ID="pnlMigrateScheduledTransactionsResults" runat="server">
                             <Rock:NotificationBox ID="nbMigrateScheduledTransactionsResult" runat="server" CssClass="js-migrate-scheduled-notification" NotificationBoxType="Info" Visible="true" Dismissable="true" />
                             <asp:HiddenField ID="hfMigrateScheduledTransactionsResultFileURL" runat="server" />
+                            
                             <asp:LinkButton ID="btnDownloadScheduledTransactionsResultsJSON" runat="server" CssClass="btn btn-link js-migrate-scheduled-download-button" Text="Download Log" OnClick="btnDownloadScheduledTransactionsResultsJSON_Click" />
                         </asp:Panel>
 
@@ -153,6 +162,7 @@
                         </p>
                         <div class="actions margin-b-md">
                             <Rock:BootstrapButton ID="btnRemoveEmailAddresses" runat="server" CssClass="btn btn-primary " OnClick="btnRemoveEmailAddresses_Click" Enabled="true">Remove email addresses from Customer Vault</Rock:BootstrapButton>
+                            <Rock:NotificationBox ID="nbRemoveEmailAddressesResult" runat="server" CssClass="js-remove-emails-notification" NotificationBoxType="Info" Visible="true" Dismissable="true" />
                         </div>
                     </div>
                 </div>

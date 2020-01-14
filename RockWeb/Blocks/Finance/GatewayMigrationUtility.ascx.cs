@@ -32,6 +32,7 @@ using Rock.Data;
 using Rock.Financial;
 using Rock.Model;
 using Rock.MyWell;
+using Rock.Web;
 using Rock.Web.Cache;
 using Rock.Web.UI;
 
@@ -165,6 +166,17 @@ namespace RockWeb.Blocks.Finance
             {
                 ddlNMIGateway.Items.Add( new ListItem( nmiGateway.Name, nmiGateway.Id.ToString() ) );
             }
+
+            PageReference downloadPaymentsPage = new PageReference( PageCache.GetId( Rock.SystemGuid.Page.DOWNLOAD_PAYMENTS.AsGuid() ) ?? 0 );
+
+            nbScheduledTransactionsDownloadPayments.Text = string.Format( @"Before Migrating Scheduled Transactions:
+<ol>
+    <li>Go to the <a href='{0}'>Download Payments</a> page.</li>
+    <li>Make sure the block settings are set correctly.</li>
+    <li>Set Gateway to the NMI Gateway.</li>
+    <li>Set Date Range to include today.</li>
+    <li>Download Payments</li>
+</ol>", downloadPaymentsPage.BuildUrl() );
 
             BindGrid();
         }
@@ -595,6 +607,7 @@ namespace RockWeb.Blocks.Finance
             var scheduledTransactionProgress = 0;
             string logFileUrl = string.Format( "~/App_Data/Logs/GatewayMigrationUtility_MigrateScheduledTransactions_{0}.json", RockDateTime.Now.ToString( "yyyyMMddTHHmmss" ) );
             hfMigrateScheduledTransactionsResultFileURL.Value = logFileUrl;
+            var notificationboxJsHook = ".js-migrate-scheduled-notification";
 
             // Migrating Scheduled Transactions might take a while. Each migrated Scheduled Payment may take a half second or so to create on the MyWell Gateway.
             var importTask = new Task( () =>
@@ -603,7 +616,7 @@ namespace RockWeb.Blocks.Finance
                 Task.Delay( 2000 ).Wait();
 
                 _hubContext.Clients.All.setMigrateScheduledTransactionsButtonVisibility( this.SignalRNotificationKey, false );
-
+                
 
                 foreach ( var scheduledTransaction in scheduledTransactions )
                 {
@@ -648,12 +661,12 @@ namespace RockWeb.Blocks.Finance
                             scheduledTransactionMigrationResult.NMISubscriptionId
                         );
 
-                        UpdateProgressMessage( string.Format( "Migrating Scheduled Transactions: {0} of {1}", scheduledTransactionProgress, scheduledTransactionCount ), scheduledTransactionMigrationResult.GetSummaryDetails() );
+                        UpdateProgressMessage( string.Format( "Migrating Scheduled Transactions: {0} of {1}", scheduledTransactionProgress, scheduledTransactionCount ), scheduledTransactionMigrationResult.GetSummaryDetails(), notificationboxJsHook );
 
                         continue;
                     }
 
-                    UpdateProgressMessage( string.Format( "Migrating Scheduled Transactions: {0} of {1}", scheduledTransactionProgress, scheduledTransactionCount ), scheduledTransactionMigrationResult.GetSummaryDetails() );
+                    UpdateProgressMessage( string.Format( "Migrating Scheduled Transactions: {0} of {1}", scheduledTransactionProgress, scheduledTransactionCount ), scheduledTransactionMigrationResult.GetSummaryDetails(), notificationboxJsHook );
 
                     /* 2020-01-13 MDP
                        MyWell will return an error if trying to schedule the transaction sooner than UTC Tomorrow (see the details of what this means in the notes of MyWellGateway.GetEarliestScheduledStartDate)
@@ -806,12 +819,12 @@ namespace RockWeb.Blocks.Finance
                      ExceptionLogService.LogException( c.Exception );
                      migrationDetails += string.Format( "EXCEPTION: {0}", c.Exception.Flatten().Message );
                      importResult = "EXCEPTION";
-                     UpdateProgressMessage( importResult, migrationDetails );
+                     UpdateProgressMessage( importResult, migrationDetails, notificationboxJsHook );
                  }
                  else
                  {
                      importResult = "Migrate Scheduled Transactions Completed Successfully";
-                     UpdateProgressMessage( importResult, migrationDetails );
+                     UpdateProgressMessage( importResult, migrationDetails, notificationboxJsHook );
                  }
 
                  this.SetBlockUserPreference( UserPreferenceKey.MigrateScheduledTransactionsResultSummary, importResult );
@@ -843,9 +856,11 @@ namespace RockWeb.Blocks.Finance
         /// Updates the progress message.
         /// </summary>
         /// <param name="progressMessage">The progress message.</param>
-        public void UpdateProgressMessage( string progressMessage, string results )
+        /// <param name="results">The results.</param>
+        /// <param name="notificationboxJsHook">The js target.</param>
+        public void UpdateProgressMessage( string progressMessage, string results, string notificationboxJsHook )
         {
-            _hubContext.Clients.All.showProgress( this.SignalRNotificationKey, progressMessage, results );
+            _hubContext.Clients.All.showProgress( this.SignalRNotificationKey, progressMessage, results, notificationboxJsHook );
         }
 
         /// <summary>
@@ -896,9 +911,56 @@ namespace RockWeb.Blocks.Finance
             Response.End();
         }
 
+        /// <summary>
+        /// Handles the Click event of the btnRemoveEmailAddresses control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnRemoveEmailAddresses_Click( object sender, EventArgs e )
         {
+            var rockContext = new RockContext();
 
+            var financialGatewayService = new FinancialGatewayService( rockContext );
+            var myWellFinancialGatewayId = ddlMyWellGateway.SelectedValue.AsInteger();
+            var myWellFinancialGateway = financialGatewayService.Get( myWellFinancialGatewayId );
+            var myWellGatewayComponent = myWellFinancialGateway.GetGatewayComponent() as MyWellGateway;
+
+            var notificationboxJsHook = ".js-remove-emails-notification";
+
+            // Migrating Scheduled Transactions might take a while. Each migrated Scheduled Payment may take a half second or so to create on the MyWell Gateway.
+            var updateEmailTask = new Task( () =>
+            {
+                // wait a little so the browser can render and start listening to events
+                Task.Delay( 2000 ).Wait();
+
+                UpdateProgressMessage( "Removing Emails...", "", notificationboxJsHook );
+
+                var emailsRemoveCount = myWellGatewayComponent.RemoveEmails( myWellFinancialGateway, updateEmailOnProgress );
+                if ( emailsRemoveCount == 0 )
+                {
+                    UpdateProgressMessage( string.Format( "Success: All emails were already removed.", emailsRemoveCount ), "", notificationboxJsHook );
+                }
+                else
+                {
+                    UpdateProgressMessage( string.Format( "Success: {0} emails were removed", emailsRemoveCount ), "", notificationboxJsHook );
+                }
+            } );
+
+            nbRemoveEmailAddressesResult.Text = "Removing Emails...";
+            nbRemoveEmailAddressesResult.Details = "";
+
+            updateEmailTask.Start();
+        }
+
+        /// <summary>
+        /// Updates the email on progress.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The e.</param>
+        private void updateEmailOnProgress( object sender, string e )
+        {
+            var notificationboxJsHook = ".js-remove-emails-notification";
+            UpdateProgressMessage( e, string.Empty, notificationboxJsHook );
         }
 
         /// <summary>

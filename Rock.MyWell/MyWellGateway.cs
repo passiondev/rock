@@ -352,7 +352,7 @@ namespace Rock.MyWell
             // we just want the Date portion (not time) since the Gateway determines the time of day that the actual transaction will occur,
             var tomorrowUTCDate = tomorrowUTCDateTime.Date;
 
-            return tomorrowUTCDate; 
+            return tomorrowUTCDate;
         }
 
         #endregion IHostedGatewayComponent
@@ -880,7 +880,7 @@ namespace Rock.MyWell
         }
 
         /// <summary>
-        /// Searches the subscriptions.
+        /// Searches the subscriptions. Leave customerId null to search for all.
         /// (undocumented as of 4/15/2019) /recurring/subscription/search
         /// </summary>
         /// <param name="financialGateway">The financial gateway.</param>
@@ -1484,5 +1484,65 @@ namespace Rock.MyWell
         }
 
         #endregion GatewayComponent implementation
+
+        #region My Well Specific public methods
+
+        /// <summary>
+        /// Removes the emails.
+        /// </summary>
+        /// <param name="financialGateway">The financial gateway.</param>
+        /// <returns></returns>
+        public int RemoveEmails( FinancialGateway financialGateway, EventHandler<string> onProgress )
+        {
+            var emailRemoveCount = 0;
+            var progressCount = 0;
+            var subscriptionList = this.SearchCustomerSubscriptions( financialGateway, null )?.Data.ToList();
+            var gatewayUrl = this.GetGatewayUrl( financialGateway );
+            var apiKey = this.GetPrivateApiKey( financialGateway );
+            if ( subscriptionList == null )
+            {
+                throw new Exception( "Unexpected response from SearchCustomerSubscriptions " );
+            }
+
+            var customerIds = subscriptionList.Select( a => a.Customer?.Id ).Where( a => a != null ).ToList();
+            var progressTotal = customerIds.Count();
+            foreach ( var customerId in customerIds )
+            {
+                var customer = this.GetCustomer( gatewayUrl, apiKey, customerId );
+                if ( customer?.Data?.BillingAddress?.Email.IsNotNullOrWhiteSpace() == true )
+                {
+                    var billingAddressId = customer.Data.BillingAddress.Id;
+
+                    var customerBillingAddress = customer.Data.BillingAddress;
+                    customerBillingAddress.Email = "";
+
+                    var restClient = new RestClient( gatewayUrl );
+                    RestRequest restRequest = new RestRequest( $"api/customer/{customerId}/address/{billingAddressId}", Method.POST );
+                    restRequest.AddHeader( "Authorization", apiKey );
+
+                    restRequest.AddJsonBody( customerBillingAddress );
+
+                    var restResponse = restClient.Execute( restRequest );
+
+                    UpdateCustomerAddressResponse updateCustomerAddressResponse = ParseResponse<UpdateCustomerAddressResponse>( restResponse );
+                    if ( updateCustomerAddressResponse.IsSuccessStatus() == true )
+                    {
+                        emailRemoveCount++;
+                    }
+                }
+
+                progressCount++;
+
+                if ( progressTotal > 0 )
+                {
+                    var progressPercent = Math.Round( decimal.Divide(( progressCount * 100 ), progressTotal), 2 );
+                    onProgress?.Invoke( this, string.Format( $"Updated {emailRemoveCount} emails. {progressPercent}%" ) );
+                }
+            };
+
+            return emailRemoveCount;
+        }
+
+        #endregion
     }
 }
