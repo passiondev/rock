@@ -245,6 +245,10 @@
     <Compile Include="Migrations\202001071142450_AddStructuredContentToolDefinedType.Designer.cs">
       <DependentUpon>202001071142450_AddStructuredContentToolDefinedType.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\202001141317584_AddStructuredContent.cs" />
+    <Compile Include="Migrations\202001141317584_AddStructuredContent.Designer.cs">
+      <DependentUpon>202001141317584_AddStructuredContent.cs</DependentUpon>
+    </Compile>
     <Compile Include="Migrations\Version 9.0\Version 1.9.0\201907082136571_Rollup0708.cs" />
     <Compile Include="Migrations\Version 9.0\Version 1.9.0\201907082136571_Rollup0708.Designer.cs">
       <DependentUpon>201907082136571_Rollup0708.cs</DependentUpon>
@@ -988,6 +992,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\202001071142450_AddStructuredContentToolDefinedType.resx">
       <DependentUpon>202001071142450_AddStructuredContentToolDefinedType.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\202001141317584_AddStructuredContent.resx">
+      <DependentUpon>202001141317584_AddStructuredContent.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\Version 9.0\Version 1.9.0\201907082136571_Rollup0708.resx">
       <DependentUpon>201907082136571_Rollup0708.cs</DependentUpon>
