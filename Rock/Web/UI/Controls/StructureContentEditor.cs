@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using Newtonsoft.Json;
 using Rock.Data;
 using Rock.Model;
 using Rock.Web.Cache;
@@ -216,10 +217,7 @@ namespace Rock.Web.UI.Controls
         {
             get
             {
-                string lava = "{% include '~/Assets/Lava/editorjs-lava-parser.lava' %}";
-                var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( null );
-                mergeFields.Add( "data", HttpUtility.UrlDecode( this.StructuredContent ) );
-                return lava.ResolveMergeFields( mergeFields );
+                return GetHtmlContent( HttpUtility.UrlDecode( this.StructuredContent ) );
             }
         }
         /// <summary>
@@ -406,6 +404,110 @@ onChange: function() {{
 }});
 ", this.ClientID, _hfValue.ClientID, structuredContentToolConfiguration );
             ScriptManager.RegisterStartupScript( this, this.GetType(), "structure-content-script" + this.ClientID, script, true );
+        }
+
+        /// <summary>
+        /// Gets or sets the Html Content.
+        /// </summary>
+        private string GetHtmlContent( string structureContentJson )
+        {
+            var structureContent = JsonConvert.DeserializeObject<Root>( structureContentJson );
+            StringBuilder html = new StringBuilder();
+
+            if ( StructuredContent == null )
+            {
+                return html.ToString();
+            }
+
+            foreach ( var item in structureContent.blocks )
+            {
+                switch ( item.type )
+                {
+                    case "header":
+                        {
+                            html.Append( $"<h{ item.data.level }>{ item.data.text }</h{ item.data.level }>" );
+                        }
+                        break;
+                    case "paragraph":
+                        {
+                            html.Append( $"{ item.data.text }" );
+                        }
+                        break;
+                    case "list":
+                        {
+                            string listTag = "ol";
+                            if ( item.data.style == "unordered" )
+                            {
+                                listTag = "ul";
+                            }
+
+                            html.Append( $"<{listTag}>" );
+                            if ( item.data.items != null )
+                            {
+                                foreach ( var li in item.data.items )
+                                {
+                                    html.Append( $"<li>{li}</li>" );
+                                }
+                            }
+                            html.Append( $"</{listTag}>" );
+                        }
+                        break;
+                    case "image":
+                        {
+                            html.Append( $"<img src='{item.data.url}' class='img-responsive'>" );
+                        }
+                        break;
+                    case "delimiter":
+                        {
+                            html.Append( $"<hr/>" );
+                        }
+                        break;
+                    case "table":
+                        {
+                            html.Append( $"<table>" );
+                            if ( item.data.content != null )
+                            {
+                                foreach ( var tr in item.data.content )
+                                {
+                                    html.Append( $"<tr>" );
+                                    foreach ( var td in tr )
+                                    {
+                                        html.Append( $"<td>{td}</td>" );
+                                    }
+                                    html.Append( $"</tr>" );
+                                }
+                                
+                            }
+                            html.Append( $"</table>" );
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            return html.ToString();
+        }
+
+        public class Root
+        {
+            public List<Block> blocks { get; set; }
+        }
+
+        public class Data
+        {
+            public string level { get; set; }
+            public string text { get; set; }
+            public string style { get; set; }
+            public List<string> items { get; set; }
+            public List<List<string>> content { get; set; }
+            public string url { get; set; }
+        }
+
+        public class Block
+        {
+            public string type { get; set; }
+            public Data data { get; set; }
         }
     }
 }
