@@ -238,7 +238,7 @@ namespace Rock.Web.UI.Controls
             _ddlNotificationSystemEmail.ID = this.ID + "_ddlNotificationSystemEmail";
             Controls.Add( _ddlNotificationSystemEmail );
 
-            var systemEmailCategory = CategoryCache.Get( Rock.SystemGuid.Category.SYSTEM_EMAIL_WORKFLOW.AsGuid() );
+            var systemEmailCategory = CategoryCache.Get( Rock.SystemGuid.Category.SYSTEM_COMMUNICATION_WORKFLOW.AsGuid() );
             if ( systemEmailCategory != null )
             {
                 using ( var rockContext = new RockContext() )
