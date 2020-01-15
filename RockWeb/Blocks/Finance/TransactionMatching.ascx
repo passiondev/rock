@@ -180,6 +180,7 @@
                 </asp:Panel>
 
                 <div id="divAddNewMatch" runat="server">
+                    <asp:ValidationSummary ID="vsAddNewMatch" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="vgAddNewMatch" />
                     <div class="row">
                         <div class="col-sm-12">
                             <div class="photo transaction-image" style="max-width: 1000px; margin: auto;">
@@ -193,40 +194,40 @@
                             <div class="col-sm-6">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <Rock:RockTextBox ID="tbAddPersonFirstName" runat="server" Label="Name" Required="true" Placeholder="First Name" />
-                                        <Rock:RockTextBox ID="tbAddPersonLastName" runat="server" Required="true" Placeholder="Last Name" CssClass="form-group" />
+                                        <Rock:RockTextBox ID="tbAddPersonFirstName" runat="server" Label="Name" Required="true" Placeholder="First Name" ValidationGroup="vgAddNewMatch" />
+                                        <Rock:RockTextBox ID="tbAddPersonLastName" runat="server" Required="true" Placeholder="Last Name" CssClass="form-group" ValidationGroup="vgAddNewMatch" AutoPostBack="true" OnTextChanged="tbAddPersonLastName_TextChanged" />
                                     </div>
                                     <div class="col-md-3">
-                                        <Rock:DefinedValuePicker ID="dvpAddPersonSuffix" runat="server" Label="Suffix" />
+                                        <Rock:DefinedValuePicker ID="dvpAddPersonSuffix" runat="server" Label="Suffix" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-xs-6 col-md-3">
-                                        <Rock:RockRadioButtonList ID="RockRadioButtonList1" runat="server" RepeatDirection="Horizontal" Label="Gender">
+                                        <Rock:RockRadioButtonList ID="rblAddPersonGender" runat="server" RepeatDirection="Horizontal" Label="Gender" ValidationGroup="vgAddNewMatch">
                                             <asp:ListItem Text="M" Value="M" />
                                             <asp:ListItem Text="F" Value="F" />
                                         </Rock:RockRadioButtonList>
                                     </div>
                                     <div class="col-xs-6">
-                                        <Rock:ButtonGroup ID="bgAddPersonRole" runat="server" />
+                                        <Rock:ButtonGroup ID="bgAddPersonRole" runat="server" ValidationGroup="vgAddNewMatch" AutoPostBack="true" OnSelectedIndexChanged="bgAddPersonRole_SelectedIndexChanged" />
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <Rock:DefinedValuePicker ID="dvpAddPersonConnectionStatus" runat="server" Label="Connection Status" Required="true" />
+                                        <Rock:DefinedValuePicker ID="dvpAddPersonConnectionStatus" runat="server" Label="Connection Status" Required="true" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-md-6">
-                                        <Rock:DefinedValuePicker ID="dvpAddPersonMaritalStatus" runat="server" Label="Marital Status" />
+                                        <Rock:DefinedValuePicker ID="dvpAddPersonMaritalStatus" runat="server" Label="Marital Status" ValidationGroup="vgAddNewMatch" AutoPostBack="true" OnSelectedIndexChanged="dvpAddPersonMaritalStatus_SelectedIndexChanged" />
                                     </div>
                                 </div>
                                 <div class="row" id="divAddPersonSpouse" runat="server">
                                     <div class="col-md-6">
-                                        <Rock:RockTextBox ID="tbAddSpouseFirstName" runat="server" Label="Spouse Name" Required="true" Placeholder="First Name" />
-                                        <Rock:RockTextBox ID="tbAddSpouseLastName" runat="server" Required="true" Placeholder="Last Name" />
+                                        <Rock:RockTextBox ID="tbAddSpouseFirstName" runat="server" Label="Spouse Name" Required="true" Placeholder="First Name" ValidationGroup="vgAddNewMatch" />
+                                        <Rock:RockTextBox ID="tbAddSpouseLastName" runat="server" Required="true" CssClass="form-group" Placeholder="Last Name" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-md-3">
-                                        <Rock:DefinedValuePicker ID="dvpAddSpouseSuffix" runat="server" Label="Suffix" />
+                                        <Rock:DefinedValuePicker ID="dvpAddSpouseSuffix" runat="server" Label="Suffix" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-md-3">
-                                        <Rock:RockRadioButtonList ID="rblGender" runat="server" RepeatDirection="Horizontal" Label="Gender">
+                                        <Rock:RockRadioButtonList ID="rblAddSpouseGender" runat="server" RepeatDirection="Horizontal" Label="Gender" ValidationGroup="vgAddNewMatch">
                                             <asp:ListItem Text="M" Value="M" />
                                             <asp:ListItem Text="F" Value="F" />
                                         </Rock:RockRadioButtonList>
@@ -238,16 +239,16 @@
                                     <div class="col-md-6">
                                     </div>
                                     <div class="col-md-6">
-                                        <Rock:CampusPicker ID="cpAddPersonCampus" runat="server" Label="Campus" Required="true" />
+                                        <Rock:CampusPicker ID="cpAddPersonCampus" runat="server" Label="Campus" Required="true" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-md-12">
-                                        <Rock:AddressControl ID="acAddPersonAddress" runat="server" Label="Address" ShowAddressLine2="true" />
+                                        <Rock:AddressControl ID="acAddPersonAddress" runat="server" Label="Address" ShowAddressLine2="true" ValidationGroup="vgAddNewMatch" />
                                         <div class="form-group phonegroup clearfix">
                                             <div class="control-label phonegroup-label">Home Phone</div>
                                             <div class="controls phonegroup-number">
                                                 <div class="form-row">
                                                     <div class="col-md-6 col-lg-7">
-                                                        <Rock:PhoneNumberBox ID="pnAddPersonHomePhone" runat="server" autocomplete="off" />
+                                                        <Rock:PhoneNumberBox ID="pnAddPersonHomePhone" runat="server" autocomplete="off" ValidationGroup="vgAddNewMatch" />
                                                     </div>
                                                     <div class="col-md-6 col-lg-5 form-align">
                                                         <Rock:RockCheckBox ID="cbAddPersonHomePhoneSms" runat="server" Text="SMS" DisplayInline="true" />
@@ -261,7 +262,7 @@
                                             <div class="controls phonegroup-number">
                                                 <div class="form-row">
                                                     <div class="col-md-6 col-lg-7">
-                                                        <Rock:PhoneNumberBox ID="pnAddPersonMobilePhone" runat="server" autocomplete="off" />
+                                                        <Rock:PhoneNumberBox ID="pnAddPersonMobilePhone" runat="server" autocomplete="off" ValidationGroup="vgAddNewMatch" />
                                                     </div>
                                                     <div class="col-md-6 col-lg-5 form-align">
                                                         <Rock:RockCheckBox ID="cbAddPersonMobilePhoneSms" runat="server" Text="SMS" DisplayInline="true" />
@@ -270,7 +271,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <Rock:EmailBox ID="ebAddPersonEmail" runat="server" Label="Email" Placeholder="name@example.com" />
+                                        <Rock:EmailBox ID="ebAddPersonEmail" runat="server" Label="Email" Placeholder="name@example.com" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                 </div>
                             </div>
@@ -280,13 +281,13 @@
                         <h4>Add Business</h4>
                         <div class="row">
                             <div class="col-sm-6">
-                                <Rock:RockTextBox ID="tbAddBusinessName" runat="server" Label="Name" Required="true" Placeholder="Name" />
+                                <Rock:RockTextBox ID="tbAddBusinessName" runat="server" Label="Name" Required="true" Placeholder="Name" ValidationGroup="vgAddNewMatch" />
                                 <div class="form-group phonegroup clearfix">
                                     <div class="control-label phonegroup-label">Phone</div>
                                     <div class="controls phonegroup-number">
                                         <div class="form-row">
                                             <div class="col-md-6 col-lg-7">
-                                                <Rock:PhoneNumberBox ID="pnbAddBusinessPhone" runat="server" autocomplete="off" />
+                                                <Rock:PhoneNumberBox ID="pnbAddBusinessPhone" runat="server" autocomplete="off" ValidationGroup="vgAddNewMatch" />
                                             </div>
                                             <div class="col-md-6 col-lg-5 form-align">
                                                 <Rock:RockCheckBox ID="cbAddBusinessSms" runat="server" Text="SMS" DisplayInline="true" />
@@ -295,24 +296,24 @@
                                         </div>
                                     </div>
                                 </div>
-                                <Rock:EmailBox ID="ebAddBusinessEmail" runat="server" Label="Email" Placeholder="name@example.com" />
+                                <Rock:EmailBox ID="ebAddBusinessEmail" runat="server" Label="Email" Placeholder="name@example.com" ValidationGroup="vgAddNewMatch" />
                             </div>
                             <div class="col-sm-6">
                                 <div class="row">
                                     <div class="col-md-6">
                                     </div>
                                     <div class="col-md-6">
-                                        <Rock:CampusPicker ID="cpAddBusinessCampus" runat="server" Label="Campus" Required="true" />
+                                        <Rock:CampusPicker ID="cpAddBusinessCampus" runat="server" Label="Campus" Required="true" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-md-12">
-                                        <Rock:AddressControl ID="acAddBusinessAddress" runat="server" Label="Address" ShowAddressLine2="true" />
+                                        <Rock:AddressControl ID="acAddBusinessAddress" runat="server" Label="Address" ShowAddressLine2="true" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="actions">
-                        <asp:LinkButton ID="btnSaveNewMatch" runat="server" AccessKey="s" ToolTip="Alt+s" Text="Save" CssClass="btn btn-xs btn-primary" OnClick="btnSaveNewMatch_Click" />
+                        <asp:LinkButton ID="btnSaveNewMatch" runat="server" AccessKey="s" ToolTip="Alt+s" Text="Save" CssClass="btn btn-xs btn-primary" OnClick="btnSaveNewMatch_Click" CausesValidation="true" ValidationGroup="vgAddNewMatch" />
                         <asp:LinkButton ID="btnCancelNewMatch" runat="server" AccessKey="c" ToolTip="Alt+c" Text="Cancel" CssClass="btn btn-xs btn-link" CausesValidation="false" OnClick="btnCancelNewMatch_Click" />
                     </div>
                 </div>
