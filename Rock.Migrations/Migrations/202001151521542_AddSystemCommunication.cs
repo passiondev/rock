@@ -242,8 +242,8 @@ DECLARE @SourceCategoriesTable TABLE
     ,[ForeignId] int
 )
 
-DECLARE @emailEntityTypeId int = (SELECT [Id] FROM [EntityType] WHERE [FriendlyName] = 'System Email');
-DECLARE @communicationEntityTypeId int = (SELECT [Id] FROM [EntityType] WHERE [FriendlyName] = 'System Communication');
+DECLARE @emailEntityTypeId int = (SELECT [Id] FROM [EntityType] WHERE [Name] = 'Rock.Model.SystemEmail');
+DECLARE @communicationEntityTypeId int = (SELECT [Id] FROM [EntityType] WHERE [Name] = 'Rock.Model.SystemCommunication');
 
 -- Copy all Categories that relate to Entity Type 'System Email' to a temporary table for processing.
 INSERT INTO @SourceCategoriesTable
@@ -253,7 +253,7 @@ INSERT INTO @SourceCategoriesTable
     ,[ParentCategoryId]
     ,[IsSystem]
     ,[Order]
-    ,[IconCssClass]      
+    ,[IconCssClass]
     ,[Description]
     ,[CreatedDateTime]
     ,[ForeignKey]
@@ -266,14 +266,14 @@ SELECT [Id]
     ,[ParentCategoryId]
     ,[IsSystem]
     ,[Order]
-    ,[IconCssClass]      
+    ,[IconCssClass]
     ,[Description]
     ,[CreatedDateTime]
     ,[ForeignKey]
     ,[HighlightColor]
     ,[ForeignGuid]
     ,[ForeignId]
-FROM Category
+FROM [Category]
 WHERE [EntityTypeId] = @emailEntityTypeId
 
 -- Create new Category records from the temporary table.
@@ -290,7 +290,7 @@ BEGIN
         ,[Guid]
         ,[IsSystem]
         ,[Order]
-        ,[IconCssClass]      
+        ,[IconCssClass]
         ,[Description]
         ,[CreatedDateTime]
         ,[ForeignKey]
@@ -311,9 +311,9 @@ BEGIN
         ,[ForeignKey]
         ,[HighlightColor]
         ,[ForeignGuid]
-        ,[ForeignId]		
+        ,[ForeignId]
     FROM @SourceCategoriesTable
-    WHERE EntryNumber = @counter
+    WHERE [EntryNumber] = @counter
 
     -- Get Id for source record and new record.
     SET @targetCategoryID = SCOPE_IDENTITY()
@@ -342,14 +342,14 @@ END
 UPDATE [Category]
 	SET [ParentCategoryId] = parentMap.[TargetId]
 FROM Category
-	INNER JOIN @IdMap AS targetMap ON Category.[Id] = targetMap.[TargetId]
-	INNER JOIN @IdMap AS parentMap ON Category.[ParentCategoryId] = parentMap.[SourceId]
+	INNER JOIN @IdMap AS targetMap ON [Category].[Id] = targetMap.[TargetId]
+	INNER JOIN @IdMap AS parentMap ON [Category].[ParentCategoryId] = parentMap.[SourceId]
 
 -- Update the Categories for the new System Communication records using the stored mappings.
 UPDATE [SystemCommunication]
 	SET [CategoryId] = targetMap.[TargetId]
 FROM SystemCommunication
-	INNER JOIN @IdMap AS targetMap ON SystemCommunication.[CategoryId] = targetMap.[SourceId]
+	INNER JOIN @IdMap AS targetMap ON [SystemCommunication].[CategoryId] = targetMap.[SourceId]
 " );
 
             // Add new RSVP Confirmation Category
@@ -362,11 +362,11 @@ FROM SystemCommunication
         private void CopyEmailsToCommunications()
         {
             Sql( $@"
-SET IDENTITY_INSERT [dbo].[SystemCommunication] ON
+SET IDENTITY_INSERT [SystemCommunication] ON
 " );
 
             Sql( $@"
-INSERT INTO [dbo].[SystemCommunication]
+INSERT INTO [SystemCommunication]
     (
       [Id]
       ,[IsSystem]
@@ -408,11 +408,11 @@ INSERT INTO [dbo].[SystemCommunication]
       ,[CategoryId]
       ,[ForeignGuid]
       ,[ForeignId]
-    FROM [dbo].[SystemEmail]
+    FROM [SystemEmail]
 " );
 
             Sql( $@"
-    SET IDENTITY_INSERT [dbo].[SystemCommunication] OFF
+    SET IDENTITY_INSERT [SystemCommunication] OFF
 " );
         }
 
@@ -508,14 +508,14 @@ WHERE [Id] IN (
         {
             // Update SystemCommunication entries that are well-known by Rock to ensure the IsSystem flag is set.
             Sql( $@"
-UPDATE [dbo].[SystemCommunication]
+UPDATE [SystemCommunication]
        SET [IsSystem] = 1
 WHERE [Guid] IN ( '{ _WellKnownEntryGuidList.AsDelimited( "','" ) }' )
 " );
 
             // Set the IsActive flag for all SystemCommunication entries.
             Sql( $@"
-UPDATE [dbo].[SystemCommunication]
+UPDATE [SystemCommunication]
        SET [IsActive] = 1
 " );
         }
@@ -525,7 +525,7 @@ UPDATE [dbo].[SystemCommunication]
         /// </summary>
         private void SystemCommunicationAddSupportDataUp()
         {
-            RockMigrationHelper.UpdateEntityType( "Rock.Model.SystemCommunication", SystemGuid.EntityType.SYSTEM_COMMUNICATION, true, true );
+            RockMigrationHelper.UpdateEntityType( "Rock.Model.SystemCommunication", "System Communication", "Rock.Model.SystemCommunication, Rock, Version=1.10.2.1, Culture=neutral, PublicKeyToken=null", true, true, SystemGuid.EntityType.SYSTEM_COMMUNICATION );
         }
 
         /// <summary>
