@@ -126,6 +126,15 @@ namespace Rock.Model
         public int? LeaderPersonAliasId { get; set; }
 
         /// <summary>
+        /// Gets or sets the Id of the <see cref="Rock.Model.Group"/> that is the team group of the campus.
+        /// </summary>
+        /// <value>
+        /// A <see cref="System.Int32"/> that represents the Id of the team group of the campus.
+        /// </value>
+        [DataMember]
+        public int? TeamGroupId { get; set; }
+
+        /// <summary>
         /// Gets or sets the service times (Stored as a delimited list)
         /// </summary>
         /// <value>
@@ -199,6 +208,15 @@ namespace Rock.Model
         public virtual PersonAlias LeaderPersonAlias { get; set; }
 
         /// <summary>
+        /// Gets or sets the <see cref="Rock.Model.Group"/> entity that is associated with the team group of the campus.
+        /// </summary>
+        /// <value>
+        /// The <see cref="Rock.Model.Group"/> that is associated as the team group of the campus.
+        /// </value>
+        [DataMember]
+        public virtual Group TeamGroup { get; set; }
+
+        /// <summary>
         /// Gets the current date time.
         /// </summary>
         /// <value>
@@ -243,6 +261,50 @@ namespace Rock.Model
         #endregion
 
         #region Public Methods
+
+        /// <summary>
+        /// Method that will be called on an entity immediately after the item is saved by context
+        /// </summary>
+        /// <param name="dbContext">The database context.</param>
+        public override void PostSaveChanges( Data.DbContext dbContext )
+        {
+            var rockContext = ( RockContext ) dbContext;
+
+            // since this method is called after an Entity is deleted, this check will verify if it still exists
+            int? campusId = new CampusService( rockContext )
+                .GetId( this.Guid );
+
+            // verify whether this Campus already has a TeamGroup whose GroupType is 'Team Group'
+            var campusTeamGroupTypeId = GroupTypeCache.GetId( Rock.SystemGuid.GroupType.GROUPTYPE_CAMPUS_TEAM.AsGuid() );
+            if ( campusId.HasValue && campusTeamGroupTypeId.HasValue )
+            {
+                if ( this.TeamGroup == null || this.TeamGroup.GroupTypeId != campusTeamGroupTypeId.Value )
+                {
+                    // this Campus does not yet have a Group of the correct GroupType: create one and assign it
+                    var teamGroup = new Group
+                    {
+                        IsSystem = true,
+                        GroupTypeId = campusTeamGroupTypeId.Value,
+                        Name = string.Format( "{0} Team", this.Name ),
+                        Description = "Are responsible for leading and administering the Campus."
+                    };
+
+                    new GroupService( rockContext ).Add( teamGroup );
+
+                    this.TeamGroup = teamGroup;
+                }
+
+                if ( !this.TeamGroup.IsSystem )
+                {
+                    // this Campus already had a Group of the correct GroupType, but the IsSystem value was incorrect
+                    this.TeamGroup.IsSystem = true;
+                }
+
+                rockContext.SaveChanges();
+            }
+
+            base.PostSaveChanges( dbContext );
+        }
 
         /// <summary>
         /// Returns a <see cref="System.String"/> containing the Location's Name that represents this instance.
@@ -295,6 +357,7 @@ namespace Rock.Model
         {
             this.HasOptional( c => c.Location ).WithMany().HasForeignKey( c => c.LocationId ).WillCascadeOnDelete( false );
             this.HasOptional( c => c.LeaderPersonAlias ).WithMany().HasForeignKey( c => c.LeaderPersonAliasId ).WillCascadeOnDelete( false );
+            this.HasOptional( c => c.TeamGroup ).WithMany().HasForeignKey( c => c.TeamGroupId ).WillCascadeOnDelete( false );
         }
     }
 
