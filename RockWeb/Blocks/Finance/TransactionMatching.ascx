@@ -195,7 +195,7 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <Rock:RockTextBox ID="tbAddPersonFirstName" runat="server" Label="Name" Required="true" Placeholder="First Name" ValidationGroup="vgAddNewMatch" />
-                                        <Rock:RockTextBox ID="tbAddPersonLastName" runat="server" Required="true" Placeholder="Last Name" CssClass="form-group" ValidationGroup="vgAddNewMatch" AutoPostBack="true" OnTextChanged="tbAddPersonLastName_TextChanged" />
+                                        <Rock:RockTextBox ID="tbAddPersonLastName" runat="server" Required="true" Placeholder="Last Name" CssClass="form-group" ValidationGroup="vgAddNewMatch" />
                                     </div>
                                     <div class="col-md-3">
                                         <Rock:DefinedValuePicker ID="dvpAddPersonSuffix" runat="server" Label="Suffix" ValidationGroup="vgAddNewMatch" />

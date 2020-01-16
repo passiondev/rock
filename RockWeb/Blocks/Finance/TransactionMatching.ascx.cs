@@ -50,14 +50,14 @@ namespace RockWeb.Blocks.Finance
     [LinkedPage(
         "Add Family Link",
         Key = AttributeKey.AddFamilyLink,
-        Description = "Select the page where a new family can be added. If specified, a link will be shown which will open in a new window when clicked",
+        Description = "Select the page to be opened in a separate browser window where a new family can be added. If not specified, you can create a new family within this block.",
         IsRequired = false,
         Order = 1 )]
 
     [LinkedPage(
         "Add Business Link",
         Key = AttributeKey.AddBusinessLink,
-        Description = "Select the page where a new business can be added. If specified, a link will be shown which will open in a new window when clicked",
+        Description = "Select the page to be opened in a separate browser window where a new business can be added. If not specified, you can create a new business within this block.",
         IsRequired = false,
         Order = 2 )]
 
@@ -92,6 +92,7 @@ namespace RockWeb.Blocks.Finance
     [DefinedValueField(
         "Default Person Connection Status",
         Key = AttributeKey.DefaultPersonConnectionStatus,
+        IsRequired = false,
         Category = AttributeCategory.AddPersonOrBusiness,
         DefinedTypeGuid = Rock.SystemGuid.DefinedType.PERSON_CONNECTION_STATUS,
         Description = "The connection status to default the connection status dropdown to.",
@@ -103,6 +104,7 @@ namespace RockWeb.Blocks.Finance
         Category = AttributeCategory.AddPersonOrBusiness,
         DefinedTypeGuid = Rock.SystemGuid.DefinedType.PERSON_RECORD_STATUS,
         DefaultValue = Rock.SystemGuid.DefinedValue.PERSON_RECORD_STATUS_ACTIVE,
+        IsRequired = false,
         Description = "The default status to use when adding a person. This is not shown as a selection.",
         Order = 8 )]
 
@@ -998,19 +1000,6 @@ namespace RockWeb.Blocks.Finance
         #endregion
 
         #region Events
-
-        /// <summary>
-        /// Handles the TextChanged event of the tbAddPersonLastName control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void tbAddPersonLastName_TextChanged( object sender, EventArgs e )
-        {
-            if ( tbAddSpouseLastName.Text.IsNullOrWhiteSpace() )
-            {
-                tbAddSpouseLastName.Text = tbAddPersonLastName.Text.Trim();
-            }
-        }
 
         /// <summary>
         /// Handles the SelectedIndexChanged event of the dvpAddPersonMaritalStatus control.
