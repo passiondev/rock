@@ -183,7 +183,7 @@
                     <asp:ValidationSummary ID="vsAddNewMatch" runat="server" HeaderText="Please correct the following:" CssClass="alert alert-validation" ValidationGroup="vgAddNewMatch" />
                     <div class="row">
                         <div class="col-sm-12">
-                            <div class="photo transaction-image" style="max-width: 1000px; margin: auto;">
+                            <div class="photo transaction-image" style="max-width: 800px; margin: auto;">
                                 <asp:Literal ID="lAddNewMatchImage" runat="server" />
                             </div>
                         </div>
@@ -207,7 +207,7 @@
                                         </Rock:RockRadioButtonList>
                                     </div>
                                     <div class="col-xs-6">
-                                        <Rock:ButtonGroup ID="bgAddPersonRole" runat="server" ValidationGroup="vgAddNewMatch" AutoPostBack="true" OnSelectedIndexChanged="bgAddPersonRole_SelectedIndexChanged" />
+                                        <Rock:ButtonGroup ID="bgAddPersonRole" runat="server" ValidationGroup="vgAddNewMatch" AutoPostBack="true" OnSelectedIndexChanged="bgAddPersonRole_SelectedIndexChanged" SelectedItemClass="btn btn-primary btn-xs" UnselectedItemClass="btn btn-default btn-xs" />
                                     </div>
                                 </div>
                                 <div class="row">
