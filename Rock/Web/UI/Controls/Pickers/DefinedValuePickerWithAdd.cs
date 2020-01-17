@@ -213,19 +213,7 @@ namespace Rock.Web.UI.Controls
                 ViewState["ValidationGroup"] = value;
             }
         }
-
-        /// <summary>
-        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
-        protected override void OnLoad( EventArgs e )
-        {
-            base.OnLoad( e );
-
-            // After adding a new value this will post back so we should re-load the defined value list so the new one is included.
-            EnsureChildControls();
-        }
-
+        
         /// <summary>
         /// This is where you implement the simple aspects of rendering your control.  The rest
         /// will be handled by calling RenderControlHelper's RenderControl() method.
@@ -261,69 +249,7 @@ namespace Rock.Web.UI.Controls
 
         #endregion IRockControl Implementation
 
-        /// <summary>
-        /// Outputs server control content to a provided <see cref="T:System.Web.UI.HtmlTextWriter" /> object and stores tracing information about the control if tracing is enabled.
-        /// </summary>
-        /// <param name="writer">The <see cref="T:System.Web.UI.HtmlTextWriter" /> object that receives the control content.</param>
-        public override void RenderControl( HtmlTextWriter writer )
-        {
-            if ( this.Visible )
-            {
-                RockControlHelper.RenderControl( this, writer );
-            }
-        }
-
-        private DefinedValueEditor _definedValueEditor;
-        private RockDropDownList _ddlDefinedValues;
-        private LinkButton _lbAddDefinedValue;
-
-        /// <summary>
-        /// Gets or sets the defined type identifier.
-        /// </summary>
-        /// <value>
-        /// The defined type identifier.
-        /// </value>
-        public int? DefinedTypeId { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [display descriptions].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [display descriptions]; otherwise, <c>false</c>.
-        /// </value>
-        public bool DisplayDescriptions { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [include inactive].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [include inactive]; otherwise, <c>false</c>.
-        /// </value>
-        public bool IncludeInactive { get; set; }
-
-        /// <summary>
-        /// Gets or sets the selected defined value identifier.
-        /// </summary>
-        /// <value>
-        /// The selected defined value identifier.
-        /// </value>
-        public int? SelectedDefinedValueId
-        {
-            get
-            {
-                int parsedInt = 0;
-                int.TryParse( ViewState["SelectedDefinedValueId"].ToStringSafe(), out parsedInt );
-
-                return parsedInt;
-            }
-
-            set
-            {
-                ViewState["SelectedDefinedValueId"] = value == null ? string.Empty : value.ToString();
-
-                LoadDefinedValues();
-            }
-        }
+        #region IDefinedValuePickerWtihAdd Implementation
 
         /// <summary>
         /// Gets the selected defined values identifier.
@@ -344,69 +270,7 @@ namespace Rock.Web.UI.Controls
                 SelectedDefinedValueId = value == null || value.Length == 0 ? 0 : value[0];
             }
         }
-
-        /// <summary>
-        /// Gets the selected value.
-        /// </summary>
-        /// <value>
-        /// The selected value.
-        /// </value>
-        public string SelectedValue
-        {
-            get
-            {
-                return DefinedValueCache.GetValue( SelectedDefinedValueId );
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [allow adding new values].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [allow adding new values]; otherwise, <c>false</c>.
-        /// </value>
-        public bool AllowAddingNewValues { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [include empty option].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [include empty option]; otherwise, <c>false</c>.
-        /// </value>
-        public bool IncludeEmptyOption { get; set; }
-
-        /// <summary>
-        /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
-        /// </summary>
-        protected override void CreateChildControls()
-        {
-            base.CreateChildControls();
-            Controls.Clear();
-            RockControlHelper.CreateChildControls( this, Controls );
-
-            _ddlDefinedValues = new RockDropDownList();
-            _ddlDefinedValues.ID = this.ID + "_ddlDefinedValues";
-            _ddlDefinedValues.Style.Add( "width", "85%" );
-            _ddlDefinedValues.SelectedIndexChanged += ddlDefinedValues_SelectedIndexChanged;
-            _ddlDefinedValues.AutoPostBack = true;
-            Controls.Add( _ddlDefinedValues );
-
-            _definedValueEditor = new DefinedValueEditor();
-            _definedValueEditor.ID = this.ID + "_definedValueEditor";
-            _definedValueEditor.Hidden = true;
-            _definedValueEditor.DefinedTypeId = DefinedTypeId.Value;
-            Controls.Add( _definedValueEditor );
-
-            _lbAddDefinedValue = new LinkButton();
-            _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
-            _lbAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
-            _lbAddDefinedValue.OnClientClick = $"javascript:$('#{_definedValueEditor.ClientID}').fadeToggle(); return false;";
-            _lbAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
-            Controls.Add( _lbAddDefinedValue );
-
-            LoadDefinedValues();
-        }
-
+        
         /// <summary>
         /// Loads the defined values.
         /// </summary>
@@ -453,6 +317,146 @@ namespace Rock.Web.UI.Controls
                     }
                 }
             }
+        }
+
+        #endregion IDefinedValuePickerWtihAdd Implementation
+
+        private DefinedValueEditor _definedValueEditor;
+        private RockDropDownList _ddlDefinedValues;
+        private LinkButton _lbAddDefinedValue;
+
+        /// <summary>
+        /// Gets or sets the defined type identifier.
+        /// </summary>
+        /// <value>
+        /// The defined type identifier.
+        /// </value>
+        public int? DefinedTypeId { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [display descriptions].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [display descriptions]; otherwise, <c>false</c>.
+        /// </value>
+        public bool DisplayDescriptions { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [include inactive].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [include inactive]; otherwise, <c>false</c>.
+        /// </value>
+        public bool IncludeInactive { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [allow adding new values].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [allow adding new values]; otherwise, <c>false</c>.
+        /// </value>
+        public bool AllowAddingNewValues { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether [include empty option].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [include empty option]; otherwise, <c>false</c>.
+        /// </value>
+        public bool IncludeEmptyOption { get; set; }
+
+        /// <summary>
+        /// Gets or sets the selected defined value identifier.
+        /// </summary>
+        /// <value>
+        /// The selected defined value identifier.
+        /// </value>
+        public int? SelectedDefinedValueId
+        {
+            get
+            {
+                int parsedInt = 0;
+                int.TryParse( ViewState["SelectedDefinedValueId"].ToStringSafe(), out parsedInt );
+
+                return parsedInt;
+            }
+
+            set
+            {
+                ViewState["SelectedDefinedValueId"] = value == null ? string.Empty : value.ToString();
+
+                LoadDefinedValues();
+            }
+        }
+
+        /// <summary>
+        /// Gets the selected value.
+        /// </summary>
+        /// <value>
+        /// The selected value.
+        /// </value>
+        public string SelectedValue
+        {
+            get
+            {
+                return DefinedValueCache.GetValue( SelectedDefinedValueId );
+            }
+        }
+
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+        protected override void OnLoad( EventArgs e )
+        {
+            base.OnLoad( e );
+
+            // After adding a new value this will post back so we should re-load the defined value list so the new one is included.
+            EnsureChildControls();
+        }
+
+        /// <summary>
+        /// Outputs server control content to a provided <see cref="T:System.Web.UI.HtmlTextWriter" /> object and stores tracing information about the control if tracing is enabled.
+        /// </summary>
+        /// <param name="writer">The <see cref="T:System.Web.UI.HtmlTextWriter" /> object that receives the control content.</param>
+        public override void RenderControl( HtmlTextWriter writer )
+        {
+            if ( this.Visible )
+            {
+                RockControlHelper.RenderControl( this, writer );
+            }
+        }
+
+        /// <summary>
+        /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
+        /// </summary>
+        protected override void CreateChildControls()
+        {
+            base.CreateChildControls();
+            Controls.Clear();
+            RockControlHelper.CreateChildControls( this, Controls );
+
+            _ddlDefinedValues = new RockDropDownList();
+            _ddlDefinedValues.ID = this.ID + "_ddlDefinedValues";
+            _ddlDefinedValues.Style.Add( "width", "85%" );
+            _ddlDefinedValues.SelectedIndexChanged += ddlDefinedValues_SelectedIndexChanged;
+            _ddlDefinedValues.AutoPostBack = true;
+            Controls.Add( _ddlDefinedValues );
+
+            _definedValueEditor = new DefinedValueEditor();
+            _definedValueEditor.ID = this.ID + "_definedValueEditor";
+            _definedValueEditor.Hidden = true;
+            _definedValueEditor.DefinedTypeId = DefinedTypeId.Value;
+            Controls.Add( _definedValueEditor );
+
+            _lbAddDefinedValue = new LinkButton();
+            _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
+            _lbAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
+            _lbAddDefinedValue.OnClientClick = $"javascript:$('#{_definedValueEditor.ClientID}').fadeToggle(); return false;";
+            _lbAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
+            Controls.Add( _lbAddDefinedValue );
+
+            LoadDefinedValues();
         }
 
         /// <summary>
@@ -507,7 +511,7 @@ namespace Rock.Web.UI.Controls
         /// <value>
         /// The selected defined values identifier.
         /// </value>
-        int[] SelectedDefinedValuesId { get; set;  }
+        int[] SelectedDefinedValuesId { get; set; }
 
         /// <summary>
         /// Loads the defined values.

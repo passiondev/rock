@@ -251,6 +251,7 @@ namespace Rock.Web.UI.Controls
         #endregion IRockControl Implementation
 
         #region IDefinedValuePickerWtihAdd Implementation
+
         /// <summary>
         /// Gets the selected defined values identifier.
         /// The field type uses this value for GetEditValue(). This is so all the DefinedValue pickers can share a field type.
@@ -262,12 +263,6 @@ namespace Rock.Web.UI.Controls
         {
             get
             {
-                //return _cblDefinedValues.Items.OfType<ListItem>()
-                //.Where( a => a.Selected )
-                //.Select( a => a.Value )
-                //.AsIntegerList()
-                //.ToArray();
-
                 var selectedDefinedValuesId = new List<int>();
 
                 string selectedids = ViewState["SelectedDefinedValuesId"].ToStringSafe();
@@ -289,27 +284,6 @@ namespace Rock.Web.UI.Controls
 
             set
             {
-                //EnsureChildControls();
-                //LoadDefinedValues();
-
-                //foreach ( int selectedValue in value )
-                //{
-                //    var item = _cblDefinedValues.Items.FindByValue( selectedValue.ToString() );
-                //    if ( item != null )
-                //    {
-                //        item.Selected = true;
-                //    }
-                //    else
-                //    {
-                //        // if the selectedValue is not in the list, it could be that it is an Inactive item that wasn't added. If so, add it to the list;
-                //        var selectedDefinedValue = DefinedValueCache.Get( selectedValue );
-                //        if ( selectedDefinedValue != null )
-                //        {
-                //            _cblDefinedValues.Items.Add( new ListItem( this.DisplayDescriptions ? selectedDefinedValue.Description : selectedDefinedValue.Value, selectedDefinedValue.Id.ToString() ) { Selected = true } );
-                //        }
-                //    }
-                //}
-
                 if ( value == null )
                 {
                     ViewState["SelectedDefinedValuesId"] = string.Empty;
@@ -377,7 +351,6 @@ namespace Rock.Web.UI.Controls
                                 Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
                                 Value = definedValue.Id.ToString(),
                                 Selected = SelectedDefinedValuesId.Contains( definedValue.Id )
-                                //Selected = false
                             } );
                     }
                 }
@@ -385,6 +358,10 @@ namespace Rock.Web.UI.Controls
         }
 
         #endregion IDefinedValuePickerWtihAdd Implementation
+
+        private DefinedValueEditor _definedValueEditor;
+        private RockCheckBoxList _cblDefinedValues;
+        private LinkButton _lbAddDefinedValue;
 
         /// <summary>
         /// Gets or sets the defined type identifier.
@@ -454,7 +431,6 @@ namespace Rock.Web.UI.Controls
             EnsureChildControls();
         }
 
-
         /// <summary>
         /// Outputs server control content to a provided <see cref="T:System.Web.UI.HtmlTextWriter" /> object and stores tracing information about the control if tracing is enabled.
         /// </summary>
@@ -466,10 +442,6 @@ namespace Rock.Web.UI.Controls
                 RockControlHelper.RenderControl( this, writer );
             }
         }
-
-        private DefinedValueEditor _definedValueEditor;
-        private RockCheckBoxList _cblDefinedValues;
-        private LinkButton _lbAddDefinedValue;
 
         /// <summary>
         /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
