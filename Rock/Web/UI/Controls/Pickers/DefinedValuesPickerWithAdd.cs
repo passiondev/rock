@@ -453,7 +453,7 @@ namespace Rock.Web.UI.Controls
             RockControlHelper.CreateChildControls( this, Controls );
 
             _cblDefinedValues = new RockCheckBoxList();
-            _cblDefinedValues.ID = this.ID = "_cblDefinedValues";
+            _cblDefinedValues.ID = this.ID + "_cblDefinedValues";
             _cblDefinedValues.Style.Add( "width", "85%" );
             _cblDefinedValues.RepeatColumns = this.RepeatColumns;
             _cblDefinedValues.RepeatDirection = this.RepeatDirection;
