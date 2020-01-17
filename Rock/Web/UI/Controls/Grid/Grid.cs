@@ -382,6 +382,18 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
+        /// Gets or sets the workflow launch configs.
+        /// </summary>
+        /// <value>
+        /// The workflow launch configs.
+        /// </value>
+        public List<WorkflowLaunchConfig> WorkflowLaunchConfigs
+        {
+            get { return ViewState["WorkflowLaunchConfigs"].ToStringSafe().FromJsonOrNull<List<WorkflowLaunchConfig>>() ?? new List<WorkflowLaunchConfig>(); }
+            set { ViewState["WorkflowLaunchConfigs"] = value.ToJson(); }
+        }
+
+        /// <summary>
         /// Gets or sets the Person Id field.
         /// Default is NULL, which indicates that this grid does not reference Person records
         /// </summary>
@@ -404,6 +416,37 @@ namespace Rock.Web.UI.Controls
             set
             {
                 ViewState["PersonIdField"] = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the entity identifier field.
+        /// </summary>
+        /// <value>
+        /// The entity identifier field.
+        /// </value>
+        public string EntityIdField
+        {
+            get
+            {
+                var entityIdField = ViewState["EntityIdField"].ToStringSafe();
+
+                if ( entityIdField.IsNullOrWhiteSpace() )
+                {
+                    entityIdField = PersonIdField;
+
+                    if ( entityIdField.IsNullOrWhiteSpace() )
+                    {
+                        entityIdField = DataKeyNames?.FirstOrDefault();
+                    }
+                }
+
+                return entityIdField ?? "Id";
+            }
+
+            set
+            {
+                ViewState["EntityIdField"] = value;
             }
         }
 
@@ -500,6 +543,18 @@ namespace Rock.Web.UI.Controls
         {
             get { return ViewState["BulkUpdatePageRoute"] as string ?? "~/BulkUpdate/{0}"; }
             set { ViewState["BulkUpdatePageRoute"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the launch workflow page route.
+        /// </summary>
+        /// <value>
+        /// The launch workflow page route.
+        /// </value>
+        public virtual string LaunchWorkflowPageRoute
+        {
+            get { return ViewState["LaunchWorkflowPageRoute"] as string ?? "~/LaunchWorkflows/{0}"; }
+            set { ViewState["LaunchWorkflowPageRoute"] = value; }
         }
 
         /// <summary>
@@ -641,6 +696,23 @@ namespace Rock.Web.UI.Controls
             set { ViewState["ShowActionRow"] = value; }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether [show workflow buttons].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [show workflow buttons]; otherwise, <c>false</c>.
+        /// </value>
+        [
+        Category( "Appearance" ),
+        DefaultValue( true ),
+        Description( "Show Workflow Buttons" )
+        ]
+        public virtual bool ShowWorkflowButtons
+        {
+            get => ViewState["ShowWorkflowButtons"] as bool? ?? true;
+            set => ViewState["ShowWorkflowButtons"] = value;
+        }
+
         #endregion
 
         #endregion
@@ -700,6 +772,7 @@ namespace Rock.Web.UI.Controls
             this.Actions.PersonMergeClick += Actions_PersonMergeClick;
             this.Actions.BulkUpdateClick += Actions_BulkUpdateClick;
             this.Actions.CommunicateClick += Actions_CommunicateClick;
+            this.Actions.LaunchWorkflowClick += Actions_LaunchWorkflowClick;
             this.Actions.ExcelExportClick += Actions_ExcelExportClick;
             this.Actions.MergeTemplateClick += Actions_MergeTemplateClick;
 
@@ -1668,6 +1741,32 @@ $('#{this.ClientID} .grid-select-cell').on( 'click', function (event) {{
         }
 
         /// <summary>
+        /// Handles the LaunchWorkflowClick event of the Actions control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void Actions_LaunchWorkflowClick( object sender, EventArgs e )
+        {
+            // disable paging if no specific keys where selected (or if no select option is shown)
+            var selectAll = !SelectedKeys.Any();
+            RebindGrid( e, selectAll );
+
+            var entitySetId = GetEntitySetFromGrid( e );
+
+            if ( entitySetId.HasValue )
+            {
+                var routeTemplate = GetRouteFromEventArgs( e ) ?? LaunchWorkflowPageRoute;
+
+                Page.Response.Redirect( string.Format( routeTemplate, entitySetId.Value ), false );
+                Context.ApplicationInstance.CompleteRequest();
+            }
+            else
+            {
+                ShowModalAlertMessage( $"Grid has no {RowItemText.Pluralize()}", ModalAlertType.Warning );
+            }
+        }
+
+        /// <summary>
         /// Handles the MergeTemplateClick event of the Actions control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
@@ -2499,6 +2598,23 @@ $('#{this.ClientID} .grid-select-cell').on( 'click', function (event) {{
         #region Methods
 
         /// <summary>
+        /// Gets the route from event arguments.
+        /// </summary>
+        /// <param name="eventArgs">The <see cref="EventArgs"/> instance containing the event data.</param>
+        /// <returns></returns>
+        private string GetRouteFromEventArgs( EventArgs eventArgs )
+        {
+            var commandArgs = eventArgs as CommandEventArgs;
+
+            if ( commandArgs?.CommandName != "Route" || commandArgs.CommandArgument.ToStringSafe().IsNullOrWhiteSpace() )
+            {
+                return null;
+            }
+
+            return commandArgs.CommandArgument.ToString();
+        }
+
+        /// <summary>
         /// Creates grid columns by reflecting on the properties of a type.  If any of the properties
         /// have the [Previewable] attribute, columns will only be created for those properties
         /// </summary>
@@ -2626,7 +2742,7 @@ $('#{this.ClientID} .grid-select-cell').on( 'click', function (event) {{
             {
                 // The ToList() is potentially needed for Linq cases.
                 var keysSelected = SelectedKeys.ToList();
-                string dataKeyColumn = this.DataKeyNames.FirstOrDefault() ?? "Id";
+                string dataKeyColumn = this.EntityIdField;
 
                 if ( !string.IsNullOrWhiteSpace( dataKeyColumn ) && this.DataSourceAsDataTable != null )
                 {
@@ -3025,7 +3141,7 @@ $('#{this.ClientID} .grid-select-cell').on( 'click', function (event) {{
             }
 
             bool isPersonEntitySet = this.EntityTypeId == EntityTypeCache.GetId<Rock.Model.Person>();
-            string dataKeyField = this.DataKeyNames.FirstOrDefault() ?? "Id";
+            string dataKeyField = EntityIdField;
             if ( isPersonEntitySet && !string.IsNullOrEmpty( this.PersonIdField ) )
             {
                 dataKeyField = this.PersonIdField;
@@ -3151,19 +3267,14 @@ $('#{this.ClientID} .grid-select-cell').on( 'click', function (event) {{
                 }
             }
 
-            string entityIdColumn;
+            string entityIdColumn = EntityIdField;
             bool isPersonEntityTypeDifferentToKeys = false;
             if ( entityTypeId.HasValue && entityTypeId.Value == EntityTypeCache.GetId<Model.Person>() )
             {
-                entityIdColumn = this.PersonIdField ?? "Id";
                 if ( this.DataKeyNames.Any() && this.DataKeyNames.First() != entityIdColumn )
                 {
                     isPersonEntityTypeDifferentToKeys = true;
                 }
-            }
-            else
-            {
-                entityIdColumn = this.DataKeyNames.FirstOrDefault() ?? "Id";
             }
 
             PropertyInfo idProp = dataSourceObjectType.GetProperty( entityIdColumn );
