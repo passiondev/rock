@@ -73,6 +73,20 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        public override string Placeholder
+        {
+            get
+            {
+                return base.Placeholder;
+            }
+
+            set
+            {
+                base.Placeholder = value;
+                this.Label = string.Empty;
+            }
+        }
+
         /// <summary>
         /// Gets or sets the name of the entity property.
         /// </summary>
@@ -96,7 +110,7 @@ namespace Rock.Web.UI.Controls
             {
                 EnsureChildControls();
                 dataValidator.PropertyName = value;
-                if ( ( this.Label == string.Empty ) && ( LabelTextFromPropertyName ) )
+                if ( ( this.Label == string.Empty ) && ( LabelTextFromPropertyName ) && this.Placeholder.IsNullOrWhiteSpace() )
                 {
                     this.Label = value.SplitCase();
                 }

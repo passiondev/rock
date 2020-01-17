@@ -13,15 +13,14 @@ using Rock.Web.Cache;
 namespace Rock.Web.UI.Controls
 {
     /// <summary>
-    /// A DefinedValuePicker control that allows a defined value to be added on the fly.
+    /// A multiple DefinedValuePicker control that allows a defined value to be added on the fly.
     /// </summary>
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
-    public class DefinedValuePickerWithAdd : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
+    public class DefinedValuesPickerWithAdd : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
     {
         #region IRockControl Implementation
-
         /// <summary>
         /// Gets or sets the label text.
         /// </summary>
@@ -214,18 +213,7 @@ namespace Rock.Web.UI.Controls
             }
         }
 
-        /// <summary>
-        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
-        protected override void OnLoad( EventArgs e )
-        {
-            base.OnLoad( e );
-
-            // After adding a new value this will post back so we should re-load the defined value list so the new one is included.
-            EnsureChildControls();
-        }
-
+        
         /// <summary>
         /// This is where you implement the simple aspects of rendering your control.  The rest
         /// will be handled by calling RenderControlHelper's RenderControl() method.
@@ -238,10 +226,10 @@ namespace Rock.Web.UI.Controls
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             // Defined Value selector with Add button
-            writer.AddAttribute( "class", "js-defined-value-selector controls controls-row form-control-group" );
+            writer.AddAttribute( "class", "js-defined-value-selector controls controls-row form-control-group checkboxlist-group" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
-            _ddlDefinedValues.RenderControl( writer );
+            _cblDefinedValues.RenderControl( writer );
 
             // Only render the Add button if the user is authorized to edit the defined type
             var definedType = DefinedTypeCache.Get( DefinedTypeId.Value );
@@ -259,23 +247,144 @@ namespace Rock.Web.UI.Controls
             writer.RenderEndTag();
         }
 
+
         #endregion IRockControl Implementation
 
+        #region IDefinedValuePickerWtihAdd Implementation
         /// <summary>
-        /// Outputs server control content to a provided <see cref="T:System.Web.UI.HtmlTextWriter" /> object and stores tracing information about the control if tracing is enabled.
+        /// Gets the selected defined values identifier.
+        /// The field type uses this value for GetEditValue(). This is so all the DefinedValue pickers can share a field type.
         /// </summary>
-        /// <param name="writer">The <see cref="T:System.Web.UI.HtmlTextWriter" /> object that receives the control content.</param>
-        public override void RenderControl( HtmlTextWriter writer )
+        /// <value>
+        /// Returns the SelectedDefinedValueId in an array.
+        /// </value>
+        public int[] SelectedDefinedValuesId
         {
-            if ( this.Visible )
+            get
             {
-                RockControlHelper.RenderControl( this, writer );
+                //return _cblDefinedValues.Items.OfType<ListItem>()
+                //.Where( a => a.Selected )
+                //.Select( a => a.Value )
+                //.AsIntegerList()
+                //.ToArray();
+
+                var selectedDefinedValuesId = new List<int>();
+
+                string selectedids = ViewState["SelectedDefinedValuesId"].ToStringSafe();
+                if ( selectedids.IsNotNullOrWhiteSpace() )
+                {
+                    string[] ids = selectedids.Split( ',' );
+                    foreach ( string id in ids )
+                    {
+                        int parsedint;
+                        if ( int.TryParse( id, out parsedint ) )
+                        {
+                            selectedDefinedValuesId.Add( parsedint );
+                        }
+                    }
+                }
+
+                return selectedDefinedValuesId.ToArray();
+            }
+
+            set
+            {
+                //EnsureChildControls();
+                //LoadDefinedValues();
+
+                //foreach ( int selectedValue in value )
+                //{
+                //    var item = _cblDefinedValues.Items.FindByValue( selectedValue.ToString() );
+                //    if ( item != null )
+                //    {
+                //        item.Selected = true;
+                //    }
+                //    else
+                //    {
+                //        // if the selectedValue is not in the list, it could be that it is an Inactive item that wasn't added. If so, add it to the list;
+                //        var selectedDefinedValue = DefinedValueCache.Get( selectedValue );
+                //        if ( selectedDefinedValue != null )
+                //        {
+                //            _cblDefinedValues.Items.Add( new ListItem( this.DisplayDescriptions ? selectedDefinedValue.Description : selectedDefinedValue.Value, selectedDefinedValue.Id.ToString() ) { Selected = true } );
+                //        }
+                //    }
+                //}
+
+                if ( value == null )
+                {
+                    ViewState["SelectedDefinedValuesId"] = string.Empty;
+                }
+                else
+                {
+                    var selectedDefinedValuesId = new List<int>();
+
+                    // check each value in the array to make sure it is valid and add it to the list
+                    foreach ( int selectedId in value )
+                    {
+                        if ( DefinedValueCache.Get( selectedId ) != null )
+                        {
+                            selectedDefinedValuesId.Add( selectedId );
+                        }
+                    }
+
+                    // join the list into a csv and save to ViewState["SelectedDefinedValueId"]
+                    ViewState["SelectedDefinedValuesId"] = string.Join( ",", selectedDefinedValuesId );
+                }
+
+                LoadDefinedValues();
             }
         }
 
-        private DefinedValueEditor _definedValueEditor;
-        private RockDropDownList _ddlDefinedValues;
-        private LinkButton _lbAddDefinedValue;
+        /// <summary>
+        /// Loads the defined values.
+        /// </summary>
+        /// <param name="selectedDefinedValueIds">The DefinedValue IDs that should be marked as selected. If an ID is not part of the collection of values in the control it will be added. e.g. if a Value is not active but is in this list it will be included.</param>
+        public void LoadDefinedValues( int[] selectedDefinedValueIds )
+        {
+            this.SelectedDefinedValuesId = selectedDefinedValueIds;
+            LoadDefinedValues();
+        }
+
+        /// <summary>
+        /// Loads the defined values.
+        /// </summary>
+        public void LoadDefinedValues()
+        {
+            _cblDefinedValues.Items.Clear();
+
+            if ( DefinedTypeId.HasValue )
+            {
+                if ( IncludeEmptyOption )
+                {
+                    // add Empty option first
+                    _cblDefinedValues.Items.Add( new ListItem() );
+                }
+
+                var definedTypeCache = DefinedTypeCache.Get( DefinedTypeId.Value );
+                var definedValuesList = definedTypeCache?.DefinedValues
+                    .Where( a => a.IsActive || IncludeInactive || SelectedDefinedValuesId.Contains( a.Id ) )
+                    .OrderBy( v => v.Order )
+                    .ThenBy( v => v.Value )
+                    .ToList();
+
+                if ( definedValuesList != null && definedValuesList.Any() )
+                {
+                    foreach ( var definedValue in definedValuesList )
+                    {
+                        _cblDefinedValues.Items.Add(
+                            new ListItem
+                            {
+                                Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
+                                Value = definedValue.Id.ToString(),
+                                Selected = SelectedDefinedValuesId.Contains( definedValue.Id )
+                                //Selected = false
+                            } );
+                    }
+                }
+            }
+        }
+
+        #endregion IDefinedValuePickerWtihAdd Implementation
 
         /// <summary>
         /// Gets or sets the defined type identifier.
@@ -302,64 +411,6 @@ namespace Rock.Web.UI.Controls
         public bool IncludeInactive { get; set; }
 
         /// <summary>
-        /// Gets or sets the selected defined value identifier.
-        /// </summary>
-        /// <value>
-        /// The selected defined value identifier.
-        /// </value>
-        public int? SelectedDefinedValueId
-        {
-            get
-            {
-                int parsedInt = 0;
-                int.TryParse( ViewState["SelectedDefinedValueId"].ToStringSafe(), out parsedInt );
-
-                return parsedInt;
-            }
-
-            set
-            {
-                ViewState["SelectedDefinedValueId"] = value == null ? string.Empty : value.ToString();
-
-                LoadDefinedValues();
-            }
-        }
-
-        /// <summary>
-        /// Gets the selected defined values identifier.
-        /// The field type uses this value for GetEditValue(). This is so all the DefinedValue pickers can share a field type.
-        /// </summary>
-        /// <value>
-        /// Returns the SelectedDefinedValueId in an array.
-        /// </value>
-        public int[] SelectedDefinedValuesId
-        {
-            get
-            {
-                return new int[] { SelectedDefinedValueId.Value };
-            }
-
-            set
-            {
-                SelectedDefinedValueId = value == null || value.Length == 0 ? 0 : value[0];
-            }
-        }
-
-        /// <summary>
-        /// Gets the selected value.
-        /// </summary>
-        /// <value>
-        /// The selected value.
-        /// </value>
-        public string SelectedValue
-        {
-            get
-            {
-                return DefinedValueCache.GetValue( SelectedDefinedValueId );
-            }
-        }
-
-        /// <summary>
         /// Gets or sets a value indicating whether [allow adding new values].
         /// </summary>
         /// <value>
@@ -376,6 +427,51 @@ namespace Rock.Web.UI.Controls
         public bool IncludeEmptyOption { get; set; }
 
         /// <summary>
+        /// Gets or sets the repeat direction.
+        /// </summary>
+        /// <value>
+        /// The repeat direction.
+        /// </value>
+        public RepeatDirection RepeatDirection { get; set; } = System.Web.UI.WebControls.RepeatDirection.Horizontal;
+
+        /// <summary>
+        /// Gets or sets the number of columns the checkbox will use.
+        /// </summary>
+        /// <value>
+        /// The repeat columns.
+        /// </value>
+        public int RepeatColumns { get; set; } = 4;
+
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
+        protected override void OnLoad( EventArgs e )
+        {
+            base.OnLoad( e );
+
+            // After adding a new value this will post back so we should re-load the defined value list so the new one is included.
+            EnsureChildControls();
+        }
+
+
+        /// <summary>
+        /// Outputs server control content to a provided <see cref="T:System.Web.UI.HtmlTextWriter" /> object and stores tracing information about the control if tracing is enabled.
+        /// </summary>
+        /// <param name="writer">The <see cref="T:System.Web.UI.HtmlTextWriter" /> object that receives the control content.</param>
+        public override void RenderControl( HtmlTextWriter writer )
+        {
+            if ( this.Visible )
+            {
+                RockControlHelper.RenderControl( this, writer );
+            }
+        }
+
+        private DefinedValueEditor _definedValueEditor;
+        private RockCheckBoxList _cblDefinedValues;
+        private LinkButton _lbAddDefinedValue;
+
+        /// <summary>
         /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
         /// </summary>
         protected override void CreateChildControls()
@@ -384,12 +480,14 @@ namespace Rock.Web.UI.Controls
             Controls.Clear();
             RockControlHelper.CreateChildControls( this, Controls );
 
-            _ddlDefinedValues = new RockDropDownList();
-            _ddlDefinedValues.ID = this.ID + "_ddlDefinedValues";
-            _ddlDefinedValues.Style.Add( "width", "85%" );
-            _ddlDefinedValues.SelectedIndexChanged += ddlDefinedValues_SelectedIndexChanged;
-            _ddlDefinedValues.AutoPostBack = true;
-            Controls.Add( _ddlDefinedValues );
+            _cblDefinedValues = new RockCheckBoxList();
+            _cblDefinedValues.ID = this.ID = "_cblDefinedValues";
+            _cblDefinedValues.Style.Add( "width", "85%" );
+            _cblDefinedValues.RepeatColumns = this.RepeatColumns;
+            _cblDefinedValues.RepeatDirection = this.RepeatDirection;
+            _cblDefinedValues.AutoPostBack = true;
+            _cblDefinedValues.SelectedIndexChanged += cblDefinedValues_SelectedIndexChanged;
+            Controls.Add( _cblDefinedValues );
 
             _definedValueEditor = new DefinedValueEditor();
             _definedValueEditor.ID = this.ID + "_definedValueEditor";
@@ -408,61 +506,18 @@ namespace Rock.Web.UI.Controls
         }
 
         /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        /// <param name="selectedDefinedValueIds">The selected defined value ids. Only the first element in the array is used for this single select control.</param>
-        public void LoadDefinedValues( int[] selectedDefinedValueIds )
-        {
-            SelectedDefinedValueId = selectedDefinedValueIds[0];
-            LoadDefinedValues();
-        }
-
-        /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        public void LoadDefinedValues()
-        {
-            _ddlDefinedValues.Items.Clear();
-
-            if ( DefinedTypeId.HasValue )
-            {
-                if ( IncludeEmptyOption )
-                {
-                    // add Empty option first
-                    _ddlDefinedValues.Items.Add( new ListItem() );
-                }
-
-                var definedTypeCache = DefinedTypeCache.Get( DefinedTypeId.Value );
-                var definedValuesList = definedTypeCache?.DefinedValues
-                    .Where( a => a.IsActive || IncludeInactive || a.Id == SelectedDefinedValueId )
-                    .OrderBy( v => v.Order )
-                    .ThenBy( v => v.Value )
-                    .ToList();
-
-                if ( definedValuesList != null && definedValuesList.Any() )
-                {
-                    foreach ( var definedValue in definedValuesList )
-                    {
-                        _ddlDefinedValues.Items.Add(
-                            new ListItem
-                            {
-                                Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
-                                Value = definedValue.Id.ToString(),
-                                Selected = definedValue.Id == SelectedDefinedValueId
-                            } );
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handles the SelectedIndexChanged event of the ddlDefinedValues control.
+        /// Handles the SelectedIndexChanged event of the cblDefinedValues control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void ddlDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
+        /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
+        protected void cblDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
         {
-            SelectedDefinedValueId = ( ( RockDropDownList ) sender ).SelectedValue.AsIntegerOrNull();
+            SelectedDefinedValuesId = ( ( RockCheckBoxList ) sender )
+                .Items.OfType<ListItem>()
+                .Where( a => a.Selected )
+                .Select( a => a.Value )
+                .AsIntegerList()
+                .ToArray();
         }
 
         /// <summary>
@@ -494,31 +549,5 @@ namespace Rock.Web.UI.Controls
         /// Occurs when [add client click].
         /// </summary>
         public event EventHandler AddClientClick;
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IDefinedValuePickerWithAdd
-    {
-        /// <summary>
-        /// Gets the selected defined values identifier.
-        /// </summary>
-        /// <value>
-        /// The selected defined values identifier.
-        /// </value>
-        int[] SelectedDefinedValuesId { get; set;  }
-
-        /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        void LoadDefinedValues();
-
-        /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        /// <param name="selectedDefinedValueIds">The selected defined value ids.</param>
-        void LoadDefinedValues( int[] selectedDefinedValueIds );
-
     }
 }

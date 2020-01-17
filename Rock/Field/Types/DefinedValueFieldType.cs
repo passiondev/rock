@@ -398,20 +398,29 @@ namespace Rock.Field.Types
             int repeateColumns = ( configurationValues != null && configurationValues.ContainsKey( REPEAT_COLUMNS_KEY ) ? configurationValues[REPEAT_COLUMNS_KEY].Value.AsIntegerOrNull() : null ) ?? 4;
             bool allowAdd = configurationValues != null && configurationValues.ContainsKey( ALLOW_ADDING_NEW_VALUES_KEY ) ? configurationValues[ALLOW_ADDING_NEW_VALUES_KEY].Value.AsBoolean() : false;
 
-            if ( definedTypeId.HasValue )
-            {
-                var definedType = DefinedTypeCache.Get( definedTypeId.Value );
-
-            }
             if ( configurationValues != null && configurationValues.ContainsKey( ALLOW_MULTIPLE_KEY ) && configurationValues[ALLOW_MULTIPLE_KEY].Value.AsBoolean() )
             {
-                if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                if ( allowAdd )
                 {
-                    editControl = new DefinedValuesPickerEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
+                    if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                    {
+                        editControl = null; //TODO = new DefinedValuesPickerEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
+                    }
+                    else
+                    {
+                        editControl = new DefinedValuesPickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeateColumns };
+                    }
                 }
                 else
                 {
-                    editControl = new DefinedValuesPicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeateColumns };
+                    if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                    {
+                        editControl = new DefinedValuesPickerEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
+                    }
+                    else
+                    {
+                        editControl = new DefinedValuesPicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeateColumns };
+                    }
                 }
             }
             else
@@ -490,19 +499,30 @@ namespace Rock.Field.Types
             if ( value != null )
             {
                 var definedValuePicker = control as IDefinedValuePicker;
+                var definedValuePickerWithAdd = control as IDefinedValuePickerWithAdd;
+
+                if ( definedValuePicker == null && definedValuePickerWithAdd == null )
+                {
+                    return;
+                }
+
+                var ids = new List<int>();
+                foreach ( Guid guid in value.Split( new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries ).AsGuidList() )
+                {
+                    var definedValue = DefinedValueCache.Get( guid );
+                    if ( definedValue != null )
+                    {
+                        ids.Add( definedValue.Id );
+                    }
+                }
+
                 if ( definedValuePicker != null )
                 {
-                    var ids = new List<int>();
-                    foreach ( Guid guid in value.Split( new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries ).AsGuidList() )
-                    {
-                        var definedValue = DefinedValueCache.Get( guid );
-                        if ( definedValue != null )
-                        {
-                            ids.Add( definedValue.Id );
-                        }
-                    }
-
                     definedValuePicker.SelectedDefinedValuesId = ids.ToArray();
+                }
+                else if ( definedValuePickerWithAdd != null )
+                {
+                    definedValuePickerWithAdd.SelectedDefinedValuesId = ids.ToArray();
                 }
             }
         }

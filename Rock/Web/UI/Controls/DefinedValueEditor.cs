@@ -15,6 +15,7 @@ namespace Rock.Web.UI.Controls
     {
         protected HiddenField _hfDefinedValueId;
         protected ValidationSummary _valSummaryValue;
+        protected RequiredFieldValidator _rfvDefinedValue;
         protected Literal _lActionTitleDefinedValue;
         protected DataTextBox _tbValueName;
         protected DataTextBox _tbValueDescription;
@@ -157,7 +158,7 @@ namespace Rock.Web.UI.Controls
             _valSummaryValue = new ValidationSummary();
             _valSummaryValue.ID = this.ID + "_valSummaryValue ";
             _valSummaryValue.AddCssClass( "alert alert-validation" );
-            _valSummaryValue.ValidationGroup = "Value";
+            _valSummaryValue.ValidationGroup = "DefinedValueValidationGroup";
             _valSummaryValue.HeaderText = "Please correct the following:";
             Controls.Add( _valSummaryValue );
 
@@ -165,19 +166,32 @@ namespace Rock.Web.UI.Controls
             _lActionTitleDefinedValue.ID = this.ID + "_lActionTitleDefinedValue";
             Controls.Add( _lActionTitleDefinedValue );
 
+            //_rfvDefinedValue = new RequiredFieldValidator();
+            //_rfvDefinedValue.ID = this.ID + "_rfvDefinedValue";
+            //_rfvDefinedValue.ErrorMessage = "You must enter a value.";
+            //_rfvDefinedValue.Display = ValidatorDisplay.Dynamic;
+            //_rfvDefinedValue.Enabled = true;
+
             _tbValueName = new DataTextBox();
             _tbValueName.ID = this.ID + "_tbValueName";
             _tbValueName.SourceTypeName = "Rock.Model.DefinedValue, Rock";
             _tbValueName.PropertyName = "Value";
-            _tbValueName.ValidationGroup = "Value";
-            _tbValueName.Label = "Value";
+            _tbValueName.ValidationGroup = _valSummaryValue.ValidationGroup;
+            _tbValueName.Placeholder = "Value";
+            //_tbValueName.Label = " ";
+            //_tbValueName.Required = true;
+            //_tbValueName.RequiredFieldValidator = _rfvDefinedValue;
+            //_tbValueName.CausesValidation = true;
             Controls.Add( _tbValueName );
+
 
             _tbValueDescription = new DataTextBox();
             _tbValueDescription.ID = this.ID + "_tbValueDescription";
             _tbValueDescription.SourceTypeName = "Rock.Model.DefinedValue, Rock";
             _tbValueDescription.PropertyName = "Description";
-            _tbValueDescription.ValidationGroup = "Value";
+            _tbValueDescription.ValidationGroup = _valSummaryValue.ValidationGroup;
+            _tbValueDescription.Placeholder = "Description";
+            _tbValueDescription.Label = " ";
             _tbValueDescription.TextMode = TextBoxMode.MultiLine;
             _tbValueDescription.Rows = 3;
             _tbValueDescription.ValidateRequestMode = ValidateRequestMode.Disabled;
@@ -237,11 +251,17 @@ namespace Rock.Web.UI.Controls
             // Name Description Row
             writer.AddAttribute( HtmlTextWriterAttribute.Class, "row-fluid" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
+
             writer.AddAttribute( HtmlTextWriterAttribute.Class, "span12" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
             _tbValueName.RenderControl( writer );
+            writer.RenderEndTag();
+
+            writer.AddAttribute( HtmlTextWriterAttribute.Class, "span12" );
+            writer.RenderBeginTag( HtmlTextWriterTag.Div );
             _tbValueDescription.RenderControl( writer );
             writer.RenderEndTag();
+
             writer.RenderEndTag();
 
             // Attributes
@@ -361,7 +381,7 @@ namespace Rock.Web.UI.Controls
             if ( this.Parent is IDefinedValuePickerWithAdd )
             {
                 var picker = this.Parent as IDefinedValuePickerWithAdd;
-                picker.LoadDefinedValues( definedValue.Id );
+                picker.LoadDefinedValues( new int[] { definedValue.Id } );
                 
             }
 
