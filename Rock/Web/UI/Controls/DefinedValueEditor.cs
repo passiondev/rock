@@ -128,6 +128,8 @@ namespace Rock.Web.UI.Controls
 
         public bool Hidden { get; set; }
 
+        public bool IsMultiSelection { get; set; }
+
         #region Overridden Control Methods
 
         protected override void OnInit( EventArgs e )
@@ -381,7 +383,17 @@ namespace Rock.Web.UI.Controls
             if ( this.Parent is IDefinedValuePickerWithAdd )
             {
                 var picker = this.Parent as IDefinedValuePickerWithAdd;
-                picker.LoadDefinedValues( new int[] { definedValue.Id } );
+
+                if ( this.IsMultiSelection )
+                {
+                    List<int> definedValues = picker.SelectedDefinedValuesId.ToList();
+                    definedValues.Add( definedValue.Id );
+                    picker.LoadDefinedValues( definedValues.ToArray() );
+                }
+                else
+                {
+                    picker.LoadDefinedValues( new int[] { definedValue.Id } );
+                }
                 
             }
 

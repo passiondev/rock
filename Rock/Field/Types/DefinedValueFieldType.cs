@@ -404,7 +404,7 @@ namespace Rock.Field.Types
                 {
                     if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
                     {
-                        editControl = null; //TODO = new DefinedValuesPickerEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
+                        editControl = new DefinedValuesPickerEnhancedWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
                     }
                     else
                     {
