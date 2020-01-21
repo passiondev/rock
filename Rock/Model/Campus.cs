@@ -263,20 +263,24 @@ namespace Rock.Model
         #region Public Methods
 
         /// <summary>
-        /// Method that will be called on an entity immediately after the item is saved by context
+        /// Method that will be called on an entity immediately before the item is saved by context
         /// </summary>
         /// <param name="dbContext">The database context.</param>
-        public override void PostSaveChanges( Data.DbContext dbContext )
+        /// <param name="state">The state of the entity.</param>
+        public override void PreSaveChanges( Data.DbContext dbContext, EntityState state )
         {
             var rockContext = ( RockContext ) dbContext;
 
-            // since this method is called after an Entity is deleted, this check will verify if it still exists
-            int? campusId = new CampusService( rockContext )
-                .GetId( this.Guid );
-
-            // verify whether this Campus already has a TeamGroup whose GroupType is 'Team Group'
+            /*
+            * 1/15/2020 - JPH
+            * Upon saving a Campus, ensure it has a TeamGroup defined (GroupType = 'Team Group',
+            * IsSystem = true). We are creating this Campus-to-Group relationship behind the scenes
+            * so that we can assign GroupRoles to a Campus, and place people into those roles.
+            *
+            * Reason: Campus Team Feature
+            */
             var campusTeamGroupTypeId = GroupTypeCache.GetId( Rock.SystemGuid.GroupType.GROUPTYPE_CAMPUS_TEAM.AsGuid() );
-            if ( campusId.HasValue && campusTeamGroupTypeId.HasValue )
+            if ( state != EntityState.Deleted && campusTeamGroupTypeId.HasValue )
             {
                 if ( this.TeamGroup == null || this.TeamGroup.GroupTypeId != campusTeamGroupTypeId.Value )
                 {
@@ -299,11 +303,9 @@ namespace Rock.Model
                     // this Campus already had a Group of the correct GroupType, but the IsSystem value was incorrect
                     this.TeamGroup.IsSystem = true;
                 }
-
-                rockContext.SaveChanges();
             }
 
-            base.PostSaveChanges( dbContext );
+            base.PreSaveChanges( dbContext, state );
         }
 
         /// <summary>

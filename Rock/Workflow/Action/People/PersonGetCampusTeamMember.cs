@@ -50,14 +50,14 @@ namespace Rock.Workflow.Action
         Order = 1,
         FieldTypeClassNames = new string[] { "Rock.Field.Types.CampusFieldType" } )]
 
-    [WorkflowAttribute( "CampusRole",
+    [WorkflowAttribute( "Campus Role",
         Key = AttributeKey.CampusRole,
         Description = "Workflow attribute that contains the Role of the Campus team member to get. If multiple team members are in this role for a given Campus, the first match will be selected.",
         IsRequired = true,
         Order = 2,
         FieldTypeClassNames = new string[] { "Rock.Field.Types.GroupRoleFieldType" } )]
 
-    [WorkflowAttribute( "CampusTeamMember",
+    [WorkflowAttribute( "Campus Team Member",
         Description = "Workflow attribute to assign the Campus team member to.",
         Key = AttributeKey.CampusTeamMember,
         IsRequired = true,

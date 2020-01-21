@@ -30,6 +30,13 @@ namespace Rock.Migrations
             public const string GROUP_TYPE_CAMPUS_TEAM = SystemGuid.GroupType.GROUPTYPE_CAMPUS_TEAM;
             public const string GROUP_TYPE_ROLE_CAMPUS_PASTOR = "F8C6289B-0E68-4121-A595-A51369404EBA";
             public const string GROUP_TYPE_ROLE_CAMPUS_ADMINISTRATOR = "07F857ED-C0D7-47B4-AB6C-9AFDFAE2ADD9";
+
+            public const string ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER = "6A4F7FEC-3D49-4A31-882C-2D10DB84231E";
+
+            public const string WORKFLOW_ATTRIBUTE_PERSON = "C10C4C89-2B91-4D9A-8D5F-A3E65758A878";
+            public const string WORKFLOW_ATTRIBUTE_CAMPUS = "B07F920E-8450-4D1F-985D-6241E4F5E5CB";
+            public const string WORKFLOW_ATTRIBUTE_CAMPUS_ROLE = "5F8F5E6B-5888-4834-B47B-36664FB3A96C";
+            public const string WORKFLOW_ATTRIBUTE_CAMPUS_TEAM_MEMBER = "7CFEDCB2-EA8F-421F-BA5E-B0D8BD10EA92";
         }
 
         /// <summary>
@@ -73,6 +80,15 @@ namespace Rock.Migrations
 
             // Seed all existing Campuses with a new 'TeamGroup' Group association
             Sql( RockMigrationSQL._202001142201240_AddCampusTeamToAllCampuses_Up );
+
+            // Add 'PersonGetCampusTeamMember' Action to the EntityType table
+            RockMigrationHelper.UpdateEntityType( "Rock.Workflow.Action.PersonGetCampusTeamMember", Guids.ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER, false, true );
+
+            // Add 'PersonGetCampusTeamMember' Action's Attributes
+            RockMigrationHelper.UpdateWorkflowActionEntityAttribute( Guids.ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER, SystemGuid.FieldType.WORKFLOW_ATTRIBUTE, "Person", "Person", "Workflow attribute that contains the person to get the Campus team member for.", 0, @"", Guids.WORKFLOW_ATTRIBUTE_PERSON );
+            RockMigrationHelper.UpdateWorkflowActionEntityAttribute( Guids.ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER, SystemGuid.FieldType.WORKFLOW_ATTRIBUTE, "Campus", "Campus", "Workflow attribute that contains the Campus to get the Campus team member for. If both Person and Campus are provided, Campus takes precedence over the Person's Campus. If Campus is not provided, the Person's primary Campus will be assigned to this attribute.", 1, @"", Guids.WORKFLOW_ATTRIBUTE_CAMPUS );
+            RockMigrationHelper.UpdateWorkflowActionEntityAttribute( Guids.ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER, SystemGuid.FieldType.WORKFLOW_ATTRIBUTE, "Campus Role", "CampusRole", "Workflow attribute that contains the Role of the Campus team member to get. If multiple team members are in this role for a given Campus, the first match will be selected.", 2, @"", Guids.WORKFLOW_ATTRIBUTE_CAMPUS_ROLE );
+            RockMigrationHelper.UpdateWorkflowActionEntityAttribute( Guids.ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER, SystemGuid.FieldType.WORKFLOW_ATTRIBUTE, "Campus Team Member", "CampusTeamMember", "Workflow attribute to assign the Campus team member to.", 3, @"", Guids.WORKFLOW_ATTRIBUTE_CAMPUS_TEAM_MEMBER );
         }
 
         /// <summary>
@@ -80,6 +96,15 @@ namespace Rock.Migrations
         /// </summary>
         public override void Down()
         {
+            // Remove 'PersonGetCampusTeamMember' Action's Attributes
+            RockMigrationHelper.DeleteAttribute( Guids.WORKFLOW_ATTRIBUTE_PERSON );
+            RockMigrationHelper.DeleteAttribute( Guids.WORKFLOW_ATTRIBUTE_CAMPUS );
+            RockMigrationHelper.DeleteAttribute( Guids.WORKFLOW_ATTRIBUTE_CAMPUS_ROLE );
+            RockMigrationHelper.DeleteAttribute( Guids.WORKFLOW_ATTRIBUTE_CAMPUS_TEAM_MEMBER );
+
+            // Remove 'PersonGetCampusTeamMember' Action from the EntityType table
+            RockMigrationHelper.DeleteEntityType( Guids.ENTITY_TYPE_PERSON_GET_CAMPUS_TEAM_MEMBER );
+
             // Delete any Campus > Group assiations that were seeded as a part of the Up() method
             Sql( RockMigrationSQL._202001142201240_AddCampusTeamToAllCampuses_Down );
 
