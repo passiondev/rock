@@ -434,6 +434,7 @@
     <Compile Include="Model\Document.cs" />
     <Compile Include="Model\DocumentType.cs" />
     <Compile Include="Model\PersistedDatasetService.Partial.cs" />
+    <Compile Include="Model\SmsPipeline.cs" />
     <Compile Include="Model\StepTypeService.Partial.cs" />
     <Compile Include="Model\StepService.Partial.cs" />
     <Compile Include="Model\StreakAchievementAttempts.cs" />
