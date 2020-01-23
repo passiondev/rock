@@ -1,4 +1,4 @@
-// <copyright>
+﻿// <copyright>
 // Copyright by the Spark Development Network
 //
 // Licensed under the Rock Community License (the "License");
@@ -53,9 +53,13 @@ namespace Rock.Migrations
                 .Index(t => t.ModifiedByPersonAliasId)
                 .Index(t => t.Guid, unique: true);
             
-            AddColumn("dbo.SmsAction", "SmsPipelineId", c => c.Int(nullable: false));
-            CreateIndex("dbo.SmsAction", "SmsPipelineId");
-            AddForeignKey("dbo.SmsAction", "SmsPipelineId", "dbo.SmsPipeline", "Id", cascadeDelete: true);
+            AddColumn("dbo.SmsAction", "SmsPipelineId", c => c.Int(nullable: true));
+            
+            AddDefaultSmsPipelineAndUpdateSmsAction();
+
+            AlterColumn( "dbo.SmsAction", "SmsPipelineId", c => c.Int( nullable: false ) );
+            CreateIndex( "dbo.SmsAction", "SmsPipelineId" );
+            AddForeignKey( "dbo.SmsAction", "SmsPipelineId", "dbo.SmsPipeline", "Id", cascadeDelete: true );
         }
         
         /// <summary>
@@ -63,7 +67,9 @@ namespace Rock.Migrations
         /// </summary>
         public override void Down()
         {
-            DropForeignKey("dbo.SmsAction", "SmsPipelineId", "dbo.SmsPipeline");
+            RemoveNonDefaultSmsActions();
+
+            DropForeignKey( "dbo.SmsAction", "SmsPipelineId", "dbo.SmsPipeline");
             DropForeignKey("dbo.SmsPipeline", "ModifiedByPersonAliasId", "dbo.PersonAlias");
             DropForeignKey("dbo.SmsPipeline", "CreatedByPersonAliasId", "dbo.PersonAlias");
             DropIndex("dbo.SmsPipeline", new[] { "Guid" });
@@ -72,6 +78,33 @@ namespace Rock.Migrations
             DropIndex("dbo.SmsAction", new[] { "SmsPipelineId" });
             DropColumn("dbo.SmsAction", "SmsPipelineId");
             DropTable("dbo.SmsPipeline");
+        }
+
+        private void AddDefaultSmsPipelineAndUpdateSmsAction()
+        {
+            Sql( @"IF (SELECT COUNT(*) FROM [dbo].[SmsAction]) > 0
+                    BEGIN
+                        INSERT INTO [dbo].[SmsPipeline] ([Name], [IsActive], [Guid])
+                        VALUES ('Default', 1, NEWID())
+                    
+                        DECLARE @smsPipelineId AS INT = @@IDENTITY
+
+                        UPDATE [dbo].[SmsAction] SET SmsPipelineID = @smsPipelineId
+                    END" );
+        }
+
+        private void RemoveNonDefaultSmsActions()
+        {
+            Sql( @"DECLARE @defaultSmsPipelineId AS INT
+
+                    SELECT @defaultSmsPipelineId = MIN(Id)
+                    FROM [dbo].[SmsPipeline]
+                    
+                    IF @defaultSmsPipelineId IS NOT NULL
+                    BEGIN
+                        DELETE SmsAction
+                        WHERE SmsPipelineId != @defaultSmsPipelineId
+                    END" );
         }
     }
 }
