@@ -262,7 +262,9 @@
     <Compile Include="CodeGenerated\StepWorkflow.cs" />
     <Compile Include="CodeGenerated\StepWorkflowTrigger.cs" />
     <Compile Include="CodeGenerated\Streak.cs" />
+    <Compile Include="CodeGenerated\StreakAchievementAttempt.cs" />
     <Compile Include="CodeGenerated\StreakType.cs" />
+    <Compile Include="CodeGenerated\StreakTypeAchievementType.cs" />
     <Compile Include="CodeGenerated\StreakTypeExclusion.cs" />
     <Compile Include="CodeGenerated\SystemEmail.cs" />
     <Compile Include="CodeGenerated\SystemGuid\RockSystemGuids.cs" />
