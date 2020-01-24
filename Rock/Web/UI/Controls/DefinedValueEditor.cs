@@ -206,17 +206,16 @@ namespace Rock.Web.UI.Controls
             _btnSave = new LinkButton();
             _btnSave.ID = this.ID + "_btnSave";
             _btnSave.Text = "Add";
-            _btnSave.CssClass = "btn btn-primary";
+            _btnSave.CssClass = "btn btn-primary btn-xs";
             _btnSave.Click += btnSave_Click;
             Controls.Add( _btnSave );
 
             _btnCancel = new LinkButton();
             _btnCancel.ID = this.ID + "_btnCancel";
             _btnCancel.Text = "Cancel";
-            _btnCancel.CssClass = "btn btn-link";
+            _btnCancel.CssClass = "btn btn-link btn-xs";
             _btnCancel.CausesValidation = false;
-            //_btnCancel.Click += btnCancel_Click;
-            _btnCancel.OnClientClick = $"javascript:$('#{this.ClientID}').fadeToggle(); $('.js-defined-value-selector').fadeToggle(); return false;";
+            _btnCancel.OnClientClick = $"javascript:$('#{this.ClientID}').fadeToggle(400, 'swing', function() {{ $('.js-defined-value-selector').fadeToggle(); }}); return false;";
             Controls.Add( _btnCancel );
 
             LoadDefinedValueAttributes();

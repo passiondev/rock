@@ -366,7 +366,14 @@ namespace Rock.Web.UI.Controls
         public bool IncludeEmptyOption { get; set; }
 
         /// <summary>
-        /// Gets or sets the selected defined value identifier.
+        /// Gets or sets a value indicating whether the dropdownlist should allow a searc when used for single select
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [enhance for long lists]; otherwise, <c>false</c>.
+        /// </value>
+        public bool EnhanceForLongLists { get; set; }
+
+            /// Gets or sets the selected defined value identifier.
         /// </summary>
         /// <value>
         /// The selected defined value identifier.
@@ -438,6 +445,7 @@ namespace Rock.Web.UI.Controls
 
             _ddlDefinedValues = new RockDropDownList();
             _ddlDefinedValues.ID = this.ID + "_ddlDefinedValues";
+            _ddlDefinedValues.EnhanceForLongLists = this.EnhanceForLongLists;
             _ddlDefinedValues.Style.Add( "width", "85%" );
             _ddlDefinedValues.SelectedIndexChanged += ddlDefinedValues_SelectedIndexChanged;
             _ddlDefinedValues.AutoPostBack = true;
@@ -452,7 +460,7 @@ namespace Rock.Web.UI.Controls
             _lbAddDefinedValue = new LinkButton();
             _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
             _lbAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
-            _lbAddDefinedValue.OnClientClick = $"javascript:$('#{_definedValueEditor.ClientID}').fadeToggle(); $('.js-defined-value-selector').fadeToggle(); return false;";
+            _lbAddDefinedValue.OnClientClick = $"javascript:$('.js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{_definedValueEditor.ClientID}').fadeToggle(); }});  return false;";
             _lbAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
             Controls.Add( _lbAddDefinedValue );
 
@@ -468,31 +476,5 @@ namespace Rock.Web.UI.Controls
         {
             SelectedDefinedValueId = ( ( RockDropDownList ) sender ).SelectedValue.AsIntegerOrNull();
         }
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    public interface IDefinedValuePickerWithAdd
-    {
-        /// <summary>
-        /// Gets the selected defined values identifier.
-        /// </summary>
-        /// <value>
-        /// The selected defined values identifier.
-        /// </value>
-        int[] SelectedDefinedValuesId { get; set; }
-
-        /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        void LoadDefinedValues();
-
-        /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        /// <param name="selectedDefinedValueIds">The selected defined value ids.</param>
-        void LoadDefinedValues( int[] selectedDefinedValueIds );
-
     }
 }

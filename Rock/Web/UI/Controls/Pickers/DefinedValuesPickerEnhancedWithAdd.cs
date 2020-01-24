@@ -453,9 +453,9 @@ namespace Rock.Web.UI.Controls
 
             _lbAddDefinedValue = new LinkButton();
             _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
-            _lbAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
-            _lbAddDefinedValue.OnClientClick = $"javascript:$('#{_definedValueEditor.ClientID}').fadeToggle(); $('.js-defined-value-selector').fadeToggle(); return false;";
-            _lbAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
+            _lbAddDefinedValue.Text = "Add Item";
+            _lbAddDefinedValue.CssClass = "btn btn-default btn-link js-button-add-defined-value";
+            _lbAddDefinedValue.OnClientClick = $"javascript:$('.js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{_definedValueEditor.ClientID}').fadeToggle(); }});  return false;";
             Controls.Add( _lbAddDefinedValue );
 
             LoadDefinedValues();

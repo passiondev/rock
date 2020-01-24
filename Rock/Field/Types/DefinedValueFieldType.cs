@@ -397,6 +397,7 @@ namespace Rock.Field.Types
             int? definedTypeId = configurationValues != null && configurationValues.ContainsKey( DEFINED_TYPE_KEY ) ? configurationValues[DEFINED_TYPE_KEY].Value.AsIntegerOrNull() : null;
             int repeatColumns = ( configurationValues != null && configurationValues.ContainsKey( REPEAT_COLUMNS_KEY ) ? configurationValues[REPEAT_COLUMNS_KEY].Value.AsIntegerOrNull() : null ) ?? 4;
             bool allowAdd = configurationValues != null && configurationValues.ContainsKey( ALLOW_ADDING_NEW_VALUES_KEY ) ? configurationValues[ALLOW_ADDING_NEW_VALUES_KEY].Value.AsBoolean() : false;
+            bool enhanceForLongLists = ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() );
 
             if ( configurationValues != null && configurationValues.ContainsKey( ALLOW_MULTIPLE_KEY ) && configurationValues[ALLOW_MULTIPLE_KEY].Value.AsBoolean() )
             {
@@ -425,6 +426,8 @@ namespace Rock.Field.Types
             }
             else
             {
+                editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, AllowAddingNewValues = allowAdd, EnhanceForLongLists = enhanceForLongLists };
+
                 if ( allowAdd )
                 {
                     editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, AllowAddingNewValues = allowAdd };
