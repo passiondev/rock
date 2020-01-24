@@ -213,10 +213,10 @@ namespace Rock.Web.UI.Controls
             _btnCancel = new LinkButton();
             _btnCancel.ID = this.ID + "_btnCancel";
             _btnCancel.Text = "Cancel";
-            _btnCancel.CssClass = "btn btn-default";
+            _btnCancel.CssClass = "btn btn-link";
             _btnCancel.CausesValidation = false;
             //_btnCancel.Click += btnCancel_Click;
-            _btnCancel.OnClientClick = $"javascript:$('#{this.ClientID}').fadeToggle(); return false;";
+            _btnCancel.OnClientClick = $"javascript:$('#{this.ClientID}').fadeToggle(); $('.js-defined-value-selector').fadeToggle(); return false;";
             Controls.Add( _btnCancel );
 
             LoadDefinedValueAttributes();

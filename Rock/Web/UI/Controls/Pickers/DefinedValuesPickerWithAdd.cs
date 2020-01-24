@@ -465,13 +465,14 @@ namespace Rock.Web.UI.Controls
             _definedValueEditor.ID = this.ID + "_definedValueEditor";
             _definedValueEditor.Hidden = true;
             _definedValueEditor.DefinedTypeId = DefinedTypeId.Value;
+            _definedValueEditor.IsMultiSelection = true;
             Controls.Add( _definedValueEditor );
 
             _lbAddDefinedValue = new LinkButton();
             _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
-            _lbAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
-            _lbAddDefinedValue.OnClientClick = $"javascript:$('#{_definedValueEditor.ClientID}').fadeToggle(); return false;";
-            _lbAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
+            _lbAddDefinedValue.Text = "Add Item";
+            _lbAddDefinedValue.CssClass = "btn btn-default btn-link js-button-add-defined-value";
+            _lbAddDefinedValue.OnClientClick = $"javascript:$('#{_definedValueEditor.ClientID}').fadeToggle(); $('.js-defined-value-selector').fadeToggle(); return false;";
             Controls.Add( _lbAddDefinedValue );
 
             LoadDefinedValues();
@@ -491,35 +492,5 @@ namespace Rock.Web.UI.Controls
                 .AsIntegerList()
                 .ToArray();
         }
-
-        /// <summary>
-        /// Handles the Click event of the lbAddDefinedValue control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void lbAddDefinedValue_Click( object sender, EventArgs e )
-        {
-            AddClick?.Invoke( sender, e );
-        }
-
-        /// <summary>
-        /// Handles the ClientClick event of the lbAddDefinedValue control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void lbAddDefinedValue_ClientClick( object sender, EventArgs e )
-        {
-            AddClientClick?.Invoke( sender, e );
-        }
-
-        /// <summary>
-        /// Occurs when [add click].
-        /// </summary>
-        public event EventHandler AddClick;
-
-        /// <summary>
-        /// Occurs when [add client click].
-        /// </summary>
-        public event EventHandler AddClientClick;
     }
 }
