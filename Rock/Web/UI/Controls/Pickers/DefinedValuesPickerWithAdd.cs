@@ -233,7 +233,7 @@ namespace Rock.Web.UI.Controls
 
             // Only render the Add button if the user is authorized to edit the defined type
             var definedType = DefinedTypeCache.Get( DefinedTypeId.Value );
-            if ( definedType.IsAuthorized( Authorization.EDIT, ( ( RockPage ) Page ).CurrentPerson ) )
+            if ( definedType.IsAuthorized( Authorization.EDIT, ( ( RockPage ) Page ).CurrentPerson ) && IsAllowAddDefinedValue )
             {
                 _lbAddDefinedValue.RenderControl( writer );
             }
@@ -393,7 +393,7 @@ namespace Rock.Web.UI.Controls
         /// <value>
         ///   <c>true</c> if [allow adding new values]; otherwise, <c>false</c>.
         /// </value>
-        public bool AllowAddingNewValues { get; set; }
+        public bool IsAllowAddDefinedValue { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether [include empty option].
@@ -418,6 +418,8 @@ namespace Rock.Web.UI.Controls
         /// The repeat columns.
         /// </value>
         public int RepeatColumns { get; set; } = 4;
+
+        public bool IsEnhancedForLongLists { get; set; }
 
         /// <summary>
         /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.

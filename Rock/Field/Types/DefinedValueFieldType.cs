@@ -405,11 +405,11 @@ namespace Rock.Field.Types
                 {
                     if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
                     {
-                        editControl = new DefinedValuesPickerEnhancedWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
+                        editControl = new DefinedValuesPickerEnhancedWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd };
                     }
                     else
                     {
-                        editControl = new DefinedValuesPickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns };
+                        editControl = new DefinedValuesPickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns, IsAllowAddDefinedValue = allowAdd };
                     }
                 }
                 else
@@ -426,11 +426,11 @@ namespace Rock.Field.Types
             }
             else
             {
-                editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, AllowAddingNewValues = allowAdd, EnhanceForLongLists = enhanceForLongLists };
+                //editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
 
                 if ( allowAdd )
                 {
-                    editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, AllowAddingNewValues = allowAdd };
+                    editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd };
                 }
                 else
                 {
