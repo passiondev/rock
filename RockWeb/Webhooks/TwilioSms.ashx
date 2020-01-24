@@ -202,7 +202,8 @@ class TwilioSmsResponseAsync : IAsyncResult
             {
                 message.FromPerson = new PersonService( rockContext ).GetPersonFromMobilePhoneNumber( message.FromNumber, true );
 
-                var outcomes = SmsActionService.ProcessIncomingMessage( message );
+                var smsPipelineId = request.QueryString["smsPipelineId"].AsIntegerOrNull();
+                var outcomes = SmsActionService.ProcessIncomingMessage( message, smsPipelineId );
                 var smsResponse = SmsActionService.GetResponseFromOutcomes( outcomes );
                 var twilioMessage = new Twilio.TwiML.Message();
 

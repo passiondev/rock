@@ -32,11 +32,47 @@ namespace Rock.Model
         /// <returns>If not null, identifies the response that should be sent back to the sender.</returns>
         static public List<SmsActionOutcome> ProcessIncomingMessage( SmsMessage message )
         {
+            return ProcessIncomingMessage( message, null );
+        }
+
+        /// <summary>
+        /// Processes the incoming message.
+        /// </summary>
+        /// <param name="message">
+        /// The message.
+        /// </param>
+        /// <param name="smsPipelineId">
+        /// The SMS pipeline identifier. When null the active pipeline with the lowest SmsPipelineId will be used.
+        /// </param>
+        /// <returns></returns>
+        static public List<SmsActionOutcome> ProcessIncomingMessage( SmsMessage message, int? smsPipelineId )
+        {
+            if ( smsPipelineId == null )
+            {
+                var minSmsPipelineId = new SmsPipelineService( new Data.RockContext() )
+                                        .Queryable()
+                                        .Where( p => p.IsActive )
+                                        .Min( p => p.Id );
+
+                return ProcessIncomingMessage( message, minSmsPipelineId );
+            }
+
+            return ProcessIncomingMessage( message, smsPipelineId.Value );
+        }
+
+        /// <summary>
+        /// Processes the incoming message.
+        /// </summary>
+        /// <param name="message">The message received by the communications component.</param>
+        /// <returns>If not null, identifies the response that should be sent back to the sender.</returns>
+        static public List<SmsActionOutcome> ProcessIncomingMessage( SmsMessage message, int smsPipelineId )
+        {
             var errorMessage = string.Empty;
             var outcomes = new List<SmsActionOutcome>();
 
             var smsActions = SmsActionCache.All()
                 .Where( a => a.IsActive )
+                .Where( a => a.SmsPipelineId == smsPipelineId )
                 .OrderBy( a => a.Order )
                 .ThenBy( a => a.Id );
 
@@ -79,7 +115,7 @@ namespace Rock.Model
                     if ( outcome.Response != null )
                     {
                         LogIfError( errorMessage );
-                    }                    
+                    }
                 }
                 catch ( Exception exception )
                 {
