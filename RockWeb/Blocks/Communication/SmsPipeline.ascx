@@ -12,7 +12,7 @@
                     <Rock:HighlightLabel ID="hlInactive" runat="server" CssClass="js-inactivepipeline-label" LabelType="Danger" Text="Inactive" />
                 </div>
             </div>
-
+            <Rock:PanelDrawer ID="pdAuditDetails" runat="server"></Rock:PanelDrawer>
             <div class="panel-body" runat="server" id="divEditDetails">
                 <div class="row">
                     <div class="col-md-6">

@@ -170,6 +170,10 @@ namespace RockWeb.Blocks.Communication
         private void BindReadOnlyDetails( Rock.Model.SmsPipeline smsPipeline )
         {
             divEditDetails.Visible = false;
+
+            pdAuditDetails.Visible = true;
+            pdAuditDetails.SetEntity( smsPipeline, ResolveRockUrl( "~" ) );
+
             hlInactive.Visible = !smsPipeline.IsActive;
 
             lSmsPipelineDescription.Text = smsPipeline.Description;
@@ -183,9 +187,12 @@ namespace RockWeb.Blocks.Communication
             if ( smsPipeline == null )
             {
                 cbPipelineIsActive.Checked = true;
+                pdAuditDetails.Visible = false;
                 return;
             }
 
+            pdAuditDetails.Visible = true;
+            pdAuditDetails.SetEntity( smsPipeline, ResolveRockUrl( "~" ) );
             divEditDetails.Visible = true;
             hlInactive.Visible = true;
 
