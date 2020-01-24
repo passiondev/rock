@@ -405,11 +405,11 @@ namespace Rock.Field.Types
                 {
                     if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
                     {
-                        editControl = new DefinedValuesPickerEnhancedWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd };
+                        editControl = new DefinedValuePickerWithAddMultipleSelectEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd };
                     }
                     else
                     {
-                        editControl = new DefinedValuesPickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns, IsAllowAddDefinedValue = allowAdd };
+                        editControl = new DefinedValuePickerWithAddMultipleSelect { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns, IsAllowAddDefinedValue = allowAdd };
                     }
                 }
                 else
@@ -426,19 +426,20 @@ namespace Rock.Field.Types
             }
             else
             {
+                //TODO: The add versions of the controls are not working with AttributeValouesContainer, so keep the old ones for now.
                 //editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
 
                 if ( allowAdd )
                 {
-                    editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd };
+                    editControl = new DefinedValuePickerWithAddSingleSelect { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
                 }
                 else
                 {
-                    editControl = new DefinedValuePicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
-                    if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
-                    {
-                        ( ( DefinedValuePicker ) editControl ).EnhanceForLongLists = true;
-                    }
+                    editControl = new DefinedValuePicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, EnhanceForLongLists = enhanceForLongLists };
+                    //if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                    //{
+                    //    ( ( DefinedValuePicker ) editControl ).EnhanceForLongLists = true;
+                    //}
                 }
             }
 

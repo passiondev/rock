@@ -18,7 +18,7 @@ namespace Rock.Web.UI.Controls
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
-    public class DefinedValuesPickerEnhancedWithAdd : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
+    public class DefinedValuePickerWithAddMultipleSelectEnhanced : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
     {
         #region IRockControl Implementation
 

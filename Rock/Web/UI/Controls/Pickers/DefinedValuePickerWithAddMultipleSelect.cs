@@ -13,15 +13,14 @@ using Rock.Web.Cache;
 namespace Rock.Web.UI.Controls
 {
     /// <summary>
-    /// A DefinedValuePicker control that allows a defined value to be added on the fly.
+    /// A multiple DefinedValuePicker control that allows a defined value to be added on the fly.
     /// </summary>
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
-    public class DefinedValuePickerWithAdd : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
+    public class DefinedValuePickerWithAddMultipleSelect : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
     {
         #region IRockControl Implementation
-
         /// <summary>
         /// Gets or sets the label text.
         /// </summary>
@@ -213,6 +212,7 @@ namespace Rock.Web.UI.Controls
                 ViewState["ValidationGroup"] = value;
             }
         }
+
         
         /// <summary>
         /// This is where you implement the simple aspects of rendering your control.  The rest
@@ -226,10 +226,10 @@ namespace Rock.Web.UI.Controls
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             // Defined Value selector with Add button
-            writer.AddAttribute( "class", "js-defined-value-selector controls controls-row form-control-group" );
+            writer.AddAttribute( "class", "js-defined-value-selector controls controls-row form-control-group checkboxlist-group" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
-            _ddlDefinedValues.RenderControl( writer );
+            _cblDefinedValues.RenderControl( writer );
 
             // Only render the Add button if the user is authorized to edit the defined type
             var definedType = DefinedTypeCache.Get( DefinedTypeId.Value );
@@ -247,6 +247,7 @@ namespace Rock.Web.UI.Controls
             writer.RenderEndTag();
         }
 
+
         #endregion IRockControl Implementation
 
         #region IDefinedValuePickerWtihAdd Implementation
@@ -262,22 +263,59 @@ namespace Rock.Web.UI.Controls
         {
             get
             {
-                return new int[] { SelectedDefinedValueId.Value };
+                var selectedDefinedValuesId = new List<int>();
+
+                string selectedids = ViewState["SelectedDefinedValuesId"].ToStringSafe();
+                if ( selectedids.IsNotNullOrWhiteSpace() )
+                {
+                    string[] ids = selectedids.Split( ',' );
+                    foreach ( string id in ids )
+                    {
+                        int parsedint;
+                        if ( int.TryParse( id, out parsedint ) )
+                        {
+                            selectedDefinedValuesId.Add( parsedint );
+                        }
+                    }
+                }
+
+                return selectedDefinedValuesId.ToArray();
             }
 
             set
             {
-                SelectedDefinedValueId = value == null || value.Length == 0 ? 0 : value[0];
+                if ( value == null )
+                {
+                    ViewState["SelectedDefinedValuesId"] = string.Empty;
+                }
+                else
+                {
+                    var selectedDefinedValuesId = new List<int>();
+
+                    // check each value in the array to make sure it is valid and add it to the list
+                    foreach ( int selectedId in value )
+                    {
+                        if ( DefinedValueCache.Get( selectedId ) != null )
+                        {
+                            selectedDefinedValuesId.Add( selectedId );
+                        }
+                    }
+
+                    // join the list into a csv and save to ViewState["SelectedDefinedValueId"]
+                    ViewState["SelectedDefinedValuesId"] = string.Join( ",", selectedDefinedValuesId );
+                }
+
+                LoadDefinedValues();
             }
         }
-        
+
         /// <summary>
         /// Loads the defined values.
         /// </summary>
-        /// <param name="selectedDefinedValueIds">The selected defined value ids. Only the first element in the array is used for this single select control.</param>
+        /// <param name="selectedDefinedValueIds">The DefinedValue IDs that should be marked as selected. If an ID is not part of the collection of values in the control it will be added. e.g. if a Value is not active but is in this list it will be included.</param>
         public void LoadDefinedValues( int[] selectedDefinedValueIds )
         {
-            SelectedDefinedValueId = selectedDefinedValueIds[0];
+            this.SelectedDefinedValuesId = selectedDefinedValueIds;
             LoadDefinedValues();
         }
 
@@ -286,19 +324,19 @@ namespace Rock.Web.UI.Controls
         /// </summary>
         public void LoadDefinedValues()
         {
-            _ddlDefinedValues.Items.Clear();
+            _cblDefinedValues.Items.Clear();
 
             if ( DefinedTypeId.HasValue )
             {
                 if ( IncludeEmptyOption )
                 {
                     // add Empty option first
-                    _ddlDefinedValues.Items.Add( new ListItem() );
+                    _cblDefinedValues.Items.Add( new ListItem() );
                 }
 
                 var definedTypeCache = DefinedTypeCache.Get( DefinedTypeId.Value );
                 var definedValuesList = definedTypeCache?.DefinedValues
-                    .Where( a => a.IsActive || IncludeInactive || a.Id == SelectedDefinedValueId )
+                    .Where( a => a.IsActive || IncludeInactive || SelectedDefinedValuesId.Contains( a.Id ) )
                     .OrderBy( v => v.Order )
                     .ThenBy( v => v.Value )
                     .ToList();
@@ -307,12 +345,12 @@ namespace Rock.Web.UI.Controls
                 {
                     foreach ( var definedValue in definedValuesList )
                     {
-                        _ddlDefinedValues.Items.Add(
+                        _cblDefinedValues.Items.Add(
                             new ListItem
                             {
                                 Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
                                 Value = definedValue.Id.ToString(),
-                                Selected = definedValue.Id == SelectedDefinedValueId
+                                Selected = SelectedDefinedValuesId.Contains( definedValue.Id )
                             } );
                     }
                 }
@@ -322,7 +360,7 @@ namespace Rock.Web.UI.Controls
         #endregion IDefinedValuePickerWtihAdd Implementation
 
         private DefinedValueEditor _definedValueEditor;
-        private RockDropDownList _ddlDefinedValues;
+        private RockCheckBoxList _cblDefinedValues;
         private LinkButton _lbAddDefinedValue;
 
         /// <summary>
@@ -366,49 +404,22 @@ namespace Rock.Web.UI.Controls
         public bool IncludeEmptyOption { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the dropdownlist should allow a searc when used for single select
+        /// Gets or sets the repeat direction.
         /// </summary>
         /// <value>
-        ///   <c>true</c> if [enhance for long lists]; otherwise, <c>false</c>.
+        /// The repeat direction.
         /// </value>
-        public bool EnhanceForLongLists { get; set; }
-
-            /// Gets or sets the selected defined value identifier.
-        /// </summary>
-        /// <value>
-        /// The selected defined value identifier.
-        /// </value>
-        public int? SelectedDefinedValueId
-        {
-            get
-            {
-                int parsedInt = 0;
-                int.TryParse( ViewState["SelectedDefinedValueId"].ToStringSafe(), out parsedInt );
-
-                return parsedInt;
-            }
-
-            set
-            {
-                ViewState["SelectedDefinedValueId"] = value == null ? string.Empty : value.ToString();
-
-                LoadDefinedValues();
-            }
-        }
+        public RepeatDirection RepeatDirection { get; set; } = System.Web.UI.WebControls.RepeatDirection.Horizontal;
 
         /// <summary>
-        /// Gets the selected value.
+        /// Gets or sets the number of columns the checkbox will use.
         /// </summary>
         /// <value>
-        /// The selected value.
+        /// The repeat columns.
         /// </value>
-        public string SelectedValue
-        {
-            get
-            {
-                return DefinedValueCache.GetValue( SelectedDefinedValueId );
-            }
-        }
+        public int RepeatColumns { get; set; } = 4;
+
+        public bool IsEnhancedForLongLists { get; set; }
 
         /// <summary>
         /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
@@ -443,38 +454,46 @@ namespace Rock.Web.UI.Controls
             Controls.Clear();
             RockControlHelper.CreateChildControls( this, Controls );
 
-            _ddlDefinedValues = new RockDropDownList();
-            _ddlDefinedValues.ID = this.ID + "_ddlDefinedValues";
-            _ddlDefinedValues.EnhanceForLongLists = this.EnhanceForLongLists;
-            _ddlDefinedValues.Style.Add( "width", "85%" );
-            _ddlDefinedValues.SelectedIndexChanged += ddlDefinedValues_SelectedIndexChanged;
-            _ddlDefinedValues.AutoPostBack = true;
-            Controls.Add( _ddlDefinedValues );
+            _cblDefinedValues = new RockCheckBoxList();
+            _cblDefinedValues.ID = this.ID + "_cblDefinedValues";
+            _cblDefinedValues.Style.Add( "width", "85%" );
+            _cblDefinedValues.RepeatColumns = this.RepeatColumns;
+            _cblDefinedValues.RepeatDirection = this.RepeatDirection;
+            _cblDefinedValues.AutoPostBack = true;
+            _cblDefinedValues.SelectedIndexChanged += cblDefinedValues_SelectedIndexChanged;
+            Controls.Add( _cblDefinedValues );
 
             _definedValueEditor = new DefinedValueEditor();
             _definedValueEditor.ID = this.ID + "_definedValueEditor";
             _definedValueEditor.Hidden = true;
             _definedValueEditor.DefinedTypeId = DefinedTypeId.Value;
+            _definedValueEditor.IsMultiSelection = true;
             Controls.Add( _definedValueEditor );
 
             _lbAddDefinedValue = new LinkButton();
             _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
-            _lbAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
+            _lbAddDefinedValue.Text = "Add Item";
+            _lbAddDefinedValue.CssClass = "btn btn-default btn-link js-button-add-defined-value";
             _lbAddDefinedValue.OnClientClick = $"javascript:$('.js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{_definedValueEditor.ClientID}').fadeToggle(); }});  return false;";
-            _lbAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
+            
             Controls.Add( _lbAddDefinedValue );
 
             LoadDefinedValues();
         }
 
         /// <summary>
-        /// Handles the SelectedIndexChanged event of the ddlDefinedValues control.
+        /// Handles the SelectedIndexChanged event of the cblDefinedValues control.
         /// </summary>
         /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void ddlDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
+        /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
+        protected void cblDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
         {
-            SelectedDefinedValueId = ( ( RockDropDownList ) sender ).SelectedValue.AsIntegerOrNull();
+            SelectedDefinedValuesId = ( ( RockCheckBoxList ) sender )
+                .Items.OfType<ListItem>()
+                .Where( a => a.Selected )
+                .Select( a => a.Value )
+                .AsIntegerList()
+                .ToArray();
         }
     }
 }
