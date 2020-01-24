@@ -6,7 +6,34 @@
 
         <div class="panel panel-block sms-main-panel">
             <div class="panel-heading">
-                <h1 class="panel-title"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline</h1>
+                <h1 class="panel-title"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Details</h1>
+            </div>
+
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <Rock:DataTextBox ID="tbPipelineName" runat="server" SourceTypeName="Rock.Model.SmsPipeline, Rock" PropertyName="Name" />
+                    </div>
+                    <div class="col-md-6">
+                        <Rock:RockCheckBox ID="cbIsActive" runat="server" Label="Active" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <Rock:DataTextBox ID="tbDescription" runat="server" SourceTypeName="Rock.Model.SmsPipeline, Rock" PropertyName="Description" TextMode="MultiLine" Rows="3" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <asp:LinkButton ID="btnSave" runat="server" AccessKey="s" ToolTip="Alt+s" Text="Save" CssClass="btn btn-primary" OnClick="btnSave_Click" />
+                    <asp:LinkButton ID="btnCancel" runat="server" AccessKey="c" ToolTip="Alt+c" Text="Cancel" CssClass="btn btn-link" OnClick="btnCancel_Click" CausesValidation="false" />
+                </div>
+            </div>
+        </div>
+
+        <div class="panel panel-block sms-main-panel">
+            <div class="panel-heading">
+                <h1 class="panel-title"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Actions</h1>
 
                 <div class="panel-labels">
                     <a href="#" class="btn btn-xs btn-square btn-default" onclick="$('.js-test-results').slideToggle( function () { $('#hfIsTestingDrawerOpen').val( $('#divTestingDrawer').css('display') !== 'none' ) } )">

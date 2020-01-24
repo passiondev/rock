@@ -34,11 +34,22 @@ using Rock.Communication.SmsActions;
 
 namespace RockWeb.Blocks.Communication
 {
-    [DisplayName( "SMS Pipeline" )]
+    [DisplayName( "SMS Pipeline Details" )]
     [Category( "Communication" )]
     [Description( "Configures the pipeline that processes an incoming SMS message." )]
     public partial class SmsPipeline : RockBlock
     {
+        #region Page Parameter Keys
+
+        /// <summary>
+        /// Keys to use for Page Parameters
+        /// </summary>
+        private static class PageParameterKey
+        {
+            public const string EntityId = "SmsPipelineId";
+        }
+
+        #endregion
 
         #region Base Control Methods
 
@@ -127,10 +138,14 @@ namespace RockWeb.Blocks.Communication
         /// </summary>
         private void BindActions()
         {
+            var smsPipelineId = PageParameter( "SmsPipelineId" );
             var rockContext = new RockContext();
-            var smsActionService = new SmsActionService( rockContext );
+            var smsPipelineService = new SmsPipelineService(rockContext);
 
+            var smsActionService = new SmsActionService( rockContext );
+                        
             var actions = smsActionService.Queryable()
+                //.Where( a => a.SmsPipelineId == int.Parse( smsPipelineId ) )
                 .OrderBy( a => a.Order )
                 .ThenBy( a => a.Id )
                 .ToList()
@@ -179,6 +194,7 @@ namespace RockWeb.Blocks.Communication
 
                 var action = new SmsAction
                 {
+                    SmsPipelineId = GetEntityId(),
                     Name = actionComponent.Title,
                     IsActive = true,
                     Order = order,
@@ -219,6 +235,11 @@ namespace RockWeb.Blocks.Communication
 
                 SmsActionCache.Clear();
             }
+        }
+
+        private int GetEntityId()
+        {
+            return PageParameter(PageParameterKey.EntityId).AsInteger();
         }
 
         #endregion
@@ -285,6 +306,17 @@ namespace RockWeb.Blocks.Communication
             hfEditActionId.Value = string.Empty;
             BindActions();
         }
+
+        protected void btnSave_Click( object sender, EventArgs e)
+        {
+
+        }
+
+        protected void btnCancel_Click( object sender, EventArgs e )
+        {
+
+        }
+
 
         /// <summary>
         /// Handles the Click event of the btnCancelActionSettings control.

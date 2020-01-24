@@ -12,20 +12,17 @@
             <div class="panel-body">
 
                 <div class="grid grid-panel">
-                    <Rock:Grid ID="gSmsPipelines" runat="server" AllowSorting="true" OnRowSelected="gSmsPipeline_Edit">
+                    <Rock:Grid ID="gSmsPipelines" runat="server" AllowSorting="true" OnRowSelected="gSmsPipelines_Edit">
                         <Columns>
                             <Rock:RockBoundField DataField="Name" HeaderText="Name" SortExpression="Name" />
                             <Rock:RockBoundField DataField="Description" HeaderText="Description" SortExpression="Description" />
                             <Rock:RockBoundField DataField="IsActive" HeaderText="Is Active" SortExpression="IsActive" />
-                            <Rock:DeleteField OnClick="gSmsPipeline_Delete" />
+                            <Rock:DeleteField OnClick="gSmsPipelines_Delete" />
                         </Columns>
                     </Rock:Grid>
                 </div>
 
             </div>
         </div>
-
-        
-
     </ContentTemplate>
 </asp:UpdatePanel>

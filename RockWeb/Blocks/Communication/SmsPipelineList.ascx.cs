@@ -38,9 +38,34 @@ namespace RockWeb.Blocks.Communication
     [Category( "Communication" )]
     [Description( "Lists the sms pipelines currently in the system." )]
 
-    [LinkedPage( "Detail Page" )]
+    [LinkedPage( "SMS Pipeline Details",
+        Key = AttributeKey.DetailPage)]
     public partial class SmsPipelineList : RockBlock, ICustomGridColumns
     {
+        #region Attribute Keys
+
+        /// <summary>
+        /// Keys to use for Block Attributes
+        /// </summary>
+        private static class AttributeKey
+        {
+            public const string DetailPage = "SMSPipelineDetails";
+        }
+
+        #endregion
+
+        #region Page Parameter Keys
+
+        /// <summary>
+        /// Keys to use for Page Parameters
+        /// </summary>
+        private static class PageParameterKey
+        {
+            public const string EntityId = "SmsPipelineId";
+        }
+
+        #endregion
+
         #region Control Methods
 
         /// <summary>
@@ -55,7 +80,7 @@ namespace RockWeb.Blocks.Communication
             {
                 gSmsPipelines.DataKeyNames = new string[] { "Id" };
                 gSmsPipelines.Actions.ShowAdd = true;
-                gSmsPipelines.Actions.AddClick += gSmsPipeline_AddClick;
+                gSmsPipelines.Actions.AddClick += gSmsPipelines_AddClick;
                 gSmsPipelines.GridRebind += gSmsPipelines_GridRebind;
             }
         }
@@ -94,9 +119,9 @@ namespace RockWeb.Blocks.Communication
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
-        protected void gSmsPipeline_AddClick( object sender, EventArgs e )
+        protected void gSmsPipelines_AddClick( object sender, EventArgs e )
         {
-            NavigateToLinkedPage( "DetailPage", "smsPipelineId", 0 );
+            NavigateToLinkedPage(AttributeKey.DetailPage, PageParameterKey.EntityId, 0 );
         }
 
         /// <summary>
@@ -104,9 +129,9 @@ namespace RockWeb.Blocks.Communication
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="RowEventArgs" /> instance containing the event data.</param>
-        protected void gSmsPipeline_Edit( object sender, RowEventArgs e )
+        protected void gSmsPipelines_Edit( object sender, RowEventArgs e )
         {
-            NavigateToLinkedPage( "DetailPage", "smsPipelineId", e.RowKeyId );
+            NavigateToLinkedPage( AttributeKey.DetailPage, PageParameterKey.EntityId, e.RowKeyId );
         }
 
         /// <summary>
