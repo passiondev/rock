@@ -73,7 +73,7 @@ namespace RockWeb.Blocks.Communication
             if ( !Page.IsPostBack )
             {
                 BindComponents();
-                BindActions();
+                BindPipelineAndActions();
 
                 //
                 // This must come after BindComponents so that the SmsActionContainer will
@@ -136,16 +136,28 @@ namespace RockWeb.Blocks.Communication
         /// <summary>
         /// Binds the actions repeater.
         /// </summary>
-        private void BindActions()
+        private void BindPipelineAndActions()
         {
-            var smsPipelineId = PageParameter( "SmsPipelineId" );
+            var smsPipelineId = GetEntityId();
             var rockContext = new RockContext();
             var smsPipelineService = new SmsPipelineService(rockContext);
 
-            var smsActionService = new SmsActionService( rockContext );
-                        
-            var actions = smsActionService.Queryable()
-                //.Where( a => a.SmsPipelineId == int.Parse( smsPipelineId ) )
+            var smsPipeline = smsPipelineService
+                                .Queryable( "SmsActions" )
+                                .Where( p => p.Id == smsPipelineId )
+                                .FirstOrDefault();
+
+            if( smsPipeline == null )
+            {
+                divSmsActionsPanel.Visible = false;
+                return;
+            }
+
+            tbPipelineName.Text = smsPipeline.Name;
+            cbPipelineIsActive.Checked = smsPipeline.IsActive;
+            tbPipelineDescription.Text = smsPipeline.Description;
+
+            var actions = smsPipeline.SmsActions
                 .OrderBy( a => a.Order )
                 .ThenBy( a => a.Id )
                 .ToList()
@@ -210,7 +222,7 @@ namespace RockWeb.Blocks.Communication
 
                 rockContext.SaveChanges();
 
-                BindActions();
+                BindPipelineAndActions();
 
                 SmsActionCache.Clear();
             }
@@ -231,7 +243,7 @@ namespace RockWeb.Blocks.Communication
                 smsActionService.Reorder( actions, segments[1].AsInteger(), segments[2].AsInteger() );
                 rockContext.SaveChanges();
 
-                BindActions();
+                BindPipelineAndActions();
 
                 SmsActionCache.Clear();
             }
@@ -272,7 +284,7 @@ namespace RockWeb.Blocks.Communication
 
                 pnlEditAction.Visible = true;
 
-                BindActions();
+                BindPipelineAndActions();
             }
         }
 
@@ -304,17 +316,46 @@ namespace RockWeb.Blocks.Communication
 
             pnlEditAction.Visible = false;
             hfEditActionId.Value = string.Empty;
-            BindActions();
+            BindPipelineAndActions();
         }
 
         protected void btnSave_Click( object sender, EventArgs e)
         {
+            var smsPipelineId = GetEntityId();
+            var rockContext = new RockContext();
+            var smsPipelineService = new SmsPipelineService( rockContext );
 
+            var smsPipeline = smsPipelineService
+                                .Queryable()
+                                .Where( p => p.Id == smsPipelineId )
+                                .FirstOrDefault();
+
+            if(smsPipelineId == 0 )
+            {
+                smsPipeline = new Rock.Model.SmsPipeline();
+                smsPipelineService.Add( smsPipeline );
+            }
+
+            if( smsPipeline == null )
+            {
+                return;
+            }
+
+            smsPipeline.Name = tbPipelineName.Text;
+            smsPipeline.IsActive = cbPipelineIsActive.Checked;
+            smsPipeline.Description = tbPipelineDescription.Text;
+
+            rockContext.SaveChanges();
+
+            var qryParams = new Dictionary<string, string>();
+            qryParams[PageParameterKey.EntityId] = smsPipeline.Id.ToString();
+
+            NavigateToPage( RockPage.Guid, qryParams );
         }
 
         protected void btnCancel_Click( object sender, EventArgs e )
         {
-
+            BindPipelineAndActions();
         }
 
 
@@ -326,7 +367,7 @@ namespace RockWeb.Blocks.Communication
         protected void btnCancelActionSettings_Click( object sender, EventArgs e )
         {
             hfEditActionId.Value = string.Empty;
-            BindActions();
+            BindPipelineAndActions();
 
             pnlEditAction.Visible = false;
         }
@@ -348,7 +389,7 @@ namespace RockWeb.Blocks.Communication
             pnlEditAction.Visible = false;
 
             hfEditActionId.Value = string.Empty;
-            BindActions();
+            BindPipelineAndActions();
         }
 
         #endregion

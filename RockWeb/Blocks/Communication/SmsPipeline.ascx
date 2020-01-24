@@ -4,9 +4,13 @@
     <ContentTemplate>
         <asp:LinkButton ID="lbDragCommand" runat="server" CssClass="hidden" />
 
-        <div class="panel panel-block sms-main-panel">
+        <div class="panel panel-block js-pipeline-panel">
             <div class="panel-heading">
-                <h1 class="panel-title"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Details</h1>
+                <h1 class="panel-title pull-left"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Details</h1>
+
+                <div class="panel-labels">
+                    <Rock:HighlightLabel ID="hlInactive" runat="server" CssClass="js-inactivepipeline-label" LabelType="Danger" Text="Inactive" />
+                </div>
             </div>
 
             <div class="panel-body">
@@ -15,13 +19,13 @@
                         <Rock:DataTextBox ID="tbPipelineName" runat="server" SourceTypeName="Rock.Model.SmsPipeline, Rock" PropertyName="Name" />
                     </div>
                     <div class="col-md-6">
-                        <Rock:RockCheckBox ID="cbIsActive" runat="server" Label="Active" />
+                        <Rock:RockCheckBox ID="cbPipelineIsActive" runat="server" Label="Active" CssClass="js-isactivepipeline" />
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-12">
-                        <Rock:DataTextBox ID="tbDescription" runat="server" SourceTypeName="Rock.Model.SmsPipeline, Rock" PropertyName="Description" TextMode="MultiLine" Rows="3" />
+                        <Rock:DataTextBox ID="tbPipelineDescription" runat="server" SourceTypeName="Rock.Model.SmsPipeline, Rock" PropertyName="Description" TextMode="MultiLine" Rows="3" />
                     </div>
                 </div>
                 <div class="actions">
@@ -31,7 +35,7 @@
             </div>
         </div>
 
-        <div class="panel panel-block sms-main-panel">
+        <div class="panel panel-block sms-main-panel" runat="server" id="divSmsActionsPanel" ClientIDMode="Static">
             <div class="panel-heading">
                 <h1 class="panel-title"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Actions</h1>
 
@@ -220,6 +224,25 @@
                 show: 800,
                 hide: 100
             }
+        });
+
+        function setIsActiveControls(activeCheckbox) {
+
+            var $inactiveLabel = $(activeCheckbox).closest(".js-pipeline-panel").find('.js-inactivepipeline-label');
+            if ($(activeCheckbox).is(':checked')) {
+                $inactiveLabel.hide();
+            }
+            else {
+                $inactiveLabel.show();
+            }
+        }
+
+        $('.js-isactivepipeline').on('click', function () {
+            setIsActiveControls(this);
+        });
+
+        $('.js-isactivepipeline').each(function (i) {
+            setIsActiveControls(this);
         });
     });
 </script>
