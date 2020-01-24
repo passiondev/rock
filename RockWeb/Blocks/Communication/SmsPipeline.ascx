@@ -13,7 +13,7 @@
                 </div>
             </div>
 
-            <div class="panel-body">
+            <div class="panel-body" runat="server" id="divEditDetails">
                 <div class="row">
                     <div class="col-md-6">
                         <Rock:DataTextBox ID="tbPipelineName" runat="server" SourceTypeName="Rock.Model.SmsPipeline, Rock" PropertyName="Name" />
@@ -31,6 +31,24 @@
                 <div class="actions">
                     <asp:LinkButton ID="btnSave" runat="server" AccessKey="s" ToolTip="Alt+s" Text="Save" CssClass="btn btn-primary" OnClick="btnSave_Click" />
                     <asp:LinkButton ID="btnCancel" runat="server" AccessKey="c" ToolTip="Alt+c" Text="Cancel" CssClass="btn btn-link" OnClick="btnCancel_Click" CausesValidation="false" />
+                </div>
+            </div>
+
+            <div class="panel-body" runat="server" id="divReadOnlyDetails">
+                <div class="row">
+                    <div class="col-md-6">
+                        <Rock:RockLiteral ID="lSmsName" runat="server" Label="Name" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <Rock:RockLiteral ID="lSmsPipelineDescription" runat="server" Label="Description" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <asp:LinkButton ID="btnEdit" runat="server" Text="Edit" CssClass="btn btn-primary" OnClick="btnEdit_Click" CausesValidation="false" />
+                    <asp:LinkButton ID="btnDelete" runat="server" Text="Delete" CssClass="btn btn-link" OnClick="btnDelete_Click" CausesValidation="false" />
                 </div>
             </div>
         </div>
