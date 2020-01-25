@@ -11,7 +11,7 @@ using Rock.Web.Cache;
 
 namespace Rock.Web.UI.Controls
 {
-    class DefinedValueEditor : CompositeControl
+    public class DefinedValueEditor : CompositeControl
     {
         protected HiddenField _hfDefinedValueId;
         protected ValidationSummary _valSummaryValue;
@@ -215,7 +215,7 @@ namespace Rock.Web.UI.Controls
             _btnCancel.Text = "Cancel";
             _btnCancel.CssClass = "btn btn-link btn-xs";
             _btnCancel.CausesValidation = false;
-            _btnCancel.OnClientClick = $"javascript:$('#{this.ClientID}').fadeToggle(400, 'swing', function() {{ $('.js-defined-value-selector').fadeToggle(); }}); return false;";
+            _btnCancel.OnClientClick = $"javascript:$('.js-defined-value-editor').fadeToggle(400, 'swing', function() {{ $('.js-defined-value-selector').fadeToggle(); }}); return false;";
             Controls.Add( _btnCancel );
 
             LoadDefinedValueAttributes();
@@ -229,6 +229,7 @@ namespace Rock.Web.UI.Controls
         protected override void Render( HtmlTextWriter writer )
         {
             writer.AddAttribute( "id", this.ClientID.ToString() );
+            writer.AddAttribute( "class", "js-defined-value-editor well" );
             if ( Hidden )
             {
                 writer.AddStyleAttribute( "display", "none" );
