@@ -18,215 +18,21 @@ namespace Rock.Web.UI.Controls
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
-    public class DefinedValuePickerWithAddMultipleSelect : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
+    public class DefinedValuePickerWithAddMultipleSelect : DefinedValuePickerWithAdd
     {
-        #region IRockControl Implementation
-        /// <summary>
-        /// Gets or sets the label text.
-        /// </summary>
-        /// <value>
-        /// The label text.
-        /// </value>
-        [Bindable( true )]
-        [Category( "Appearance" )]
-        [DefaultValue( "" )]
-        [Description( "The text for the label." )]
-        public string Label
-        {
-            get
-            {
-                return ViewState["Label"] as string ?? string.Empty;
-            }
-            set
-            {
-                ViewState["Label"] = value;
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the help text.
-        /// </summary>
-        /// <value>
-        /// The help text.
-        /// </value>
-        [Bindable( true )]
-        [Category( "Appearance" )]
-        [DefaultValue( "" )]
-        [Description( "The help block." )]
-        public string Help
-        {
-            get
-            {
-                return HelpBlock != null ? HelpBlock.Text : string.Empty;
-            }
-
-            set
-            {
-                if ( HelpBlock != null )
-                {
-                    HelpBlock.Text = value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the warning text.
-        /// </summary>
-        /// <value>
-        /// The warning text.
-        /// </value>
-        [Bindable( true )]
-        [Category( "Appearance" )]
-        [DefaultValue( "" )]
-        [Description( "The warning block." )]
-        public string Warning
-        {
-            get
-            {
-                return WarningBlock != null ? WarningBlock.Text : string.Empty;
-            }
-
-            set
-            {
-                if ( WarningBlock != null )
-                {
-                    WarningBlock.Text = value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this <see cref="RockTextBox"/> is required.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if required; otherwise, <c>false</c>.
-        /// </value>
-        [Bindable( true )]
-        [Category( "Behavior" )]
-        [DefaultValue( "false" )]
-        [Description( "Is the value required?" )]
-        public bool Required
-        {
-            get
-            {
-                return ViewState["Required"] as bool? ?? false;
-            }
-
-            set
-            {
-                ViewState["Required"] = value;
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the required error message.  If blank, the LabelName name will be used
-        /// </summary>
-        /// <value>The required error message.</value>
-        public string RequiredErrorMessage
-        {
-            get
-            {
-                return RequiredFieldValidator != null ? RequiredFieldValidator.ErrorMessage : string.Empty;
-            }
-
-            set
-            {
-                if ( RequiredFieldValidator != null )
-                {
-                    RequiredFieldValidator.ErrorMessage = value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Returns true if ... is valid.
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if this instance is valid; otherwise, <c>false</c>.</value>
-        public virtual bool IsValid
-        {
-            get
-            {
-                return !Required || RequiredFieldValidator == null || RequiredFieldValidator.IsValid;
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the form group class.
-        /// </summary>
-        /// <value>
-        /// The form group class.
-        /// </value>
-        public string FormGroupCssClass
-        {
-            get
-            {
-                return ViewState["FormGroupCssClass"] as string ?? string.Empty;
-            }
-
-            set
-            {
-                ViewState["FormGroupCssClass"] = value;
-            }
-        }
-
-        /// <summary>
-        /// Gets the help block.
-        /// </summary>
-        /// <value>
-        /// The help block.
-        /// </value>
-        public HelpBlock HelpBlock { get; set; }
-
-        /// <summary>
-        /// Gets the warning block.
-        /// </summary>
-        /// <value>
-        /// The warning block.
-        /// </value>
-        public WarningBlock WarningBlock { get; set; }
-
-        /// <summary>
-        /// Gets the required field validator.
-        /// </summary>
-        /// <value>
-        /// The required field validator.
-        /// </value>
-        public RequiredFieldValidator RequiredFieldValidator { get; set; }
-
-        /// <summary>
-        /// Gets or sets the validation group.
-        /// </summary>
-        /// <value>
-        /// The validation group.
-        /// </value>
-        public string ValidationGroup
-        {
-            get
-            {
-                return ViewState["ValidationGroup"] as string;
-            }
-
-            set
-            {
-                ViewState["ValidationGroup"] = value;
-            }
-        }
-
-        
         /// <summary>
         /// This is where you implement the simple aspects of rendering your control.  The rest
         /// will be handled by calling RenderControlHelper's RenderControl() method.
         /// </summary>
         /// <param name="writer">The writer.</param>
-        public void RenderBaseControl( HtmlTextWriter writer )
+        public override void RenderBaseControl( HtmlTextWriter writer )
         {
             writer.AddAttribute( "id", this.ClientID.ToString() );
             writer.AddAttribute( "class", this.CssClass );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             // Defined Value selector with Add button
-            writer.AddAttribute( "class", "js-defined-value-selector controls controls-row form-control-group checkboxlist-group" );
+            writer.AddAttribute( "class", $"{this.ClientID}-js-defined-value-selector controls controls-row form-control-group checkboxlist-group" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             _cblDefinedValues.RenderControl( writer );
@@ -235,20 +41,17 @@ namespace Rock.Web.UI.Controls
             var definedType = DefinedTypeCache.Get( DefinedTypeId.Value );
             if ( definedType.IsAuthorized( Authorization.EDIT, ( ( RockPage ) Page ).CurrentPerson ) && IsAllowAddDefinedValue )
             {
-                _lbAddDefinedValue.RenderControl( writer );
+                LinkButtonAddDefinedValue.RenderControl( writer );
             }
 
             writer.RenderEndTag();
 
             // Defined Value Editor
-            _definedValueEditor.RenderControl( writer );
+            DefinedValueEditorControl.RenderControl( writer );
 
             // picker div end tag
             writer.RenderEndTag();
         }
-
-
-        #endregion IRockControl Implementation
 
         #region IDefinedValuePickerWtihAdd Implementation
 
@@ -259,7 +62,7 @@ namespace Rock.Web.UI.Controls
         /// <value>
         /// Returns the SelectedDefinedValueId in an array.
         /// </value>
-        public int[] SelectedDefinedValuesId
+        public override int[] SelectedDefinedValuesId
         {
             get
             {
@@ -312,17 +115,7 @@ namespace Rock.Web.UI.Controls
         /// <summary>
         /// Loads the defined values.
         /// </summary>
-        /// <param name="selectedDefinedValueIds">The DefinedValue IDs that should be marked as selected. If an ID is not part of the collection of values in the control it will be added. e.g. if a Value is not active but is in this list it will be included.</param>
-        public void LoadDefinedValues( int[] selectedDefinedValueIds )
-        {
-            this.SelectedDefinedValuesId = selectedDefinedValueIds;
-            LoadDefinedValues();
-        }
-
-        /// <summary>
-        /// Loads the defined values.
-        /// </summary>
-        public void LoadDefinedValues()
+        public override void LoadDefinedValues()
         {
             _cblDefinedValues.Items.Clear();
 
@@ -359,49 +152,7 @@ namespace Rock.Web.UI.Controls
 
         #endregion IDefinedValuePickerWtihAdd Implementation
 
-        private DefinedValueEditor _definedValueEditor;
         private RockCheckBoxList _cblDefinedValues;
-        private LinkButton _lbAddDefinedValue;
-
-        /// <summary>
-        /// Gets or sets the defined type identifier.
-        /// </summary>
-        /// <value>
-        /// The defined type identifier.
-        /// </value>
-        public int? DefinedTypeId { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [display descriptions].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [display descriptions]; otherwise, <c>false</c>.
-        /// </value>
-        public bool DisplayDescriptions { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [include inactive].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [include inactive]; otherwise, <c>false</c>.
-        /// </value>
-        public bool IncludeInactive { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [allow adding new values].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [allow adding new values]; otherwise, <c>false</c>.
-        /// </value>
-        public bool IsAllowAddDefinedValue { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether [include empty option].
-        /// </summary>
-        /// <value>
-        ///   <c>true</c> if [include empty option]; otherwise, <c>false</c>.
-        /// </value>
-        public bool IncludeEmptyOption { get; set; }
 
         /// <summary>
         /// Gets or sets the repeat direction.
@@ -418,8 +169,6 @@ namespace Rock.Web.UI.Controls
         /// The repeat columns.
         /// </value>
         public int RepeatColumns { get; set; } = 4;
-
-        public bool IsEnhancedForLongLists { get; set; }
 
         /// <summary>
         /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
@@ -451,8 +200,6 @@ namespace Rock.Web.UI.Controls
         protected override void CreateChildControls()
         {
             base.CreateChildControls();
-            Controls.Clear();
-            RockControlHelper.CreateChildControls( this, Controls );
 
             _cblDefinedValues = new RockCheckBoxList();
             _cblDefinedValues.ID = this.ID + "_cblDefinedValues";
@@ -463,20 +210,12 @@ namespace Rock.Web.UI.Controls
             _cblDefinedValues.SelectedIndexChanged += cblDefinedValues_SelectedIndexChanged;
             Controls.Add( _cblDefinedValues );
 
-            _definedValueEditor = new DefinedValueEditor();
-            _definedValueEditor.ID = this.ID + "_definedValueEditor";
-            _definedValueEditor.Hidden = true;
-            _definedValueEditor.DefinedTypeId = DefinedTypeId.Value;
-            _definedValueEditor.IsMultiSelection = true;
-            Controls.Add( _definedValueEditor );
-
-            _lbAddDefinedValue = new LinkButton();
-            _lbAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
-            _lbAddDefinedValue.Text = "Add Item";
-            _lbAddDefinedValue.CssClass = "btn btn-default btn-link js-button-add-defined-value";
-            _lbAddDefinedValue.OnClientClick = $"javascript:$('.js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{_definedValueEditor.ClientID}').fadeToggle(); }});  return false;";
-            
-            Controls.Add( _lbAddDefinedValue );
+            LinkButtonAddDefinedValue = new LinkButton();
+            LinkButtonAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
+            LinkButtonAddDefinedValue.Text = "Add Item";
+            LinkButtonAddDefinedValue.CssClass = "btn btn-default btn-link js-button-add-defined-value";
+            LinkButtonAddDefinedValue.OnClientClick = $"javascript:$('.{this.ClientID}-js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{DefinedValueEditorControl.ClientID}').fadeToggle(); }});  return false;";
+            Controls.Add( LinkButtonAddDefinedValue );
 
             LoadDefinedValues();
         }
