@@ -33,7 +33,7 @@ namespace Rock.Web.UI.Controls
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             // Defined Value selector with Add button
-            writer.AddAttribute( "class", "js-defined-value-selector controls controls-row form-control-group" );
+            writer.AddAttribute( "class", $"{this.ClientID}-js-defined-value-selector controls controls-row form-control-group" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             _ddlDefinedValues.RenderControl( writer );
@@ -195,6 +195,13 @@ namespace Rock.Web.UI.Controls
             _ddlDefinedValues.SelectedIndexChanged += ddlDefinedValues_SelectedIndexChanged;
             _ddlDefinedValues.AutoPostBack = true;
             Controls.Add( _ddlDefinedValues );
+
+            LinkButtonAddDefinedValue = new LinkButton();
+            LinkButtonAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
+            LinkButtonAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
+            LinkButtonAddDefinedValue.OnClientClick = $"javascript:$('.{this.ClientID}-js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{DefinedValueEditorControl.ClientID}').fadeToggle(); }});  return false;";
+            LinkButtonAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
+            Controls.Add( LinkButtonAddDefinedValue );
 
             LoadDefinedValues();
         }
