@@ -169,6 +169,7 @@ namespace RockWeb.Blocks.Communication
 
         private void BindReadOnlyDetails( Rock.Model.SmsPipeline smsPipeline )
         {
+            divSmsActionsPanel.Visible = true;
             divEditDetails.Visible = false;
 
             pdAuditDetails.Visible = true;
@@ -183,6 +184,7 @@ namespace RockWeb.Blocks.Communication
         private void BindEditDetails( Rock.Model.SmsPipeline smsPipeline )
         {
             divReadOnlyDetails.Visible = false;
+            divSmsActionsPanel.Visible = false;
 
             if ( smsPipeline == null )
             {
