@@ -18,7 +18,6 @@ namespace Rock.Web.UI.Controls
     /// <seealso cref="Rock.Web.UI.Controls.DefinedValuePickerWithAdd" />
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
-    /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
     public class DefinedValuePickerWithAddSingleSelect : DefinedValuePickerWithAdd
     {
         /// <summary>

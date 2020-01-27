@@ -15,9 +15,9 @@ namespace Rock.Web.UI.Controls
     /// <summary>
     /// A multiple DefinedValuePicker control that allows a defined value to be added on the fly.
     /// </summary>
+    /// <seealso cref="Rock.Web.UI.Controls.DefinedValuePickerWithAdd" />
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
-    /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
     public class DefinedValuePickerWithAddMultipleSelect : DefinedValuePickerWithAdd
     {
         /// <summary>

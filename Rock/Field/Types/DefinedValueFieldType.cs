@@ -413,15 +413,6 @@ namespace Rock.Field.Types
                         IsAllowAddDefinedValue = allowAdd,
                         EnhanceForLongLists = enhanceForLongLists
                     };
-
-                    //if ( enhanceForLongLists )
-                    //{
-                    //    editControl = new DefinedValuePickerWithAddMultipleSelectEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
-                    //}
-                    //else
-                    //{
-                    //    editControl = new DefinedValuePickerWithAddMultipleSelect { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
-                    //}
                 }
                 else
                 {
@@ -437,9 +428,7 @@ namespace Rock.Field.Types
             }
             else
             {
-                //TODO: The add versions of the controls are not working with AttributeValouesContainer, so keep the old ones for now.
-                //editControl = new DefinedValuePickerWithAdd { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
-
+                //TODO: The add versions of the controls are not working with AttributeValuesContainer, so keep the old ones for now
                 if ( allowAdd )
                 {
                     editControl = new DefinedValuePickerWithAddSingleSelect { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
@@ -447,10 +436,6 @@ namespace Rock.Field.Types
                 else
                 {
                     editControl = new DefinedValuePicker { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, EnhanceForLongLists = enhanceForLongLists };
-                    //if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
-                    //{
-                    //    ( ( DefinedValuePicker ) editControl ).EnhanceForLongLists = true;
-                    //}
                 }
             }
 

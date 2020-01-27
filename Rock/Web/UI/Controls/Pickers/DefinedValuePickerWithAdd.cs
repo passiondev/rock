@@ -17,7 +17,6 @@ namespace Rock.Web.UI.Controls
     /// </summary>
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
-    /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
     public class DefinedValuePickerWithAdd : CompositeControl, IRockControl
     {
         #region IRockControl Implementation
@@ -38,6 +37,7 @@ namespace Rock.Web.UI.Controls
             {
                 return ViewState["Label"] as string ?? string.Empty;
             }
+
             set
             {
                 ViewState["Label"] = value;
@@ -143,7 +143,7 @@ namespace Rock.Web.UI.Controls
         /// Returns true if ... is valid.
         /// </summary>
         /// <value>
-        ///   <c>true</c> if this instance is valid; otherwise, <c>false</c>.</value>
+        /// <c>true</c> if this instance is valid; otherwise, <c>false</c>.</value>
         public virtual bool IsValid
         {
             get
@@ -318,34 +318,6 @@ namespace Rock.Web.UI.Controls
         protected LinkButton LinkButtonAddDefinedValue { get; set; }
 
         /// <summary>
-        /// 
-        /// </summary>
-        /// <value>
-        /// The link button add defined value.
-        /// </value>
-        //protected LinkButton LinkButtonAddDefinedValue
-        //{
-        //    //TODO: Can't use js classes that aren't unique since there will be more than one on the page.
-        //    get
-        //    {
-        //        if ( _linkButtonAddDefinedValue == null )
-        //        {
-        //            _linkButtonAddDefinedValue = new LinkButton();
-        //            _linkButtonAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
-        //            _linkButtonAddDefinedValue.CssClass = "btn btn-default btn-square js-button-add-defined-value";
-        //            _linkButtonAddDefinedValue.OnClientClick = $"javascript:$('.js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('.js-defined-value-editor').fadeToggle(); }});  return false;";
-        //            _linkButtonAddDefinedValue.Controls.Add( new HtmlGenericControl { InnerHtml = "<i class='fa fa-plus'></i>" } );
-        //        }
-
-        //        return _linkButtonAddDefinedValue;
-        //    }
-        //    set
-        //    {
-        //        _linkButtonAddDefinedValue = value;
-        //    }
-        //}
-
-        /// <summary>
         /// Gets or sets the defined type identifier.
         /// </summary>
         /// <value>
@@ -434,7 +406,5 @@ namespace Rock.Web.UI.Controls
             DefinedValueEditorControl.DefinedValueSelectorClientId = this.ClientID;
             Controls.Add( DefinedValueEditorControl );
         }
-
-
     }
 }

@@ -73,6 +73,12 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets the placeholder text to display inside textbox when it is empty
+        /// </summary>
+        /// <value>
+        /// The placeholder text
+        /// </value>
         public override string Placeholder
         {
             get

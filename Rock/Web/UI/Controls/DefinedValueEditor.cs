@@ -11,18 +11,28 @@ using Rock.Web.Cache;
 
 namespace Rock.Web.UI.Controls
 {
+    /// <summary>
+    /// This class creates a control to add a defined value to a defined type.
+    /// </summary>
+    /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     public class DefinedValueEditor : CompositeControl
     {
-        protected HiddenField _hfDefinedValueId;
-        protected ValidationSummary _valSummaryValue;
-        protected RequiredFieldValidator _rfvDefinedValue;
-        protected Literal _lActionTitleDefinedValue;
-        protected DataTextBox _tbValueName;
-        protected DataTextBox _tbValueDescription;
-        protected AttributeValuesContainer _avcDefinedValueAttributes;
-        protected LinkButton _btnSave;
-        protected LinkButton _btnCancel;
+        private HiddenField _hfDefinedValueId;
+        private ValidationSummary _valSummaryValue;
+        private RequiredFieldValidator _rfvDefinedValue;
+        private Literal _lActionTitleDefinedValue;
+        private DataTextBox _tbValueName;
+        private DataTextBox _tbValueDescription;
+        private AttributeValuesContainer _avcDefinedValueAttributes;
+        private LinkButton _btnSave;
+        private LinkButton _btnCancel;
 
+        /// <summary>
+        /// Gets or sets the defined type identifier.
+        /// </summary>
+        /// <value>
+        /// The defined type identifier.
+        /// </value>
         public int DefinedTypeId
         {
             get
@@ -38,6 +48,12 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets the defined type unique identifier.
+        /// </summary>
+        /// <value>
+        /// The defined type unique identifier.
+        /// </value>
         public Guid DefinedTypeGuid
         {
             get
@@ -63,6 +79,12 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets the defined value identifier.
+        /// </summary>
+        /// <value>
+        /// The defined value identifier.
+        /// </value>
         public int DefinedValueId
         {
             get
@@ -79,6 +101,12 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets the defined value unique identifier.
+        /// </summary>
+        /// <value>
+        /// The defined value unique identifier.
+        /// </value>
         public Guid DefinedValueGuid
         {
             get
@@ -98,6 +126,12 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets the name.
+        /// </summary>
+        /// <value>
+        /// The name.
+        /// </value>
         public string Name
         {
             get
@@ -112,6 +146,12 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets the description.
+        /// </summary>
+        /// <value>
+        /// The description.
+        /// </value>
         public string Description
         {
             get
@@ -126,31 +166,64 @@ namespace Rock.Web.UI.Controls
             }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this <see cref="DefinedValueEditor"/> is hidden.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if hidden; otherwise, <c>false</c>.
+        /// </value>
         public bool Hidden { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is multi selection.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance is multi selection; otherwise, <c>false</c>.
+        /// </value>
         public bool IsMultiSelection { get; set; }
 
+        /// <summary>
+        /// Gets or sets the defined value selector client identifier.
+        /// </summary>
+        /// <value>
+        /// The defined value selector client identifier.
+        /// </value>
         public string DefinedValueSelectorClientId { get; set; }
 
         #region Overridden Control Methods
 
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.Init" /> event.
+        /// </summary>
+        /// <param name="e">An <see cref="T:System.EventArgs" /> object that contains the event data.</param>
         protected override void OnInit( EventArgs e )
         {
-
             base.OnInit( e );
         }
 
+        /// <summary>
+        /// Restores view-state information from a previous request that was saved with the <see cref="M:System.Web.UI.WebControls.WebControl.SaveViewState" /> method.
+        /// </summary>
+        /// <param name="savedState">An object that represents the control state to restore.</param>
         protected override void LoadViewState( object savedState )
         {
-
             base.LoadViewState( savedState );
         }
 
+        /// <summary>
+        /// Saves any state that was modified after the <see cref="M:System.Web.UI.WebControls.Style.TrackViewState" /> method was invoked.
+        /// </summary>
+        /// <returns>
+        /// An object that contains the current view state of the control; otherwise, if there is no view state associated with the control, null.
+        /// </returns>
         protected override object SaveViewState()
         {
             return base.SaveViewState();
         }
 
+        /// <summary>
+        /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
+        /// </summary>
         protected override void CreateChildControls()
         {
             Controls.Clear();
@@ -170,11 +243,11 @@ namespace Rock.Web.UI.Controls
             _lActionTitleDefinedValue.ID = this.ID + "_lActionTitleDefinedValue";
             Controls.Add( _lActionTitleDefinedValue );
 
-            //_rfvDefinedValue = new RequiredFieldValidator();
-            //_rfvDefinedValue.ID = this.ID + "_rfvDefinedValue";
-            //_rfvDefinedValue.ErrorMessage = "You must enter a value.";
-            //_rfvDefinedValue.Display = ValidatorDisplay.Dynamic;
-            //_rfvDefinedValue.Enabled = true;
+            ////_rfvDefinedValue = new RequiredFieldValidator();
+            ////_rfvDefinedValue.ID = this.ID + "_rfvDefinedValue";
+            ////_rfvDefinedValue.ErrorMessage = "You must enter a value.";
+            ////_rfvDefinedValue.Display = ValidatorDisplay.Dynamic;
+            ////_rfvDefinedValue.Enabled = true;
 
             _tbValueName = new DataTextBox();
             _tbValueName.ID = this.ID + "_tbValueName";
@@ -182,12 +255,11 @@ namespace Rock.Web.UI.Controls
             _tbValueName.PropertyName = "Value";
             _tbValueName.ValidationGroup = _valSummaryValue.ValidationGroup;
             _tbValueName.Placeholder = "Value";
-            //_tbValueName.Label = " ";
-            //_tbValueName.Required = true;
-            //_tbValueName.RequiredFieldValidator = _rfvDefinedValue;
-            //_tbValueName.CausesValidation = true;
+            ////_tbValueName.Label = " ";
+            ////_tbValueName.Required = true;
+            ////_tbValueName.RequiredFieldValidator = _rfvDefinedValue;
+            ////_tbValueName.CausesValidation = true;
             Controls.Add( _tbValueName );
-
 
             _tbValueDescription = new DataTextBox();
             _tbValueDescription.ID = this.ID + "_tbValueDescription";
@@ -223,11 +295,19 @@ namespace Rock.Web.UI.Controls
             LoadDefinedValueAttributes();
         }
 
+        /// <summary>
+        /// Raises the <see cref="E:System.Web.UI.Control.PreRender" /> event.
+        /// </summary>
+        /// <param name="e">An <see cref="T:System.EventArgs" /> object that contains the event data.</param>
         protected override void OnPreRender( EventArgs e )
         {
             base.OnPreRender( e );
         }
 
+        /// <summary>
+        /// Writes the <see cref="T:System.Web.UI.WebControls.CompositeControl" /> content to the specified <see cref="T:System.Web.UI.HtmlTextWriter" /> object, for display on the client.
+        /// </summary>
+        /// <param name="writer">An <see cref="T:System.Web.UI.HtmlTextWriter" /> that represents the output stream to render HTML content on the client.</param>
         protected override void Render( HtmlTextWriter writer )
         {
             writer.AddAttribute( "id", this.ClientID.ToString() );
@@ -298,6 +378,9 @@ namespace Rock.Web.UI.Controls
 
         #endregion Overridden Control Methods
 
+        /// <summary>
+        /// Loads the defined value attributes.
+        /// </summary>
         public void LoadDefinedValueAttributes()
         {
             DefinedValue definedValue;
@@ -377,7 +460,6 @@ namespace Rock.Web.UI.Controls
                 rockContext.SaveChanges();
 
                 definedValue.SaveAttributeValues( rockContext );
-
             } );
 
             CreateChildControls();
@@ -396,30 +478,8 @@ namespace Rock.Web.UI.Controls
                 {
                     picker.LoadDefinedValues( new int[] { definedValue.Id } );
                 }
-                
             }
-
         }
-
-        ///// <summary>
-        ///// Handles the Click event of the btnCancel control.
-        ///// </summary>
-        ///// <param name="sender">The source of the event.</param>
-        ///// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        //protected void btnCancel_Click( object sender, EventArgs e )
-        //{
-        //    CancelClick?.Invoke( sender, e );
-        //}
-
-        ///// <summary>
-        ///// Occurs when Save is clicked
-        ///// </summary>
-        //public event EventHandler SaveClick;
-
-        ///// <summary>
-        ///// Occurs when Cancel is clicked.
-        ///// </summary>
-        //public event EventHandler CancelClick;
 
         #endregion
     }
