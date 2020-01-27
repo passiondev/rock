@@ -382,9 +382,9 @@ namespace Rock.Web.UI.Controls
 
             CreateChildControls();
 
-            if ( this.Parent is IDefinedValuePickerWithAdd )
+            if ( this.Parent is DefinedValuePickerWithAdd )
             {
-                var picker = this.Parent as IDefinedValuePickerWithAdd;
+                var picker = this.Parent as DefinedValuePickerWithAdd;
 
                 if ( this.IsMultiSelection )
                 {

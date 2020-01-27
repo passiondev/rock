@@ -397,24 +397,35 @@ namespace Rock.Field.Types
             int? definedTypeId = configurationValues != null && configurationValues.ContainsKey( DEFINED_TYPE_KEY ) ? configurationValues[DEFINED_TYPE_KEY].Value.AsIntegerOrNull() : null;
             int repeatColumns = ( configurationValues != null && configurationValues.ContainsKey( REPEAT_COLUMNS_KEY ) ? configurationValues[REPEAT_COLUMNS_KEY].Value.AsIntegerOrNull() : null ) ?? 4;
             bool allowAdd = configurationValues != null && configurationValues.ContainsKey( ALLOW_ADDING_NEW_VALUES_KEY ) ? configurationValues[ALLOW_ADDING_NEW_VALUES_KEY].Value.AsBoolean() : false;
-            bool enhanceForLongLists = ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() );
+            bool enhanceForLongLists = configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean();
+            bool allowMultiple = configurationValues != null && configurationValues.ContainsKey( ALLOW_MULTIPLE_KEY ) && configurationValues[ALLOW_MULTIPLE_KEY].Value.AsBoolean();
 
-            if ( configurationValues != null && configurationValues.ContainsKey( ALLOW_MULTIPLE_KEY ) && configurationValues[ALLOW_MULTIPLE_KEY].Value.AsBoolean() )
+            if ( allowMultiple )
             {
                 if ( allowAdd )
                 {
-                    if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                    editControl = new DefinedValuePickerWithAddMultipleSelect
                     {
-                        editControl = new DefinedValuePickerWithAddMultipleSelectEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd };
-                    }
-                    else
-                    {
-                        editControl = new DefinedValuePickerWithAddMultipleSelect { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns, IsAllowAddDefinedValue = allowAdd };
-                    }
+                        ID = id,
+                        DisplayDescriptions = useDescription,
+                        DefinedTypeId = definedTypeId,
+                        RepeatColumns = repeatColumns,
+                        IsAllowAddDefinedValue = allowAdd,
+                        EnhanceForLongLists = enhanceForLongLists
+                    };
+
+                    //if ( enhanceForLongLists )
+                    //{
+                    //    editControl = new DefinedValuePickerWithAddMultipleSelectEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
+                    //}
+                    //else
+                    //{
+                    //    editControl = new DefinedValuePickerWithAddMultipleSelect { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId, RepeatColumns = repeatColumns, IsAllowAddDefinedValue = allowAdd, EnhanceForLongLists = enhanceForLongLists };
+                    //}
                 }
                 else
                 {
-                    if ( configurationValues != null && configurationValues.ContainsKey( ENHANCED_SELECTION_KEY ) && configurationValues[ENHANCED_SELECTION_KEY].Value.AsBoolean() )
+                    if ( enhanceForLongLists )
                     {
                         editControl = new DefinedValuesPickerEnhanced { ID = id, DisplayDescriptions = useDescription, DefinedTypeId = definedTypeId };
                     }
@@ -467,7 +478,7 @@ namespace Rock.Field.Types
             var definedValueIdList = new List<int>();
 
             var definedValuePicker = control as IDefinedValuePicker;
-            var definedValuePickerWithAdd = control as IDefinedValuePickerWithAdd;
+            var definedValuePickerWithAdd = control as DefinedValuePickerWithAdd;
 
             if ( definedValuePicker != null )
             {
@@ -503,7 +514,7 @@ namespace Rock.Field.Types
             if ( value != null )
             {
                 var definedValuePicker = control as IDefinedValuePicker;
-                var definedValuePickerWithAdd = control as IDefinedValuePickerWithAdd;
+                var definedValuePickerWithAdd = control as DefinedValuePickerWithAdd;
 
                 if ( definedValuePicker == null && definedValuePickerWithAdd == null )
                 {

@@ -32,10 +32,19 @@ namespace Rock.Web.UI.Controls
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
             // Defined Value selector with Add button
-            writer.AddAttribute( "class", $"{this.ClientID}-js-defined-value-selector controls controls-row form-control-group checkboxlist-group" );
+            string additionalControlCSS = !EnhanceForLongLists ? "checkboxlist-group" : string.Empty;
+
+            writer.AddAttribute( "class", $"{this.ClientID}-js-defined-value-selector controls controls-row form-control-group {additionalControlCSS}" );
             writer.RenderBeginTag( HtmlTextWriterTag.Div );
 
-            _cblDefinedValues.RenderControl( writer );
+            if ( EnhanceForLongLists )
+            {
+                _lboxDefinedValues.RenderControl( writer );
+            }
+            else
+            {
+                _cblDefinedValues.RenderControl( writer );
+            }
 
             // Only render the Add button if the user is authorized to edit the defined type
             var definedType = DefinedTypeCache.Get( DefinedTypeId.Value );
@@ -53,80 +62,13 @@ namespace Rock.Web.UI.Controls
             writer.RenderEndTag();
         }
 
-        #region IDefinedValuePickerWtihAdd Implementation
-
-        /// <summary>
-        /// Gets the selected defined values identifier.
-        /// The field type uses this value for GetEditValue(). This is so all the DefinedValue pickers can share a field type.
-        /// </summary>
-        /// <value>
-        /// Returns the SelectedDefinedValueId in an array.
-        /// </value>
-        public override int[] SelectedDefinedValuesId
-        {
-            get
-            {
-                var selectedDefinedValuesId = new List<int>();
-
-                string selectedids = ViewState["SelectedDefinedValuesId"].ToStringSafe();
-                if ( selectedids.IsNotNullOrWhiteSpace() )
-                {
-                    string[] ids = selectedids.Split( ',' );
-                    foreach ( string id in ids )
-                    {
-                        int parsedint;
-                        if ( int.TryParse( id, out parsedint ) )
-                        {
-                            selectedDefinedValuesId.Add( parsedint );
-                        }
-                    }
-                }
-
-                return selectedDefinedValuesId.ToArray();
-            }
-
-            set
-            {
-                if ( value == null )
-                {
-                    ViewState["SelectedDefinedValuesId"] = string.Empty;
-                }
-                else
-                {
-                    var selectedDefinedValuesId = new List<int>();
-
-                    // check each value in the array to make sure it is valid and add it to the list
-                    foreach ( int selectedId in value )
-                    {
-                        if ( DefinedValueCache.Get( selectedId ) != null )
-                        {
-                            selectedDefinedValuesId.Add( selectedId );
-                        }
-                    }
-
-                    // join the list into a csv and save to ViewState["SelectedDefinedValueId"]
-                    ViewState["SelectedDefinedValuesId"] = string.Join( ",", selectedDefinedValuesId );
-                }
-
-                LoadDefinedValues();
-            }
-        }
-
         /// <summary>
         /// Loads the defined values.
         /// </summary>
         public override void LoadDefinedValues()
         {
-            _cblDefinedValues.Items.Clear();
-
             if ( DefinedTypeId.HasValue )
             {
-                if ( IncludeEmptyOption )
-                {
-                    // add Empty option first
-                    _cblDefinedValues.Items.Add( new ListItem() );
-                }
-
                 var definedTypeCache = DefinedTypeCache.Get( DefinedTypeId.Value );
                 var definedValuesList = definedTypeCache?.DefinedValues
                     .Where( a => a.IsActive || IncludeInactive || SelectedDefinedValuesId.Contains( a.Id ) )
@@ -136,23 +78,57 @@ namespace Rock.Web.UI.Controls
 
                 if ( definedValuesList != null && definedValuesList.Any() )
                 {
-                    foreach ( var definedValue in definedValuesList )
+                    if ( EnhanceForLongLists )
                     {
-                        _cblDefinedValues.Items.Add(
-                            new ListItem
-                            {
-                                Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
-                                Value = definedValue.Id.ToString(),
-                                Selected = SelectedDefinedValuesId.Contains( definedValue.Id )
-                            } );
+                        LoadListBox( definedValuesList );
+                    }
+                    else
+                    {
+                        LoadCheckBoxList( definedValuesList );
                     }
                 }
             }
         }
 
-        #endregion IDefinedValuePickerWtihAdd Implementation
+        private void LoadCheckBoxList( List<DefinedValueCache> definedValuesList )
+        {
+            _cblDefinedValues.Items.Clear();
+
+            foreach ( var definedValue in definedValuesList )
+            {
+                _cblDefinedValues.Items.Add(
+                    new ListItem
+                    {
+                        Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
+                        Value = definedValue.Id.ToString(),
+                        Selected = SelectedDefinedValuesId.Contains( definedValue.Id )
+                    } );
+            }
+        }
+
+        private void LoadListBox( List<DefinedValueCache> definedValuesList )
+        {
+            _lboxDefinedValues.Items.Clear();
+
+            if ( IncludeEmptyOption )
+            {
+                _lboxDefinedValues.Items.Add( new ListItem() );
+            }
+
+            foreach ( var definedValue in definedValuesList )
+            {
+                _lboxDefinedValues.Items.Add(
+                    new ListItem
+                    {
+                        Text = DisplayDescriptions ? definedValue.Description : definedValue.Value,
+                        Value = definedValue.Id.ToString(),
+                        Selected = SelectedDefinedValuesId.Contains( definedValue.Id )
+                    } );
+            }
+        }
 
         private RockCheckBoxList _cblDefinedValues;
+        private RockListBox _lboxDefinedValues;
 
         /// <summary>
         /// Gets or sets the repeat direction.
@@ -171,44 +147,32 @@ namespace Rock.Web.UI.Controls
         public int RepeatColumns { get; set; } = 4;
 
         /// <summary>
-        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
-        protected override void OnLoad( EventArgs e )
-        {
-            base.OnLoad( e );
-
-            // After adding a new value this will post back so we should re-load the defined value list so the new one is included.
-            EnsureChildControls();
-        }
-
-        /// <summary>
-        /// Outputs server control content to a provided <see cref="T:System.Web.UI.HtmlTextWriter" /> object and stores tracing information about the control if tracing is enabled.
-        /// </summary>
-        /// <param name="writer">The <see cref="T:System.Web.UI.HtmlTextWriter" /> object that receives the control content.</param>
-        public override void RenderControl( HtmlTextWriter writer )
-        {
-            if ( this.Visible )
-            {
-                RockControlHelper.RenderControl( this, writer );
-            }
-        }
-
-        /// <summary>
         /// Called by the ASP.NET page framework to notify server controls that use composition-based implementation to create any child controls they contain in preparation for posting back or rendering.
         /// </summary>
         protected override void CreateChildControls()
         {
             base.CreateChildControls();
 
-            _cblDefinedValues = new RockCheckBoxList();
-            _cblDefinedValues.ID = this.ID + "_cblDefinedValues";
-            _cblDefinedValues.Style.Add( "width", "85%" );
-            _cblDefinedValues.RepeatColumns = this.RepeatColumns;
-            _cblDefinedValues.RepeatDirection = this.RepeatDirection;
-            _cblDefinedValues.AutoPostBack = true;
-            _cblDefinedValues.SelectedIndexChanged += cblDefinedValues_SelectedIndexChanged;
-            Controls.Add( _cblDefinedValues );
+            if ( EnhanceForLongLists )
+            {
+                _lboxDefinedValues = new RockListBox();
+                _lboxDefinedValues.ID = this.ID + "_lboxDefinedValues";
+                _lboxDefinedValues.Style.Add( "width", "85%" );
+                _lboxDefinedValues.AutoPostBack = true;
+                _lboxDefinedValues.SelectedIndexChanged += lboxDefinedValues_SelectedIndexChanged;
+                Controls.Add( _lboxDefinedValues );
+            }
+            else
+            {
+                _cblDefinedValues = new RockCheckBoxList();
+                _cblDefinedValues.ID = this.ID + "_cblDefinedValues";
+                _cblDefinedValues.Style.Add( "width", "85%" );
+                _cblDefinedValues.RepeatColumns = this.RepeatColumns;
+                _cblDefinedValues.RepeatDirection = this.RepeatDirection;
+                _cblDefinedValues.AutoPostBack = true;
+                _cblDefinedValues.SelectedIndexChanged += cblDefinedValues_SelectedIndexChanged;
+                Controls.Add( _cblDefinedValues );
+            }
 
             LinkButtonAddDefinedValue = new LinkButton();
             LinkButtonAddDefinedValue.ID = this.ID + "_lbAddDefinedValue";
@@ -216,6 +180,8 @@ namespace Rock.Web.UI.Controls
             LinkButtonAddDefinedValue.CssClass = "btn btn-default btn-link js-button-add-defined-value";
             LinkButtonAddDefinedValue.OnClientClick = $"javascript:$('.{this.ClientID}-js-defined-value-selector').fadeToggle(400, 'swing', function() {{ $('#{DefinedValueEditorControl.ClientID}').fadeToggle(); }});  return false;";
             Controls.Add( LinkButtonAddDefinedValue );
+
+            DefinedValueEditorControl.IsMultiSelection = true;
 
             LoadDefinedValues();
         }
@@ -228,6 +194,21 @@ namespace Rock.Web.UI.Controls
         protected void cblDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
         {
             SelectedDefinedValuesId = ( ( RockCheckBoxList ) sender )
+                .Items.OfType<ListItem>()
+                .Where( a => a.Selected )
+                .Select( a => a.Value )
+                .AsIntegerList()
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Handles the SelectedIndexChanged event of the lboxDefinedValues control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        protected void lboxDefinedValues_SelectedIndexChanged( object sender, EventArgs e )
+        {
+            SelectedDefinedValuesId = ( ( RockListBox ) sender )
                 .Items.OfType<ListItem>()
                 .Where( a => a.Selected )
                 .Select( a => a.Value )
