@@ -18,7 +18,7 @@ namespace Rock.Web.UI.Controls
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IRockControl" />
     /// <seealso cref="Rock.Web.UI.Controls.IDefinedValuePickerWithAdd" />
-    public class DefinedValuePickerWithAdd : CompositeControl, IRockControl, IDefinedValuePickerWithAdd
+    public class DefinedValuePickerWithAdd : CompositeControl, IRockControl
     {
         #region IRockControl Implementation
 
@@ -226,8 +226,6 @@ namespace Rock.Web.UI.Controls
 
         #endregion IRockControl Implementation
 
-        #region IDefinedValuePickerWtihAdd Implementation
-
         /// <summary>
         /// Gets the selected defined values identifier.
         /// The field type uses this value for GetEditValue(). This is so all the DefinedValue pickers can share a field type.
@@ -302,8 +300,6 @@ namespace Rock.Web.UI.Controls
         {
             throw new NotImplementedException();
         }
-
-        #endregion IDefinedValuePickerWtihAdd Implementation
 
         /// <summary>
         /// Gets or sets the defined value editor control.
