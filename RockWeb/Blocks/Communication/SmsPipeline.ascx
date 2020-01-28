@@ -74,10 +74,10 @@
 
                     <div class="row">
                         <div class="col-sm-6">
-                            <Rock:RockTextBox ID="tbFromNumber" runat="server" Label="From Number" Placeholder="+16235553322" Help="This is the number for the person sending the text. The number must be formatted correctly. (+16235553322)" />
+                            <Rock:RockTextBox ID="tbFromNumber" runat="server" Label="From Number" Placeholder="+16235553322" Help="This is the number for the person sending the text. The number must be formatted correctly. (ex: +16235553322)" />
                         </div>
                         <div class="col-sm-6">
-                            <Rock:RockTextBox ID="tbToNumber" runat="server" Label="To Number" Placeholder="+15559991234" Help="This will probably be the number linked to your SMS provider. The number must be formatted correctly. (+15559991234)" />
+                            <Rock:RockTextBox ID="tbToNumber" runat="server" Label="To Number" Placeholder="+15559991234" Help="This will probably be the number linked to your SMS provider. The number must be formatted correctly. (ex: +15559991234)" />
                         </div>
                     </div>
 
