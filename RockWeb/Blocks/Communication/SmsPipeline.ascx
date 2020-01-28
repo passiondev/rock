@@ -39,6 +39,9 @@
                     <div class="col-md-6">
                         <Rock:RockLiteral ID="lSmsName" runat="server" Label="Name" />
                     </div>
+                    <div class="col-md-6">
+                        <Rock:RockLiteral ID="lWebhookUrl" runat="server" Label="Webhook Url" />
+                    </div>
                 </div>
 
                 <div class="row">
