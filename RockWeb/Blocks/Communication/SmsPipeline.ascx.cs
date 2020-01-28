@@ -120,9 +120,6 @@ namespace RockWeb.Blocks.Communication
                 avcAttributes.ExcludedAttributes = attributes.ToArray();
                 avcAttributes.ExcludedCategoryNames = new string[] { SmsActionComponent.BaseAttributeCategories.Filters };
                 avcFilters.IncludedCategoryNames = new string[] { SmsActionComponent.BaseAttributeCategories.Filters };
-
-                tbFromNumber.Text = "+16235553322"; // Ted Decker's cell
-                tbToNumber.Text = "+15559991234"; // Fake church number
             }
             else
             {
@@ -506,7 +503,9 @@ namespace RockWeb.Blocks.Communication
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void lbSendMessage_Click( object sender, EventArgs e )
         {
-            if ( !string.IsNullOrWhiteSpace( tbSendMessage.Text ) )
+            var smsPipelineId = GetEntityId();
+
+            if ( !string.IsNullOrWhiteSpace( tbSendMessage.Text ) && smsPipelineId != null )
             {
                 var message = new SmsMessage
                 {
@@ -524,7 +523,7 @@ namespace RockWeb.Blocks.Communication
                     message.FromPerson = new PersonService( RockContext ).GetPersonFromMobilePhoneNumber( message.FromNumber, true );
                 }
 
-                var outcomes = SmsActionService.ProcessIncomingMessage( message );
+                var outcomes = SmsActionService.ProcessIncomingMessage( message, smsPipelineId.Value );
                 var response = SmsActionService.GetResponseFromOutcomes( outcomes );
 
                 var stringBuilder = new StringBuilder();
@@ -571,7 +570,7 @@ namespace RockWeb.Blocks.Communication
             }
             else
             {
-                lResponse.Text = "--Empty Message--";
+                lResponse.Text = "--Empty Message or No SMS Pipeline Id--";
                 preOutcomes.InnerText = string.Empty;
             }
         }

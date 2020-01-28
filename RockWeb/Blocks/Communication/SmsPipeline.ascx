@@ -68,15 +68,16 @@
             <div runat="server" ClientIDMode="Static" id="divTestingDrawer" class="js-test-results panel-drawer" style="display: none">
                 <div class="drawer-content">
                     <div class="alert alert-info" role="alert">
-                        Test the results of your SMS Pipeline. While this message originates and ends here in this testing block, the actions that it triggers may have non-testing consequences.
+                        <p>Using the form below will allow you to test your pipeline without having to use your SMS Provider.</p>
+                        <p>While this message originates and ends here in this testing block, there could be side effects such as running a workflow, creating a conversation, or sending additional SMS messages.</p>
                     </div>
 
                     <div class="row">
                         <div class="col-sm-6">
-                            <Rock:RockTextBox ID="tbFromNumber" runat="server" Label="From Number" />
+                            <Rock:RockTextBox ID="tbFromNumber" runat="server" Label="From Number" Placeholder="+16235553322" Help="This is the number for the person sending the text. The number must be formatted correctly. (+16235553322)" />
                         </div>
                         <div class="col-sm-6">
-                            <Rock:RockTextBox ID="tbToNumber" runat="server" Label="To Number" />
+                            <Rock:RockTextBox ID="tbToNumber" runat="server" Label="To Number" Placeholder="+15559991234" Help="This will probably be the number linked to your SMS provider. The number must be formatted correctly. (+15559991234)" />
                         </div>
                     </div>
 
