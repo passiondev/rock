@@ -431,7 +431,7 @@ namespace RockWeb.Blocks.Communication
 
             Rock.Model.SmsPipeline smsPipeline = null;
 
-            if(smsPipelineId == 0 )
+            if( smsPipelineId == null || smsPipelineId == 0 )
             {
                 smsPipeline = new Rock.Model.SmsPipeline();
                 smsPipelineService.Add( smsPipeline );
