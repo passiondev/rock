@@ -15,11 +15,10 @@ namespace Rock.Web.UI.Controls
     /// This class creates a control to add a defined value to a defined type.
     /// </summary>
     /// <seealso cref="System.Web.UI.WebControls.CompositeControl" />
-    public class DefinedValueEditor : CompositeControl
+    public class DefinedValueEditor : CompositeControl, IHasValidationGroup
     {
         private HiddenField _hfDefinedValueId;
         private ValidationSummary _valSummaryValue;
-        private RequiredFieldValidator _rfvDefinedValue;
         private Literal _lActionTitleDefinedValue;
         private DataTextBox _tbValueName;
         private DataTextBox _tbValueDescription;
@@ -190,6 +189,18 @@ namespace Rock.Web.UI.Controls
         /// </value>
         public string DefinedValueSelectorClientId { get; set; }
 
+        /// <summary>
+        /// Gets or sets the validation group. (Default is RockBlock's BlockValidationGroup)
+        /// </summary>
+        /// <value>
+        /// The validation group.
+        /// </value>
+        public string ValidationGroup
+        {
+            get => ViewState["ValidationGroup"] as string ?? "DefinedValueValidationGroup";
+            set => ViewState["ValidationGroup"] = value;
+        }
+
         #region Overridden Control Methods
 
         /// <summary>
@@ -235,7 +246,7 @@ namespace Rock.Web.UI.Controls
             _valSummaryValue = new ValidationSummary();
             _valSummaryValue.ID = this.ID + "_valSummaryValue ";
             _valSummaryValue.AddCssClass( "alert alert-validation" );
-            _valSummaryValue.ValidationGroup = "DefinedValueValidationGroup";
+            _valSummaryValue.ValidationGroup = ValidationGroup;
             _valSummaryValue.HeaderText = "Please correct the following:";
             Controls.Add( _valSummaryValue );
 
@@ -243,29 +254,22 @@ namespace Rock.Web.UI.Controls
             _lActionTitleDefinedValue.ID = this.ID + "_lActionTitleDefinedValue";
             Controls.Add( _lActionTitleDefinedValue );
 
-            ////_rfvDefinedValue = new RequiredFieldValidator();
-            ////_rfvDefinedValue.ID = this.ID + "_rfvDefinedValue";
-            ////_rfvDefinedValue.ErrorMessage = "You must enter a value.";
-            ////_rfvDefinedValue.Display = ValidatorDisplay.Dynamic;
-            ////_rfvDefinedValue.Enabled = true;
-
             _tbValueName = new DataTextBox();
             _tbValueName.ID = this.ID + "_tbValueName";
             _tbValueName.SourceTypeName = "Rock.Model.DefinedValue, Rock";
             _tbValueName.PropertyName = "Value";
-            _tbValueName.ValidationGroup = _valSummaryValue.ValidationGroup;
+            _tbValueName.ValidationGroup = ValidationGroup;
             _tbValueName.Placeholder = "Value";
-            ////_tbValueName.Label = " ";
-            ////_tbValueName.Required = true;
-            ////_tbValueName.RequiredFieldValidator = _rfvDefinedValue;
-            ////_tbValueName.CausesValidation = true;
+            _tbValueName.Label = "Value";
+            _tbValueName.Required = true;
+            _tbValueName.CausesValidation = true;
             Controls.Add( _tbValueName );
 
             _tbValueDescription = new DataTextBox();
             _tbValueDescription.ID = this.ID + "_tbValueDescription";
             _tbValueDescription.SourceTypeName = "Rock.Model.DefinedValue, Rock";
             _tbValueDescription.PropertyName = "Description";
-            _tbValueDescription.ValidationGroup = _valSummaryValue.ValidationGroup;
+            _tbValueDescription.ValidationGroup = ValidationGroup;
             _tbValueDescription.Placeholder = "Description";
             _tbValueDescription.Label = " ";
             _tbValueDescription.TextMode = TextBoxMode.MultiLine;
@@ -275,12 +279,15 @@ namespace Rock.Web.UI.Controls
 
             _avcDefinedValueAttributes = new AttributeValuesContainer();
             _avcDefinedValueAttributes.ID = this.ID + "_avcDefinedValueAttributes";
+            _avcDefinedValueAttributes.ValidationGroup = ValidationGroup;
             Controls.Add( _avcDefinedValueAttributes );
 
             _btnSave = new LinkButton();
             _btnSave.ID = this.ID + "_btnSave";
             _btnSave.Text = "Add";
             _btnSave.CssClass = "btn btn-primary btn-xs";
+            _btnSave.ValidationGroup = ValidationGroup;
+            _btnSave.CausesValidation = true;
             _btnSave.Click += btnSave_Click;
             Controls.Add( _btnSave );
 
