@@ -41,6 +41,12 @@ namespace RockWeb.Blocks.Communication
     {
         #region Properties
         private RockContext _rockContext = null;
+        /// <summary>
+        /// Gets the rock context.
+        /// </summary>
+        /// <value>
+        /// The rock context.
+        /// </value>
         private RockContext RockContext {
             get
             {
@@ -89,7 +95,7 @@ namespace RockWeb.Blocks.Communication
             {
                 BindComponents();
 
-                int? smsPipelineId = GetEntityId();
+                int? smsPipelineId = GetSmsPipelineId();
                 Rock.Model.SmsPipeline smsPipeline = null;
 
                 if(smsPipelineId == null || smsPipelineId == 0 )
@@ -99,11 +105,7 @@ namespace RockWeb.Blocks.Communication
                 else
                 {
                     var smsPipelineService = new SmsPipelineService( RockContext );
-                    smsPipeline = smsPipelineService
-                                .Queryable( "SmsActions" )
-                                .Where( p => p.Id == smsPipelineId.Value )
-                                .FirstOrDefault();
-
+                    smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService, "SmsActions" );
                     BindReadOnlyDetails( smsPipeline );
                 }
                                
@@ -164,6 +166,10 @@ namespace RockWeb.Blocks.Communication
             rptrComponents.DataBind();
         }
 
+        /// <summary>
+        /// Binds the pipeline details read only section.
+        /// </summary>
+        /// <param name="smsPipeline">The SMS pipeline.</param>
         private void BindReadOnlyDetails( Rock.Model.SmsPipeline smsPipeline )
         {
             divSmsActionsPanel.Visible = true;
@@ -179,9 +185,13 @@ namespace RockWeb.Blocks.Communication
 
             var globalAttributes = GlobalAttributesCache.Get();
             string publicAppRoot = globalAttributes.GetValue( "PublicApplicationRoot" ).EnsureTrailingForwardslash();
-            lWebhookUrl.Text = string.Format( "{0}{1}?{2}={3}", publicAppRoot, "Webhooks/TwilioSms.ashx", PageParameterKey.EntityId, GetEntityId() );
+            lWebhookUrl.Text = string.Format( "{0}{1}?{2}={3}", publicAppRoot, "Webhooks/TwilioSms.ashx", PageParameterKey.EntityId, GetSmsPipelineId() );
         }
 
+        /// <summary>
+        /// Binds the pipeline details edit section.
+        /// </summary>
+        /// <param name="smsPipeline">The SMS pipeline.</param>
         private void BindEditDetails( Rock.Model.SmsPipeline smsPipeline )
         {
             divReadOnlyDetails.Visible = false;
@@ -204,22 +214,26 @@ namespace RockWeb.Blocks.Communication
             tbPipelineDescription.Text = smsPipeline.Description;
         }
 
+        /// <summary>
+        /// Binds the pipeline actions section.
+        /// </summary>
         private void BindActions()
         {
-            var smsPipelineId = GetEntityId();
-            if(smsPipelineId == null || smsPipelineId == 0 )
+            var smsPipelineId = GetSmsPipelineId();
+            if ( smsPipelineId == null || smsPipelineId == 0 )
             {
                 return;
             }
 
             var smsPipelineService = new SmsPipelineService( RockContext );
-            var smsPipeline = smsPipelineService
-                        .Queryable( "SmsActions" )
-                        .Where( p => p.Id == smsPipelineId.Value )
-                        .FirstOrDefault();
+            Rock.Model.SmsPipeline smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService, "SmsActions" );
             BindActions( smsPipeline );
         }
 
+        /// <summary>
+        /// Binds the pipeline actions section for a specific Sms Pipeline.
+        /// </summary>
+        /// <param name="smsPipeline">The SMS pipeline.</param>
         private void BindActions( Rock.Model.SmsPipeline smsPipeline )
         {
             if ( smsPipeline == null )
@@ -257,6 +271,21 @@ namespace RockWeb.Blocks.Communication
         }
 
         /// <summary>
+        /// Gets the SmsPipeline for the specified smsPipelineId
+        /// </summary>
+        /// <param name="smsPipelineId">The SMS pipeline identifier.</param>
+        /// <param name="smsPipelineService">The SMS pipeline service.</param>
+        /// <param name="includes">The includes.</param>
+        /// <returns></returns>
+        private Rock.Model.SmsPipeline GetSmsPipeline( int smsPipelineId, SmsPipelineService smsPipelineService, string includes = "" )
+        {
+            return smsPipelineService
+                        .Queryable( includes )
+                        .Where( p => p.Id == smsPipelineId )
+                        .FirstOrDefault();
+        }
+
+        /// <summary>
         /// Processes the drag events.
         /// </summary>
         private void ProcessDragEvents()
@@ -276,7 +305,7 @@ namespace RockWeb.Blocks.Communication
 
                 var action = new SmsAction
                 {
-                    SmsPipelineId = GetEntityId().Value,
+                    SmsPipelineId = GetSmsPipelineId().Value,
                     Name = actionComponent.Title,
                     IsActive = true,
                     Order = order,
@@ -318,7 +347,11 @@ namespace RockWeb.Blocks.Communication
             }
         }
 
-        private int? GetEntityId()
+        /// <summary>
+        /// Gets the SmsPipelineId and returns null if none is found.
+        /// </summary>
+        /// <returns></returns>
+        private int? GetSmsPipelineId()
         {
             return PageParameter(PageParameterKey.EntityId).AsIntegerOrNull();
         }
@@ -386,20 +419,26 @@ namespace RockWeb.Blocks.Communication
             BindActions();
         }
 
+        /// <summary>
+        /// Handles the Click event of the btnSave control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnSave_Click( object sender, EventArgs e)
         {
-            var smsPipelineId = GetEntityId();
+            var smsPipelineId = GetSmsPipelineId();
             var smsPipelineService = new SmsPipelineService( RockContext );
 
-            var smsPipeline = smsPipelineService
-                                .Queryable()
-                                .Where( p => p.Id == smsPipelineId )
-                                .FirstOrDefault();
+            Rock.Model.SmsPipeline smsPipeline = null;
 
             if(smsPipelineId == 0 )
             {
                 smsPipeline = new Rock.Model.SmsPipeline();
                 smsPipelineService.Add( smsPipeline );
+            }
+            else
+            {
+                smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService );
             }
 
             if( smsPipeline == null )
@@ -419,9 +458,14 @@ namespace RockWeb.Blocks.Communication
             NavigateToPage( RockPage.Guid, qryParams );
         }
 
+        /// <summary>
+        /// Handles the Click event of the btnCancel control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnCancel_Click( object sender, EventArgs e )
         {
-            var smsPipelineId = GetEntityId();
+            var smsPipelineId = GetSmsPipelineId();
             if(smsPipelineId == null || smsPipelineId == 0 )
             {
                 NavigateToParentPage();
@@ -435,22 +479,34 @@ namespace RockWeb.Blocks.Communication
             }
         }
 
+        /// <summary>
+        /// Handles the Click event of the btnEdit control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnEdit_Click( object sender, EventArgs e )
         {
-            var smsPipelineId = GetEntityId();
-            var smsPipelineService = new SmsPipelineService( RockContext );
+            var smsPipelineId = GetSmsPipelineId();
+            if(smsPipelineId == null )
+            {
+                return;
+            }
 
-            var smsPipeline = smsPipelineService
-                                .Queryable()
-                                .Where( p => p.Id == smsPipelineId )
-                                .FirstOrDefault();
+            var smsPipelineService = new SmsPipelineService( RockContext );
+            var smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService, "SmsActions" );
+
             BindEditDetails( smsPipeline );
             BindActions( smsPipeline );
         }
 
+        /// <summary>
+        /// Handles the Click event of the btnDelete control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void btnDelete_Click( object sender, EventArgs e )
         {
-            var smsPipelineId = GetEntityId();
+            var smsPipelineId = GetSmsPipelineId();
 
             if(smsPipelineId == null || smsPipelineId == 0 )
             {
@@ -507,7 +563,7 @@ namespace RockWeb.Blocks.Communication
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         protected void lbSendMessage_Click( object sender, EventArgs e )
         {
-            var smsPipelineId = GetEntityId();
+            var smsPipelineId = GetSmsPipelineId();
 
             if ( !string.IsNullOrWhiteSpace( tbSendMessage.Text ) && smsPipelineId != null )
             {
