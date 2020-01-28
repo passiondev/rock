@@ -70,6 +70,8 @@
                             <Rock:GroupPicker ID="gpStructureGroupPicker" runat="server" Visible="false" />
                             <Rock:GroupTypePicker ID="gtpStructureGroupTypePicker" runat="server" Visible="false" />
                             <Rock:DefinedValuePicker ID="dvpStructureGroupTypePurposePicker" runat="server" Visible="false" />
+                            <Rock:DefinedValuePicker ID="dvpInteractionMedium" runat="server" Visible="false" />
+                            <Rock:ContentChannelItemPicker
                         </div>
                         <div class="col-md-6">
                             <Rock:DataDropDownList ID="ddlFrequencyOccurrence" runat="server" SourceTypeName="Rock.Model.StreakType, Rock" Label="Frequency" PropertyName="OccurrenceFrequency" DataTextField="Text" DataValueField="Value" OnSelectedIndexChanged="ddlFrequencyOccurrence_SelectedIndexChanged" AutoPostBack="true" />
