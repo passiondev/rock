@@ -37,7 +37,7 @@ namespace RockWeb.Blocks.Communication
     [DisplayName( "SMS Pipeline Detail" )]
     [Category( "Communication" )]
     [Description( "Configures the pipeline that processes an incoming SMS message." )]
-    public partial class SmsPipeline : RockBlock
+    public partial class SmsPipelineDetail : RockBlock
     {
         #region Page Parameter Keys
 
@@ -62,7 +62,7 @@ namespace RockWeb.Blocks.Communication
             base.OnInit( e );
 
             RockPage.AddScriptLink( "~/Scripts/dragula.min.js" );
-            btnDelete.Attributes["onclick"] = string.Format( "javascript: return Rock.dialogs.confirmDelete(event, '{0}');", Rock.Model.SmsPipeline.FriendlyTypeName );
+            btnDelete.Attributes["onclick"] = string.Format( "javascript: return Rock.dialogs.confirmDelete(event, '{0}');", SmsPipeline.FriendlyTypeName );
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace RockWeb.Blocks.Communication
                 BindComponents();
 
                 int? smsPipelineId = GetSmsPipelineId();
-                Rock.Model.SmsPipeline smsPipeline = null;
+                SmsPipeline smsPipeline = null;
 
                 if ( smsPipelineId == null || smsPipelineId == 0 )
                 {
@@ -150,7 +150,7 @@ namespace RockWeb.Blocks.Communication
         /// Binds the pipeline details read only section.
         /// </summary>
         /// <param name="smsPipeline">The SMS pipeline.</param>
-        private void BindReadOnlyDetails( Rock.Model.SmsPipeline smsPipeline )
+        private void BindReadOnlyDetails( SmsPipeline smsPipeline )
         {
             divSmsActionsPanel.Visible = true;
             divEditDetails.Visible = false;
@@ -172,7 +172,7 @@ namespace RockWeb.Blocks.Communication
         /// Binds the pipeline details edit section.
         /// </summary>
         /// <param name="smsPipeline">The SMS pipeline.</param>
-        private void BindEditDetails( Rock.Model.SmsPipeline smsPipeline )
+        private void BindEditDetails( SmsPipeline smsPipeline )
         {
             divReadOnlyDetails.Visible = false;
             divSmsActionsPanel.Visible = false;
@@ -206,7 +206,7 @@ namespace RockWeb.Blocks.Communication
             }
 
             var smsPipelineService = new SmsPipelineService( new RockContext() );
-            Rock.Model.SmsPipeline smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService, "SmsActions" );
+            SmsPipeline smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService, "SmsActions" );
             BindActions( smsPipeline );
         }
 
@@ -214,7 +214,7 @@ namespace RockWeb.Blocks.Communication
         /// Binds the pipeline actions section for a specific Sms Pipeline.
         /// </summary>
         /// <param name="smsPipeline">The SMS pipeline.</param>
-        private void BindActions( Rock.Model.SmsPipeline smsPipeline )
+        private void BindActions( SmsPipeline smsPipeline )
         {
             if ( smsPipeline == null )
             {
@@ -257,7 +257,7 @@ namespace RockWeb.Blocks.Communication
         /// <param name="smsPipelineService">The SMS pipeline service.</param>
         /// <param name="includes">The includes.</param>
         /// <returns></returns>
-        private Rock.Model.SmsPipeline GetSmsPipeline( int smsPipelineId, SmsPipelineService smsPipelineService, string includes = "" )
+        private SmsPipeline GetSmsPipeline( int smsPipelineId, SmsPipelineService smsPipelineService, string includes = "" )
         {
             return smsPipelineService
                         .Queryable( includes )
@@ -413,11 +413,11 @@ namespace RockWeb.Blocks.Communication
             var rockContext = new RockContext();
             var smsPipelineService = new SmsPipelineService( rockContext );
 
-            Rock.Model.SmsPipeline smsPipeline = null;
+            SmsPipeline smsPipeline = null;
 
             if ( smsPipelineId == null || smsPipelineId == 0 )
             {
-                smsPipeline = new Rock.Model.SmsPipeline();
+                smsPipeline = new SmsPipeline();
                 smsPipelineService.Add( smsPipeline );
             }
             else
