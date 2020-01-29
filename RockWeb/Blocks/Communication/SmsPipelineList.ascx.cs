@@ -76,13 +76,10 @@ namespace RockWeb.Blocks.Communication
         {
             base.OnInit( e );
 
-            if ( IsUserAuthorized( Authorization.ADMINISTRATE ) )
-            {
-                gSmsPipelines.DataKeyNames = new string[] { "Id" };
-                gSmsPipelines.Actions.ShowAdd = true;
-                gSmsPipelines.Actions.AddClick += gSmsPipelines_AddClick;
-                gSmsPipelines.GridRebind += gSmsPipelines_GridRebind;
-            }
+            gSmsPipelines.DataKeyNames = new string[] { "Id" };
+            gSmsPipelines.Actions.ShowAdd = true;
+            gSmsPipelines.Actions.AddClick += gSmsPipelines_AddClick;
+            gSmsPipelines.GridRebind += gSmsPipelines_GridRebind;
         }
 
         /// <summary>
@@ -93,18 +90,9 @@ namespace RockWeb.Blocks.Communication
         {
             nbMessage.Visible = false;
 
-            if ( IsUserAuthorized( Authorization.ADMINISTRATE ) )
+            if ( !Page.IsPostBack )
             {
-                if ( !Page.IsPostBack )
-                {
-                    BindGrid();
-                }
-            }
-            else
-            {
-                gSmsPipelines.Visible = false;
-                nbMessage.Text = WarningMessage.NotAuthorizedToEdit( SystemEmail.FriendlyTypeName );
-                nbMessage.Visible = true;
+                BindGrid();
             }
 
             base.OnLoad( e );
