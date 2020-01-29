@@ -34,18 +34,18 @@ using Rock.Web.Cache;
 /// </summary>
 public class TwilioSmsAsync : IHttpAsyncHandler
 {
-    public IAsyncResult BeginProcessRequest(HttpContext context, AsyncCallback cb, Object extraData)
+    public IAsyncResult BeginProcessRequest( HttpContext context, AsyncCallback cb, Object extraData )
     {
-        TwilioSmsResponseAsync twilioAsync = new TwilioSmsResponseAsync(cb, context, extraData);
+        TwilioSmsResponseAsync twilioAsync = new TwilioSmsResponseAsync( cb, context, extraData );
         twilioAsync.StartAsyncWork();
         return twilioAsync;
     }
 
-    public void EndProcessRequest(IAsyncResult result)
+    public void EndProcessRequest( IAsyncResult result )
     {
     }
 
-    public void ProcessRequest(HttpContext context)
+    public void ProcessRequest( HttpContext context )
     {
         throw new InvalidOperationException();
     }
@@ -205,7 +205,7 @@ class TwilioSmsResponseAsync : IAsyncResult
                 var smsPipelineId = request.QueryString["smsPipelineId"].AsIntegerOrNull();
                 var outcomes = SmsActionService.ProcessIncomingMessage( message, smsPipelineId );
                 var smsResponse = SmsActionService.GetResponseFromOutcomes( outcomes );
-                
+
                 if ( smsResponse != null )
                 {
                     var twilioMessage = new Twilio.TwiML.Message();

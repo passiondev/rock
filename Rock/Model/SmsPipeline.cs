@@ -41,8 +41,8 @@ namespace Rock.Model
         /// The name of the pipeline.
         /// </value>
         [Required]
-        [DataMember(IsRequired = true)]
-        [MaxLength(100)]
+        [DataMember( IsRequired = true )]
+        [MaxLength( 100 )]
         public string Name { get; set; }
 
         /// <summary>

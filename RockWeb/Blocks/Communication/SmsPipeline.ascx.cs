@@ -47,10 +47,11 @@ namespace RockWeb.Blocks.Communication
         /// <value>
         /// The rock context.
         /// </value>
-        private RockContext RockContext {
+        private RockContext RockContext
+        {
             get
             {
-                if(_rockContext == null )
+                if ( _rockContext == null )
                 {
                     _rockContext = new RockContext();
                 }
@@ -98,7 +99,7 @@ namespace RockWeb.Blocks.Communication
                 int? smsPipelineId = GetSmsPipelineId();
                 Rock.Model.SmsPipeline smsPipeline = null;
 
-                if(smsPipelineId == null || smsPipelineId == 0 )
+                if ( smsPipelineId == null || smsPipelineId == 0 )
                 {
                     BindEditDetails( null );
                 }
@@ -108,7 +109,7 @@ namespace RockWeb.Blocks.Communication
                     smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService, "SmsActions" );
                     BindReadOnlyDetails( smsPipeline );
                 }
-                               
+
                 BindActions( smsPipeline );
 
                 //
@@ -353,7 +354,7 @@ namespace RockWeb.Blocks.Communication
         /// <returns></returns>
         private int? GetSmsPipelineId()
         {
-            return PageParameter(PageParameterKey.EntityId).AsIntegerOrNull();
+            return PageParameter( PageParameterKey.EntityId ).AsIntegerOrNull();
         }
 
         #endregion
@@ -424,14 +425,14 @@ namespace RockWeb.Blocks.Communication
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        protected void btnSave_Click( object sender, EventArgs e)
+        protected void btnSave_Click( object sender, EventArgs e )
         {
             var smsPipelineId = GetSmsPipelineId();
             var smsPipelineService = new SmsPipelineService( RockContext );
 
             Rock.Model.SmsPipeline smsPipeline = null;
 
-            if( smsPipelineId == null || smsPipelineId == 0 )
+            if ( smsPipelineId == null || smsPipelineId == 0 )
             {
                 smsPipeline = new Rock.Model.SmsPipeline();
                 smsPipelineService.Add( smsPipeline );
@@ -441,7 +442,7 @@ namespace RockWeb.Blocks.Communication
                 smsPipeline = GetSmsPipeline( smsPipelineId.Value, smsPipelineService );
             }
 
-            if( smsPipeline == null )
+            if ( smsPipeline == null )
             {
                 return;
             }
@@ -466,7 +467,7 @@ namespace RockWeb.Blocks.Communication
         protected void btnCancel_Click( object sender, EventArgs e )
         {
             var smsPipelineId = GetSmsPipelineId();
-            if(smsPipelineId == null || smsPipelineId == 0 )
+            if ( smsPipelineId == null || smsPipelineId == 0 )
             {
                 NavigateToParentPage();
             }
@@ -487,7 +488,7 @@ namespace RockWeb.Blocks.Communication
         protected void btnEdit_Click( object sender, EventArgs e )
         {
             var smsPipelineId = GetSmsPipelineId();
-            if(smsPipelineId == null )
+            if ( smsPipelineId == null )
             {
                 return;
             }
@@ -508,7 +509,7 @@ namespace RockWeb.Blocks.Communication
         {
             var smsPipelineId = GetSmsPipelineId();
 
-            if(smsPipelineId == null || smsPipelineId == 0 )
+            if ( smsPipelineId == null || smsPipelineId == 0 )
             {
                 return;
             }
@@ -576,7 +577,7 @@ namespace RockWeb.Blocks.Communication
 
                 if ( message.FromNumber.StartsWith( "+" ) )
                 {
-                    message.FromPerson = new PersonService( RockContext ).GetPersonFromMobilePhoneNumber( message.FromNumber.Substring(1), true );
+                    message.FromPerson = new PersonService( RockContext ).GetPersonFromMobilePhoneNumber( message.FromNumber.Substring( 1 ), true );
                 }
                 else
                 {
@@ -602,7 +603,7 @@ namespace RockWeb.Blocks.Communication
                                 stringBuilder.AppendLine( string.Format( "\tResponse = {0}", outcome.Response.Message ) );
                             }
 
-                            if (!outcome.ErrorMessage.IsNullOrWhiteSpace())
+                            if ( !outcome.ErrorMessage.IsNullOrWhiteSpace() )
                             {
                                 stringBuilder.AppendLine( string.Format( "\tError = {0}", outcome.ErrorMessage ) );
                             }

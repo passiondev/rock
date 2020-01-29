@@ -74,7 +74,7 @@ namespace Rock.Model
         /// The SMS pipeline identifier.
         /// </value>
         [Required]
-        [DataMember(IsRequired = true)]
+        [DataMember( IsRequired = true )]
         public int SmsPipelineId { get; set; }
 
         /// <summary>
@@ -136,7 +136,7 @@ namespace Rock.Model
         /// </summary>
         public SmsActionConfiguration()
         {
-            this.HasRequired(p => p.SmsPipeline).WithMany(p => p.SmsActions).HasForeignKey(p => p.SmsPipelineId).WillCascadeOnDelete(true);
+            this.HasRequired( p => p.SmsPipeline ).WithMany( p => p.SmsActions ).HasForeignKey( p => p.SmsPipelineId ).WillCascadeOnDelete( true );
         }
     }
 

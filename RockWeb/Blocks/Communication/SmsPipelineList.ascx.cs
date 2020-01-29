@@ -34,12 +34,12 @@ namespace RockWeb.Blocks.Communication
     /// <summary>
     /// User control for managing the system emails
     /// </summary>
-    [DisplayName( "Sms Pipeline List" )]
+    [DisplayName( "SMS Pipeline List" )]
     [Category( "Communication" )]
-    [Description( "Lists the sms pipelines currently in the system." )]
+    [Description( "Lists the SMS Pipelines currently in the system." )]
 
     [LinkedPage( "SMS Pipeline Details",
-        Key = AttributeKey.DetailPage)]
+        Key = AttributeKey.DetailPage )]
     public partial class SmsPipelineList : RockBlock, ICustomGridColumns
     {
         #region Attribute Keys
@@ -121,7 +121,7 @@ namespace RockWeb.Blocks.Communication
         /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
         protected void gSmsPipelines_AddClick( object sender, EventArgs e )
         {
-            NavigateToLinkedPage(AttributeKey.DetailPage, PageParameterKey.EntityId, 0 );
+            NavigateToLinkedPage( AttributeKey.DetailPage, PageParameterKey.EntityId, 0 );
         }
 
         /// <summary>
@@ -144,7 +144,7 @@ namespace RockWeb.Blocks.Communication
             var rockContext = new RockContext();
             var smsPipelineService = new SmsPipelineService( rockContext );
             var smsPipeline = smsPipelineService.Get( e.RowKeyId );
-            if (smsPipeline != null )
+            if ( smsPipeline != null )
             {
                 smsPipelineService.Delete( smsPipeline );
                 rockContext.SaveChanges();
