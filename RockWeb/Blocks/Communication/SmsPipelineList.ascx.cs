@@ -38,7 +38,7 @@ namespace RockWeb.Blocks.Communication
     [Category( "Communication" )]
     [Description( "Lists the SMS Pipelines currently in the system." )]
 
-    [LinkedPage( "SMS Pipeline Details",
+    [LinkedPage( "SMS Pipeline Detail",
         Key = AttributeKey.DetailPage )]
     public partial class SmsPipelineList : RockBlock, ICustomGridColumns
     {
@@ -49,7 +49,7 @@ namespace RockWeb.Blocks.Communication
         /// </summary>
         private static class AttributeKey
         {
-            public const string DetailPage = "SMSPipelineDetails";
+            public const string DetailPage = "SMSPipelineDetail";
         }
 
         #endregion
@@ -174,7 +174,7 @@ namespace RockWeb.Blocks.Communication
                 gSmsPipelines.DataSource = smsPipelines.OrderBy( a => a.Name ).ToList();
             }
 
-            gSmsPipelines.EntityTypeId = EntityTypeCache.Get<Rock.Model.SmsPipeline>().Id;
+            gSmsPipelines.EntityTypeId = EntityTypeCache.Get<SmsPipeline>().Id;
             gSmsPipelines.DataBind();
         }
 

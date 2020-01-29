@@ -147,7 +147,7 @@ namespace RockWeb.Blocks.Communication
         }
 
         /// <summary>
-        /// Binds the pipeline details read only section.
+        /// Binds the pipeline detail read only section.
         /// </summary>
         /// <param name="smsPipeline">The SMS pipeline.</param>
         private void BindReadOnlyDetails( SmsPipeline smsPipeline )
@@ -169,7 +169,7 @@ namespace RockWeb.Blocks.Communication
         }
 
         /// <summary>
-        /// Binds the pipeline details edit section.
+        /// Binds the pipeline detail edit section.
         /// </summary>
         /// <param name="smsPipeline">The SMS pipeline.</param>
         private void BindEditDetails( SmsPipeline smsPipeline )

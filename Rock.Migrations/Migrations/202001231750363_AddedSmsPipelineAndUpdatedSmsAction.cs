@@ -113,11 +113,13 @@ namespace Rock.Migrations
 
         private void UpdatePageAndBlockSettings()
         {
-            RockMigrationHelper.AddPage( true, "2277986A-F53D-4E46-B6EC-6BAD1111DA39", "D65F783D-87A9-4CC9-8110-E83466A0EADB", "SMS Pipeline Details", "", "FCE39659-4D86-48D7-9C48-D837D3588C42", "" ); // Site:Rock RMS
+            // Rename block to SmsPipelineDetail.ascx
+            RockMigrationHelper.UpdateBlockTypeByGuid( "SMS Pipeline Detail", "Configures the pipeline that processes an incoming SMS message.", "~/Blocks/Communication/SmsPipelineDetail.ascx", "Communication", "44C32EB7-4DA3-4577-AC41-E3517442E269" );
+            
+            RockMigrationHelper.AddPage( true, "2277986A-F53D-4E46-B6EC-6BAD1111DA39", "D65F783D-87A9-4CC9-8110-E83466A0EADB", "SMS Pipeline Detail", "", "FCE39659-4D86-48D7-9C48-D837D3588C42", "" ); // Site:Rock RMS
             RockMigrationHelper.UpdateBlockType( "SMS Pipeline List", "Lists the SMS Pipelines currently in the system.", "~/Blocks/Communication/SmsPipelineList.ascx", "Communication", "DB6FD0BF-FDCE-48DA-919C-240F029518A2" );
-            RockMigrationHelper.UpdateBlockType( "SMS Pipeline Detail", "Configures the pipeline that processes an incoming SMS message.", "~/Blocks/Communication/SmsPipelineDetail.ascx", "Communication", "44C32EB7-4DA3-4577-AC41-E3517442E269" );
-
-            // Remove Block: SMS Pipeline Details, from Page: SMS Pipeline List, Site: Rock RMS
+            
+            // Remove Block: SMS Pipeline Detail, from Page: SMS Pipeline List, Site: Rock RMS
             RockMigrationHelper.DeleteBlock( "F6CA6D07-DDF4-47DD-AA7E-29F5DCCC2DDC" );
 
             // Add Block to Page: SMS Pipeline Detail Site: Rock RMS
@@ -150,13 +152,14 @@ namespace Rock.Migrations
             // SMS Pipeline List
             RockMigrationHelper.DeleteBlockType( "DB6FD0BF-FDCE-48DA-919C-240F029518A2" );
             
-            //  Page: SMS Pipeline Details, Layout: Full Width, Site: Rock RMS
+            //  Page: SMS Pipeline Detail, Layout: Full Width, Site: Rock RMS
             RockMigrationHelper.DeletePage( "FCE39659-4D86-48D7-9C48-D837D3588C42" );
 
             // Add Block to Page: SMS Pipeline Site: Rock RMS
             RockMigrationHelper.AddBlock( true, "2277986A-F53D-4E46-B6EC-6BAD1111DA39".AsGuid(), null, "C2D29296-6A87-47A9-A753-EE4E9159C4C4".AsGuid(), "44C32EB7-4DA3-4577-AC41-E3517442E269".AsGuid(), "SMS Pipeline", "Main", @"", @"", 0, "F6CA6D07-DDF4-47DD-AA7E-29F5DCCC2DDC" );
 
-            RockMigrationHelper.UpdateBlockType( "SMS Pipeline", "Configures the pipeline that processes an incoming SMS message.", "~/Blocks/Communication/SmsPipeline.ascx", "Communication", "44C32EB7-4DA3-4577-AC41-E3517442E269" );
+            // Rename block to SmsPipeline.ascx
+            RockMigrationHelper.UpdateBlockTypeByGuid( "SMS Pipeline", "Configures the pipeline that processes an incoming SMS message.", "~/Blocks/Communication/SmsPipeline.ascx", "Communication", "44C32EB7-4DA3-4577-AC41-E3517442E269" );
         }
     }
 }

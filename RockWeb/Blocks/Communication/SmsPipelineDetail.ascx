@@ -6,7 +6,7 @@
 
         <div class="panel panel-block js-pipeline-panel">
             <div class="panel-heading">
-                <h1 class="panel-title pull-left"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Details</h1>
+                <h1 class="panel-title pull-left"><i class="fa fa-sms"></i>&nbsp;SMS Pipeline Detail</h1>
 
                 <div class="panel-labels">
                     <Rock:HighlightLabel ID="hlInactive" runat="server" CssClass="js-inactivepipeline-label" LabelType="Danger" Text="Inactive" />
