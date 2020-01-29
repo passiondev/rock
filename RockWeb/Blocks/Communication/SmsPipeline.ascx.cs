@@ -34,7 +34,7 @@ using Rock.Communication.SmsActions;
 
 namespace RockWeb.Blocks.Communication
 {
-    [DisplayName( "SMS Pipeline Details" )]
+    [DisplayName( "SMS Pipeline Detail" )]
     [Category( "Communication" )]
     [Description( "Configures the pipeline that processes an incoming SMS message." )]
     public partial class SmsPipeline : RockBlock
