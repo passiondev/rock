@@ -600,7 +600,7 @@ class AgainstTheRealCutoverTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.refs = ("origin/passion-18.4.1", "origin/passion-19.3.4")
+        cls.refs = ("origin/passion-18.4.1", "origin/passion-19.4.4")
         for ref in cls.refs:
             _require_ref(
                 ref,
@@ -628,7 +628,7 @@ class AgainstTheRealCutoverTests(unittest.TestCase):
 
         self.assertEqual(
             1, len(styles),
-            "the real 18.4.1 -> 19.3.4 diff no longer reports styles-v2 as emptied. It "
+            "the real 18.4.1 -> 19.4.4 diff no longer reports styles-v2 as emptied. It "
             f"reported: {[entry.path for entry in emptied]}",
         )
         self.assertEqual(178, styles[0].before)
@@ -678,7 +678,7 @@ class CommandLineTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        for ref in ("origin/passion-18.4.1", "origin/passion-19.3.4"):
+        for ref in ("origin/passion-18.4.1", "origin/passion-19.4.4"):
             _require_ref(ref, "the upgrade-diff fetch step should have provided it")
 
     def _run(self, argv):
@@ -688,7 +688,7 @@ class CommandLineTests(unittest.TestCase):
         return stdout.getvalue(), exit_code
 
     def test_a_stricter_loss_threshold_narrows_the_emptied_section(self):
-        base = ["cutover", "origin/passion-18.4.1", "origin/passion-19.3.4"]
+        base = ["cutover", "origin/passion-18.4.1", "origin/passion-19.4.4"]
 
         default, _ = self._run(base)
         strict, _ = self._run(base + ["--loss-threshold", "1.0"])
@@ -703,7 +703,7 @@ class CommandLineTests(unittest.TestCase):
 
     def test_a_larger_minimum_removes_the_emptied_section_entirely(self):
         report, _ = self._run([
-            "cutover", "origin/passion-18.4.1", "origin/passion-19.3.4",
+            "cutover", "origin/passion-18.4.1", "origin/passion-19.4.4",
             "--min-tracked", "100000",
         ])
 
@@ -712,7 +712,7 @@ class CommandLineTests(unittest.TestCase):
     def test_the_since_migration_filter_drops_migrations_already_run(self):
         """A mark past every added migration must empty that section. Without the flag the
         same run reports the Check-in Manager repoint."""
-        base = ["cutover", "origin/passion-18.4.1", "origin/passion-19.3.4"]
+        base = ["cutover", "origin/passion-18.4.1", "origin/passion-19.4.4"]
 
         default, _ = self._run(base)
         filtered, _ = self._run(base + ["--since-migration", "202700000000000"])

@@ -42,12 +42,19 @@ EXPECTED_ENVIRONMENT_DOMAIN = "staging.connect.passion.team"
 #
 # So it is pinned here rather than exempted. Both constants are asserted; neither can
 # drift unnoticed. At production cutover, set this to EXPECTED_BASE_BRANCH's value.
-EXPECTED_PRODUCTION_BRANCH = "passion-19.3.4"
+EXPECTED_PRODUCTION_BRANCH = "passion-19.4.4"
 
 # The trunk on the *old* side of the cutover that test_upgrade_diff.py examines. It is
 # not a deploy pin -- nothing deploys from it any more -- but CI still has to fetch it,
-# because those tests diff the real 18.4.1 -> 19.3.4 pair and assert on the incident
+# because those tests diff the real 18.4.1 -> 19.4.4 pair and assert on the incident
 # that diff found.
+#
+# It stayed at 18.4.1 across the 19.3.4 -> 19.4.4 move, which looks wrong until you
+# check what production actually ran. It never ran 19.3.4: that trunk was proven on
+# staging and superseded before its own cutover, so production's jump is 18.4.1 ->
+# 19.4.4 in one step and 18.4.1 is still the branch on the old side of it. This key
+# names the trunk production is coming *from*, not the previous value of the one
+# above.
 #
 # It earns a pin of its own because the two constants above stop disagreeing at
 # cutover. Before v19 shipped, productionBranch was passion-18.4.1 and the fetch loop in

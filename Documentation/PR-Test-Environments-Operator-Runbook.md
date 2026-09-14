@@ -118,7 +118,7 @@ Then redeploy staging and check the run's `Report which catalog this deploy will
 
 ## Trunk cutover (bumping the Rock version)
 
-Flipping the trunk branch -- from one `passion-<version>` to the next -- is the one routine operation that can break every environment at once, and it does it quietly. Read this before starting one. It was last done on 2026-09-14, moving the trunk to `passion-19.4.4` -- and as of that date step 2 below has landed while step 3 has not, so the default branch is still `passion-19.3.4` and the flip is incomplete.
+Flipping the trunk branch -- from one `passion-<version>` to the next -- is the one routine operation that can break every environment at once, and it does it quietly. Read this before starting one. It was last done on 2026-09-14, moving the trunk to `passion-19.4.4`, and it is finished: steps 0 through 4 below have all landed, the default branch is `passion-19.4.4`, and staging deployed that artifact green -- run 34905832824, health check 302 on the third attempt. Step 5 was a no-op; there were no open PRs to rebase. One limit on what that proves: staging was already on 19.3.4 when it took the artifact, so the run exercised the 19.3.4 -> 19.4.4 increment, not the full 18.4.1 -> 19.4.4 set production still has to run. That set was proven on staging in August.
 
 **Why it is dangerous.** The flip points staging at a new Rock minor, and the first request after that deploy runs the new minor's EF and plugin migrations against whatever catalog staging is on. Any site sharing that catalog and still serving the old minor's binaries is then old code against a newly-migrated schema -- which is precisely `pr-3` on 2026-08-11, reproduced once per live environment.
 

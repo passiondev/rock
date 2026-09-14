@@ -168,10 +168,14 @@ jobs:
       # real-cutover classes failed in setUpClass -- the branch still existed on origin,
       # nothing was fetching it. Retiring an old trunk therefore means clearing this key,
       # not just repointing the other two.
+      #
+      # The keys are de-duplicated because between a production cutover and the next
+      # minor opening on staging, baseBranch and productionBranch name the same branch --
+      # they are two pins that happen to agree, not one key read twice.
       - name: Fetch both trunks for the upgrade-diff tests
         continue-on-error: true
         run: |
-          branches=$(python3 -c "import json; c = json.load(open('.github/pr-test-environments.json')); print('\n'.join(c[k] for k in ('baseBranch', 'productionBranch', 'previousProductionBranch') if c.get(k)))")
+          branches=$(python3 -c "import json; c = json.load(open('.github/pr-test-environments.json')); print('\n'.join(dict.fromkeys(c[k] for k in ('baseBranch', 'productionBranch', 'previousProductionBranch') if c.get(k))))")
           for branch in $branches; do
             git fetch --depth=1 origin "$branch:refs/remotes/origin/$branch" || true
           done
