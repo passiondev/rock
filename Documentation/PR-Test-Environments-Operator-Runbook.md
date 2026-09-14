@@ -6,7 +6,7 @@
 
 ## Infrastructure
 
-- Base branch config: `.github/pr-test-environments.json` controls which PR base branch is eligible for PR test environments. It currently targets `passion-19.3.4` for the Rock version pin. Update this value during Rock upgrades.
+- Base branch config: `.github/pr-test-environments.json` controls which PR base branch is eligible for PR test environments. It currently targets `passion-19.4.4` for the Rock version pin. Update this value during Rock upgrades.
 - Wildcard DNS: `*.staging.connect.passion.team` points to the Google Windows VM. Cloudflare is configured manually in DNS-only mode.
 - TLS: PR hosts use Let's Encrypt certificates installed in LocalMachine `My` and bound in IIS. `.github/workflows/pr-test-renew-certificates.yml` runs weekly and can be dispatched manually; it temporarily applies the `pr-test-acme-http` VM network tag for HTTP-01 validation, queues `renew-certificate`, then removes the tag. A Cloudflare DNS token would allow a future wildcard DNS-01 flow.
 - Firewall: **as actually configured, HTTPS/443 is open to the whole internet** via the rule
@@ -118,7 +118,7 @@ Then redeploy staging and check the run's `Report which catalog this deploy will
 
 ## Trunk cutover (bumping the Rock version)
 
-Flipping the trunk branch -- from one `passion-<version>` to the next -- is the one routine operation that can break every environment at once, and it does it quietly. Read this before starting one. It was last done on 2026-08-19, moving the trunk to `passion-19.3.4`.
+Flipping the trunk branch -- from one `passion-<version>` to the next -- is the one routine operation that can break every environment at once, and it does it quietly. Read this before starting one. It was last done on 2026-09-14, moving the trunk to `passion-19.4.4` -- and as of that date step 2 below has landed while step 3 has not, so the default branch is still `passion-19.3.4` and the flip is incomplete.
 
 **Why it is dangerous.** The flip points staging at a new Rock minor, and the first request after that deploy runs the new minor's EF and plugin migrations against whatever catalog staging is on. Any site sharing that catalog and still serving the old minor's binaries is then old code against a newly-migrated schema -- which is precisely `pr-3` on 2026-08-11, reproduced once per live environment.
 
@@ -166,7 +166,7 @@ The consequence of the fix is that **"move the default branch" is now a required
    **The two production pins are not on that list, and must not be flipped here.** `production-deploy.yml`'s `ref` default and `productionBranch` in `.github/pr-test-environments.json` track the branch **production actually runs**, which lags the trunk until production is itself upgraded. They live in `PRODUCTION_PIN_SITES` with their own oracle, `EXPECTED_PRODUCTION_BRANCH`, and flipping them at trunk cutover would point a production deploy at a Rock minor production is not on.
 
    This is not hypothetical: the 2026-08-19 cutover moved the trunk to `passion-19.3.4` while production stayed on `passion-18.4.1`, and the production deploy guard -- which read the *default branch* as its oracle -- began refusing `passion-18.4.1` as `diverged`, with "there is no override for this one". Production was undeployable, rollback included, and every test stayed green because they asserted the mechanism rather than the outcome. The guard now reads `productionBranch`, and `test_the_workflows_own_default_ref_is_one_the_guard_accepts` checks that the workflow accepts its own default.
-3. **Move the default branch to the new trunk.** Settings > General > Default branch, or `gh api --method PATCH repos/passiondev/Rock -f default_branch=passion-19.3.4`. This is the step that actually stops the old fleet, and it is easy to skip because nothing prompts for it and nothing fails when it is missed. Do it *after* step 2's commit has landed on the new branch: the deploy gate reads the config from whatever the default branch is, so moving it first means every PR is refused until the pins arrive.
+3. **Move the default branch to the new trunk.** Settings > General > Default branch, or `gh api --method PATCH repos/passiondev/Rock -f default_branch=passion-19.4.4`. This is the step that actually stops the old fleet, and it is easy to skip because nothing prompts for it and nothing fails when it is missed. Do it *after* step 2's commit has landed on the new branch: the deploy gate reads the config from whatever the default branch is, so moving it first means every PR is refused until the pins arrive.
 
    Once it moves, retired-branch PRs fail the gate automatically and stop deploying -- no per-branch edit, and nothing to remember to undo. Deleting the retired branch is still an option if you want its PRs closed outright, and nothing stands in the way: step 0's ruleset targets `~DEFAULT_BRANCH`, and that token has just followed the default onto the new trunk, so the retired branch is no longer the one being protected. **Leave the ruleset alone.** From this point it is the only thing standing between the branch everyone now works from and a force-push.
 

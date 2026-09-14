@@ -14,7 +14,7 @@ Run the complete PR test environment workflow against one internal PR and verify
 
 The eligible PR base branch is whatever `.github/pr-test-environments.json` names as
 `baseBranch`, which is the repository's default branch. At the time of writing that is
-`passion-19.3.4`; it is renamed at every Rock upgrade, and
+`passion-19.4.4`; it is renamed at every Rock upgrade, and
 `Tests/PrTestEnvironments/test_base_branch_config.py` fails the build if this line and the
 config disagree — so read the config, not this sentence, and if you find them out of step the
 config is right.

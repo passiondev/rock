@@ -4,12 +4,20 @@
 Nothing on the production host has been executed. It is the checklist for the upgrade,
 written while the machinery for it was built.
 
-**Steps 1 and 2 are done.** The pipeline changes merged to the default branch on 2026-08-25,
-so **Production Bootstrap Command Queue** is dispatchable. `productionBranch` now reads
-`passion-19.3.4`, and the `production` environment allows both `passion-19.3.4` and
-`passion-18.4.1` -- the new branch added, the old one deliberately kept until the deploy
-succeeds. **The irreversible step has therefore already been taken**: production is
-deployable only from the 19.x line until that PR is reverted. Everything from step 3 on is
+**The target moved to 19.4.4 on 2026-09-14.** Production had not been deployed yet, so
+there was no reason to ship 19.3.4 and upgrade again a week later; `passion-19.4.4` is the
+branch this runbook now describes. What that changed, and what it did not, is in
+*The 19.4.4 move* below -- the short version is that every measurement this runbook rests on
+still holds, because `RockWeb/web.config` is byte-identical across 19.3.4, 19.4.4 and the
+fork, and the fork's eight Rock-source edits survived the bump unchanged.
+
+**Step 1 is done. Step 2 is done for 19.3.4 and has to be repeated for 19.4.4.** The
+pipeline changes merged to the default branch on 2026-08-25, so **Production Bootstrap
+Command Queue** is dispatchable. `productionBranch` reads `passion-19.3.4` and the
+`production` environment allows `passion-19.3.4` and `passion-18.4.1`. **The irreversible
+step was therefore already taken for the 19.x line**: production is deployable only from
+19.x until that PR is reverted. Moving the pin the rest of the way to `passion-19.4.4` is
+step 2 again, and it is still the point of no return. Everything from step 3 on is
 untouched, and step 4 is the one that takes production down.
 
 Re-read live against GCP on 2026-09-14. `connect-srv-prod` is `RUNNING` in `us-east1-d`,
@@ -27,10 +35,51 @@ test fleet and staging are a different document
 (`PR-Test-Environments-Operator-Runbook.md`); the trunk cutover described there has already
 happened, and this is the second half of it.
 
-The trunk is `passion-19.3.4`, `productionBranch` is `passion-19.3.4`, and production is
-still serving the 18.x line -- the pin has moved, the code has not. Read the values rather
-than trusting that sentence: `.github/pr-test-environments.json` on the default branch is
-the source for both.
+The trunk is `passion-19.4.4`, `productionBranch` is `passion-19.3.4`, and production is
+still serving the 18.x line -- the trunk has moved twice, the pin once, the code not at all.
+Read the values rather than trusting that sentence: `.github/pr-test-environments.json` on
+the default branch is the source for both. The two disagreeing is the normal state during an
+upgrade and `test_base_branch_config.py` asserts both separately; see the comment above
+`EXPECTED_PRODUCTION_BRANCH` for why they are allowed to.
+
+## The 19.4.4 move
+
+Built 2026-09-14 on `passion-19.4.4`. Upstream's `hotfix-19.4` head and the `19.4.4` release
+tag are the same tree (`ce30e83d54`), so the branch carries the release and not a moving
+target.
+
+This working copy is a shallow clone, so `git merge` against upstream is not usable here --
+the merge base resolves to a 2026-07-09 graft commit and the merge replays 18.4 through 19.4,
+inventing rename conflicts. The branch was built by applying upstream's 19.3.4 -> 19.4.4 delta
+as a patch and then verifying the *result* against the `19.4.4` tree. Compare trees, not
+history, on this clone.
+
+**What was measured, and what it means for the rest of this runbook:**
+
+| Question | Answer | Consequence |
+|---|---|---|
+| `RockWeb/web.config` | byte-identical on 19.3.4, 19.4.4 and the fork (`8fce955535b0b810`) | every number in *What has to be true* below still holds; the merge function needs no change |
+| Fork-local Rock-source edits | the same **8** files, derived against 19.4.4 | nothing was resolved towards upstream; the icon migration fix that unblocked v19 survives |
+| New EF migrations | **0** | the catalog work is what 19.3.4 already implied, not more |
+| New plugin hotfixes | 308 `AddConnectedServices`, 309 `EnableRockIntelligence`, 314 `FixEventItemAttributeCorruption6962` | run at `Application_Start` with the rest; see step 8 |
+| Upstream delta | 384 files, 34,404 insertions | large, but confined to files the fork does not touch -- zero overlap with the fork's own set |
+| Test suites | 618 Python, 266 Pester, all green on this branch | the same counts as 19.3.4; no suite was weakened to get there |
+
+**`Rock.AI.Agent` is new in 19.4 and it does reach the artifact.** It was worth checking
+because nothing in `RockWeb` references the assembly and hotfix 309 registers six
+`Rock.AI.Agent.*` types plus an "AI Chat" page. The answer is that `pr-test-artifact.yml` --
+which is what production builds from -- does not use a fixed project list. It globs
+`Rock.*\*.csproj` and builds everything outside six exclusion patterns, and the project sets
+`<CopyToRockWeb>True</CopyToRockWeb>` like every other shipped assembly, so `Directory.Build.targets`
+copies it and its dependency tree into `RockWeb\Bin`. (`ptp-14803-build-artifact.yml` *does*
+carry a hardcoded seven-project list, but that workflow is a targeted patch build and no
+deploy uses it. Do not read it as the artifact recipe.)
+
+The residual risk that leaves is a build risk, not a runtime one: `Rock.AI.Agent` pulls
+`Microsoft.SemanticKernel` 1.67.1 into a `net472` project, and only `*Tests*` projects are
+advisory in that sweep. If the dependency tree does not resolve on the runner, the artifact
+build fails loudly in CI -- which is the right place for it to fail, and is what pushing this
+branch to staging answers.
 
 ## What has to be true before any of this starts
 
@@ -158,8 +207,12 @@ Two consequences to accept before opening it:
   is deployable only from the new line. Reverting the PR restores it, which is the escape
   hatch, but it is a PR and a review, not a checkbox.
 - **The version guard goes quiet.** Moving `productionBranch` moves the expected version with
-  it, so a `passion-19.3.4` deploy matches the pin and never asks for
-  `acknowledge_version_change`. The workflow says so in its own comments and points here for
+  it, so a deploy from the branch it now names matches the pin and never asks for
+  `acknowledge_version_change`. Until step 2 is repeated for 19.4.4 the opposite is true and
+  usefully so: with `productionBranch` still on `passion-19.3.4`, a `passion-19.4.4` ref is a
+  version change and the guard *will* stop and demand the acknowledgement. Ticking that box
+  to get past it is not a shortcut around step 2 -- the branch guard refuses the ref anyway,
+  and so does the environment's branch policy. The workflow says so in its own comments and points here for
   the backup requirement. **The backup is this runbook's job, not the guard's.** Step 5 below
   is the whole of that control.
 
@@ -172,10 +225,18 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    progress logging. Confirm with `gh workflow list -R passiondev/Rock` that
    **Production Bootstrap Command Queue** appears.
 
-2. **Repoint `productionBranch`. — DONE.** Verified 2026-09-14: `productionBranch` reads
-   `passion-19.3.4`, and the `production` environment allows `passion-19.3.4` and
-   `passion-18.4.1`. Both halves below are satisfied; they are kept because the next
-   upgrade repeats them, and because the second half is the one no test can check.
+2. **Repoint `productionBranch`. — DONE for 19.3.4, OUTSTANDING for 19.4.4.** Verified
+   2026-09-14: `productionBranch` reads `passion-19.3.4`, so the irreversible move onto the
+   19.x line has been made and cannot be undone except by reverting that PR. The target is now
+   `passion-19.4.4`, so this step runs once more, against the same two halves below. The
+   environment half is already done -- the policy names `passion-19.4.4` as of 2026-09-14 --
+   which leaves the pin itself, and the pin is the point of no return.
+
+   Sequence it after the default branch has moved, not before. `EXPECTED_BASE_BRANCH` and the
+   seven trunk pins moved to `passion-19.4.4` on 2026-09-14; `EXPECTED_PRODUCTION_BRANCH` and
+   the two production pins deliberately did not. Staging proves the artifact first. That gap
+   between the two pins is the design, not an oversight -- see the comment above
+   `EXPECTED_PRODUCTION_BRANCH`.
 
    One PR, one string, on the default branch. Bump
    `EXPECTED_PRODUCTION_BRANCH` in `Tests/PrTestEnvironments/test_base_branch_config.py` in
@@ -332,8 +393,8 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    read nothing -- stop before loading the site, because step 8 is what runs the migrations
    and there is no cheap moment after it. A `WARNING` naming settings the deploy did not
    carry is not a failure: it lists settings the artifact has no opinion about, and on this
-   install those are `EnableBundling` and `RedisConnectionString`, both unreferenced in
-   19.3.4. Read it rather than skipping it -- the next one might matter.
+   install those are `EnableBundling` and `RedisConnectionString`, unreferenced in 19.3.4 and
+   still unreferenced in 19.4.4. Read it rather than skipping it -- the next one might matter.
 
    The deploy log is now a timeline: every step carries an absolute UTC stamp and elapsed time,
    and the robocopy job summaries are no longer suppressed. That last part matters more than it
@@ -649,7 +710,10 @@ a deploy from any branch, with the guard inside the workflow doing all the refus
 a wrong ref before an approver is paged. The cost is the one predicted here: the cutover has to
 move the policy as well as the pin. Step 2 carries that, because no test can see this setting.
 
-As of 2026-09-14 the policy names both `passion-19.3.4` and `passion-18.4.1`. That is step 2
-done and deliberately not finished: the old branch stays allowed until the v19 deploy has
-succeeded, because it is what lets the previous release be re-run from its own branch. Remove
-it once production is serving 19.x and has stayed up.
+As of 2026-09-14 the policy names `passion-18.4.1`, `passion-19.3.4` and `passion-19.4.4`.
+That is step 2 done for the first two and deliberately not finished: an old branch stays
+allowed until the deploy that replaces it has succeeded, because it is what lets the previous
+release be re-run from its own branch. `passion-19.4.4` was added the same day the branch was
+built -- adding an allowed branch is additive and reversible and gates nothing on its own,
+since the required-reviewer rule still stands in front of every deploy. Prune down to the one
+branch production is actually serving once it is up and has stayed up.

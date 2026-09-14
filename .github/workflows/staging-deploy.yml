@@ -43,7 +43,7 @@ name: Deploy Staging
 "on":
   push:
     branches:
-      - passion-19.3.4
+      - passion-19.4.4
     paths-ignore:
       # Documentation-only commits do not change the built site, and a 30-minute
       # Windows build per typo fix is not a good trade.
@@ -66,7 +66,7 @@ name: Deploy Staging
       ref:
         description: Branch, tag or SHA to deploy. Defaults to the trunk branch.
         required: false
-        default: passion-19.3.4
+        default: passion-19.4.4
         type: string
 
 concurrency:

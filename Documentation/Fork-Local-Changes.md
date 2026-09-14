@@ -1,7 +1,7 @@
 # Fork-local changes to Rock's own source
 
 **Audience:** whoever is merging a new Rock version into this fork.
-**Measured against upstream** `19.3.4` · **Upstream remote** `https://github.com/SparkDevNetwork/Rock.git`
+**Measured against upstream** `19.4.4` · **Upstream remote** `https://github.com/SparkDevNetwork/Rock.git`
 **Derived, not hand-collected** — see the command at the bottom.
 
 Everything Passion has *added* to this repository — the CI pipeline, the deploy scripts,
@@ -29,6 +29,12 @@ The list was longer than anyone expected when it was first derived on 2026-08-20
 working belief — written down in more than one place — was that the icon migration was
 the only spot where the fork changes Rock's behaviour. It is one of eight files across
 four entirely unrelated changes.
+
+Re-derived against 19.4.4 on 2026-09-14, at the 19.3.4 -> 19.4.4 bump, and the set came
+back byte-for-byte the same eight files. Nothing was resolved towards upstream and nothing
+upstream has absorbed yet -- in particular the icon migration below is still fork-local, so
+item 1 has not been retired. That is step 3 of the procedure at the bottom of this page,
+and this paragraph is its answer for this bump.
 
 ---
 
@@ -145,10 +151,10 @@ Needs the upstream remote, which a fresh clone does not have:
 git remote add upstream https://github.com/SparkDevNetwork/Rock.git   # once
 git fetch upstream --tags
 
-python3 Deployment/Repository/upgrade_diff.py fork-local 19.3.4
+python3 Deployment/Repository/upgrade_diff.py fork-local 19.4.4
 ```
 
-Replace `19.3.4` with whatever `<Version>` in `Directory.Build.props` says. The two must
+Replace `19.4.4` with whatever `<Version>` in `Directory.Build.props` says. The two must
 agree, and `test_upgrade_diff.py` fails when they do not.
 
 Paths under `.github/`, `Deployment/`, `Documentation/`, `Tests/PrTestEnvironments/` and

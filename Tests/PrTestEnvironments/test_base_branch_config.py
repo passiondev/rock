@@ -26,7 +26,7 @@ PILOT_ISSUE = REPO_ROOT / "Documentation" / "Discussion Docs" / "PR-Test-Environ
 # bump is a one-line change in this file plus the JSON config -- previously the
 # branch name was repeated in five places and every one of them had to be found
 # by hand. Bump this together with .github/pr-test-environments.json.
-EXPECTED_BASE_BRANCH = "passion-19.3.4"
+EXPECTED_BASE_BRANCH = "passion-19.4.4"
 EXPECTED_ENVIRONMENT_DOMAIN = "staging.connect.passion.team"
 
 # Production is pinned separately, and during a Rock upgrade it deliberately lags.

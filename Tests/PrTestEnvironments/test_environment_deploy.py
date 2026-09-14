@@ -27,7 +27,7 @@ COMMAND_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "env-deploy-command.yml
 STAGING_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "staging-deploy.yml"
 PRODUCTION_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "production-deploy.yml"
 
-TRUNK_BRANCH = "passion-19.3.4"
+TRUNK_BRANCH = "passion-19.4.4"
 STAGING_HOST = "staging.connect.passion.team"
 
 

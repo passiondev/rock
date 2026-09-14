@@ -520,7 +520,7 @@ is why that branch cannot be deleted yet. They are just not on the branch you wo
 
 **That block count moves with every Rock upgrade, so do not treat it as a constant.** It was 448
 on `passion-18.4.1`, and the blocks did not disappear — Obsidian blocks went the
-other way over the same span, 1,122 to 1,294. Each release converts more WebForms `.ascx` blocks
+other way over the same span, 1,122 to 1,296. Each release converts more WebForms `.ascx` blocks
 to `.obs` components, which is worth knowing before you go looking for a block under
 `RockWeb/Blocks/` and conclude it was deleted.
 
