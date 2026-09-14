@@ -253,8 +253,11 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    trunk-fetch list from `baseBranch`, `productionBranch` and `previousProductionBranch`, and
    `test_upgrade_diff.py` names the cutover pair by hand -- so the pair moved to
    `origin/passion-18.4.1 -> origin/passion-19.4.4` in the same commit. Every assertion in
-   both real-cutover classes was re-run against the new pair first and came back identical
-   (styles-v2 178 -> 1 and newly ignored, the `Site` config write, seven findings total).
+   both real-cutover classes was re-run against the new pair first and came back identical:
+   styles-v2 178 -> 1 and newly ignored, `Site` the only table written, and the five emptied
+   directories plus two config writes the tests count. The whole report is 14 findings across
+   four sections, and it is byte-identical to the 18.4.1 -> 19.3.4 one but for its header line --
+   19.4 adds nothing to production's cutover surface.
    `previousProductionBranch` stays `passion-18.4.1`, because that is the branch production is
    coming *from*; it is not the previous value of the key above.
 
