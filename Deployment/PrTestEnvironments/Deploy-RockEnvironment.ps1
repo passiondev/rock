@@ -369,6 +369,20 @@ $ServerOwnedDirectories = @('Assets/Fonts/FontAwesome')
 # missing it does not compile at all.
 $ServerOwnedThemeFiles = @('_variable-overrides.less', '_css-overrides.less')
 
+# The same problem one level further in again: web.config belongs to the artifact,
+# but a handful of values inside it belong to the box. Merge-ServerOwnedWebConfigSettings
+# carries these across; its help explains what each one costs if it is lost, and
+# why the file itself cannot simply go on $PreservedFiles instead.
+#
+# Measured against production 2026-09-14: all four differ from the artifact, which
+# is byte-identical to unaltered upstream and so ships Rock's stock values.
+$ServerOwnedAppSettings = @('PasswordKey', 'DataEncryptionKey', 'RunJobsInIISContext', 'OrgTimeZone')
+
+# Matched by prefix because the count is a property of the install, not of Rock.
+# Rock reads OldPasswordKey, OldPasswordKey1, OldPasswordKey2... in order, so that
+# rotating PasswordKey does not lock out anyone whose hash predates the rotation.
+$ServerOwnedAppSettingPrefixes = @('OldPasswordKey')
+
 $EnvironmentPath = Join-Path $EnvironmentRoot $EnvironmentName
 $ArtifactPath = Join-Path $EnvironmentPath "artifact.zip"
 $ExtractPath = Join-Path $EnvironmentPath "extract"
@@ -1261,10 +1275,202 @@ function Set-ProductionCompilationSettings {
     return $WebConfig
 }
 
+function Merge-ServerOwnedWebConfigSettings {
+    <#
+    .SYNOPSIS
+        Carry the settings this server owns out of its existing web.config and
+        into the artifact's, returning the merged file.
+
+    .DESCRIPTION
+        web.config cannot go on $PreservedFiles and cannot be copied over blindly
+        either, which is why this exists rather than a one-line list entry.
+
+        Not preserved: 19.3.4 changes 376 lines of web.config against 18.4.1, and
+        nearly all of them are bindingRedirect bumps -- WebGrease to 5.2.9,
+        Newtonsoft to 6.0.0, the Google API assemblies to 1.69.0.0. Keep the box's
+        file and v19's own assemblies do not load.
+
+        Not copied: measured against production on 2026-09-14, every value named
+        below differs between the live box and the artifact. RockWeb/web.config is
+        byte-identical to unaltered upstream, so the artifact carries Rock's stock
+        distribution values; production's were set by hand on the server and have
+        never matched any branch, 18.4.1 included.
+
+        So: artifact as the base, with the server-owned values written back over
+        the top. The same principle as $ServerOwnedDirectories and
+        $ServerOwnedThemeFiles, one level further in -- the file belongs to the
+        artifact, a handful of values inside it belong to the box.
+
+        A pure transform, like Set-ProductionCompilationSettings, so it is
+        testable without IIS, a server, or a file on disk.
+
+        What each carried value costs if it is lost:
+
+          PasswordKey          Rock/Security/Authentication/Database.cs hashes
+                               every database password with it. A different key
+                               validates no existing password, so every staff
+                               login fails at once -- including the login needed
+                               to go and fix it.
+          DataEncryptionKey    Rock/Security/Encryption.cs. Encrypted attribute
+                               values, financial gateway credentials among them,
+                               stop decrypting. Nothing fails at startup; it
+                               surfaces the first time a gateway is called.
+          RunJobsInIISContext  Production runs Quartz inside the IIS worker
+                               process and sets this True. Upstream ships False.
+                               Flipping it stops every scheduled job, silently.
+          OrgTimeZone          Production names the zone; upstream says Local.
+                               Harmless while the VM is Eastern Standard Time,
+                               which it is today, and wrong the moment that stops
+                               being true.
+          machineKey           Travels as a whole element: the two keys are a pair
+                               and the algorithm attributes belong with them.
+                               Losing it drops every signed-in session and fails
+                               ViewState validation mid-postback.
+          tagPrefix            Production registers tagPrefix="Passion"
+                               assembly="com.passioncitychurch", and three live
+                               registration pages under Plugins\passion\crm use
+                               it. They are .ascx with CodeFile=, so they compile
+                               on first request: drop the registration and all
+                               three yellow-screen, with nothing before the first
+                               visitor to say so.
+
+        OldPasswordKey is matched by prefix rather than named. Rock reads
+        OldPasswordKey, OldPasswordKey1, OldPasswordKey2 and so on in order so that
+        a key rotation does not lock out anyone whose hash predates it, and how
+        many exist is not knowable from here.
+
+        Anything else the server has and the artifact does not is reported, not
+        moved. A key this list does not name is either one upstream dropped on
+        purpose or one nobody has justified keeping; naming it here is how it
+        survives, and a silent catch-all would carry both kinds forward forever.
+
+    .PARAMETER IncomingWebConfig
+        The artifact's web.config: the base, and the winner for everything not
+        named here.
+
+    .PARAMETER ExistingWebConfig
+        The web.config already on the server, read before the copy destroys it.
+        Empty means there was none, and the incoming file comes back unchanged.
+
+    .PARAMETER AppSettingKeys
+        appSettings keys to carry across by exact name.
+
+    .PARAMETER AppSettingKeyPrefixes
+        appSettings keys to carry across by prefix, for families whose members
+        cannot be listed in advance.
+    #>
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$IncomingWebConfig,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$ExistingWebConfig,
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$AppSettingKeys = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$AppSettingKeyPrefixes = @()
+    )
+
+    $result = @{ WebConfig = $IncomingWebConfig; Carried = @(); Dropped = @() }
+    if ([string]::IsNullOrWhiteSpace($IncomingWebConfig)) { return $result }
+    if ([string]::IsNullOrWhiteSpace($ExistingWebConfig)) { return $result }
+
+    $merged = $IncomingWebConfig
+    $carried = @()
+
+    # Prefix families are resolved against the server's file, because only it
+    # knows how many OldPasswordKey entries this particular install has.
+    $keys = @()
+    foreach ($key in $AppSettingKeys) {
+        if (-not [string]::IsNullOrWhiteSpace($key)) { $keys += $key }
+    }
+    foreach ($prefix in $AppSettingKeyPrefixes) {
+        if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
+        $prefixPattern = '<add\s+key="(' + [regex]::Escape($prefix) + '[^"]*)"[^>]*>'
+        foreach ($found in [regex]::Matches($ExistingWebConfig, $prefixPattern)) {
+            $keys += $found.Groups[1].Value
+        }
+    }
+    $keys = @($keys | Select-Object -Unique)
+
+    # The whole <add /> element travels, not just the value, so an attribute this
+    # code does not know about rides across with it.
+    #
+    # Every replace below goes through a MatchEvaluator and a count of 1. The
+    # evaluator is what stops a '$' anywhere in a carried value being read as a
+    # substitution group -- these are base64 and hex today, and the day one of
+    # them is not is not the day to discover that. The count is what stops a
+    # second <appSettings> somewhere in the file collecting a duplicate.
+    foreach ($key in $keys) {
+        $elementPattern = '<add\s+key="' + [regex]::Escape($key) + '"[^>]*>'
+        $fromServer = [regex]::Match($ExistingWebConfig, $elementPattern)
+        if (-not $fromServer.Success) { continue }
+
+        if ([regex]::IsMatch($merged, $elementPattern)) {
+            $replacement = $fromServer.Value
+            $merged = ([regex]$elementPattern).Replace($merged, { param($m) $replacement }, 1)
+        }
+        elseif ([regex]::IsMatch($merged, '<appSettings[^>]*>')) {
+            # The artifact has no entry for a key the server does. Add one rather
+            # than leave a setting the site depends on to ConfigurationManager
+            # handing back null.
+            $merged = ([regex]'<appSettings[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n    " + $fromServer.Value) }, 1)
+        }
+        else { continue }
+        $carried += $key
+    }
+
+    # machineKey, as a whole element. Inserted rather than skipped when the
+    # artifact has none: ASP.NET would otherwise generate one per app domain and
+    # every recycle would sign everybody out.
+    $machineKeyPattern = '<machineKey\b[^>]*>'
+    $serverMachineKey = [regex]::Match($ExistingWebConfig, $machineKeyPattern)
+    if ($serverMachineKey.Success) {
+        if ([regex]::IsMatch($merged, $machineKeyPattern)) {
+            $replacement = $serverMachineKey.Value
+            $merged = ([regex]$machineKeyPattern).Replace($merged, { param($m) $replacement }, 1)
+            $carried += 'machineKey'
+        }
+        elseif ([regex]::IsMatch($merged, '<system\.web[^>]*>')) {
+            $merged = ([regex]'<system\.web[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n    " + $serverMachineKey.Value) }, 1)
+            $carried += 'machineKey'
+        }
+    }
+
+    # Control registrations the artifact has no entry for. Matched on the prefix
+    # name alone: if the artifact registers the same prefix against a different
+    # assembly then the artifact wins, because that is a v19 decision and not
+    # this server's.
+    foreach ($registration in [regex]::Matches($ExistingWebConfig, '<add\s+tagPrefix="([^"]+)"[^>]*>')) {
+        $tagPrefix = $registration.Groups[1].Value
+        if ([regex]::IsMatch($merged, '<add\s+tagPrefix="' + [regex]::Escape($tagPrefix) + '"')) { continue }
+        if (-not [regex]::IsMatch($merged, '<controls[^>]*>')) { continue }
+        $registrationText = $registration.Value
+        $merged = ([regex]'<controls[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n        " + $registrationText) }, 1)
+        $carried += "tagPrefix:$tagPrefix"
+    }
+
+    # Reported, not moved. See the .DESCRIPTION.
+    $dropped = @()
+    foreach ($setting in [regex]::Matches($ExistingWebConfig, '<add\s+key="([^"]+)"[^>]*>')) {
+        $key = $setting.Groups[1].Value
+        if ($keys -contains $key) { continue }
+        if ([regex]::IsMatch($merged, '<add\s+key="' + [regex]::Escape($key) + '"')) { continue }
+        $dropped += $key
+    }
+
+    $result.WebConfig = $merged
+    $result.Carried = @($carried)
+    $result.Dropped = @($dropped)
+    return $result
+}
+
 function Write-RuntimeConfiguration {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$Connection
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$Connection,
+
+        # The site's own web.config as it was before the artifact landed on top of
+        # it. Both callers read it before their copy, because the copy is what
+        # destroys it. Empty means there was no previous site, and the artifact's
+        # file stands as shipped.
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$ExistingWebConfig = ''
     )
 
     Ensure-Directory -Path (Join-Path $Path "App_Data")
@@ -1307,6 +1513,24 @@ function Write-RuntimeConfiguration {
         # in the database, so web.config was never where it lived. Set it with
         # Deployment/Database/Set-RockGlobalAttributeValue.ps1, or in Admin Tools >
         # General Settings > Global Attributes.
+        # Before the compilation transform, so one write puts both out.
+        if (-not [string]::IsNullOrWhiteSpace($ExistingWebConfig)) {
+            $merge = Merge-ServerOwnedWebConfigSettings `
+                -IncomingWebConfig $webConfig `
+                -ExistingWebConfig $ExistingWebConfig `
+                -AppSettingKeys $ServerOwnedAppSettings `
+                -AppSettingKeyPrefixes $ServerOwnedAppSettingPrefixes
+            $webConfig = $merge.WebConfig
+            Write-DeployStep "Kept this server's own web.config settings: $(if ($merge.Carried.Count -gt 0) { $merge.Carried -join ', ' } else { 'none found' })."
+            if ($merge.Dropped.Count -gt 0) {
+                # A warning and not a throw. These are settings the artifact has no
+                # opinion about, and on this install both of them -- EnableBundling
+                # and RedisConnectionString -- are referenced nowhere in 19.3.4.
+                # Silence is what would be wrong: the next one might matter.
+                Write-Warning "web.config settings on this server that the artifact does not have and this deploy did not carry across: $($merge.Dropped -join ', '). Add them to `$ServerOwnedAppSettings if they must survive."
+            }
+        }
+
         $webConfig = Set-ProductionCompilationSettings -WebConfig $webConfig
         $webConfig | Out-File -FilePath $webConfigPath -Encoding UTF8 -Force
         Write-DeployStep "Wrote web.config with compilation debug=false and executionTimeout=600."
@@ -1531,6 +1755,41 @@ try {
             -SiteRoot $plannedSource `
             -FileNames $ServerOwnedThemeFiles)
         Write-DeployStep "Would keep this site's own theme override files: $(if ($plannedOverrides.Count -gt 0) { $plannedOverrides -join ', ' } else { 'none found' })"
+        # Enumerated off the box rather than computed against the artifact: a dry
+        # run returns before the artifact is downloaded, so there is no incoming
+        # file yet to merge against. What the plan can state truthfully is which
+        # server-owned settings this site actually has for the apply run to carry.
+        #
+        # The operator reads this line to check that the values the site depends on
+        # are the ones the deploy has found. A production plan that reports "none
+        # found" for PasswordKey is the signal to stop.
+        $plannedWebConfigPath = Join-Path $SitePath 'web.config'
+        if (Test-Path $plannedWebConfigPath) {
+            $plannedWebConfig = Get-Content -Raw -Path $plannedWebConfigPath
+            $plannedCarry = @()
+            foreach ($key in $ServerOwnedAppSettings) {
+                if ([regex]::IsMatch($plannedWebConfig, '<add\s+key="' + [regex]::Escape($key) + '"[^>]*>')) { $plannedCarry += $key }
+            }
+            foreach ($prefix in $ServerOwnedAppSettingPrefixes) {
+                foreach ($found in [regex]::Matches($plannedWebConfig, '<add\s+key="(' + [regex]::Escape($prefix) + '[^"]*)"[^>]*>')) {
+                    $plannedCarry += $found.Groups[1].Value
+                }
+            }
+            if ([regex]::IsMatch($plannedWebConfig, '<machineKey\b[^>]*>')) { $plannedCarry += 'machineKey' }
+            Write-DeployStep "Would carry this site's own web.config settings across: $(if ($plannedCarry.Count -gt 0) { (@($plannedCarry | Select-Object -Unique)) -join ', ' } else { 'none found' })"
+
+            # Listed separately because these are carried only where the artifact
+            # registers no prefix of its own, and which of them that applies to is
+            # not knowable until the artifact is here.
+            $plannedPrefixes = @()
+            foreach ($registration in [regex]::Matches($plannedWebConfig, '<add\s+tagPrefix="([^"]+)"[^>]*>')) {
+                $plannedPrefixes += $registration.Groups[1].Value
+            }
+            Write-DeployStep "Would carry any of this site's control registrations the artifact does not have: $(if ($plannedPrefixes.Count -gt 0) { (@($plannedPrefixes | Select-Object -Unique)) -join ', ' } else { 'none found' })"
+        }
+        else {
+            Write-DeployStep "Would carry this site's own web.config settings across: there is no web.config at $plannedWebConfigPath."
+        }
         Write-DeployStep "Would set app pool '$AppPoolName' to AlwaysRunning with no idle timeout and a fixed 04:00 recycle, and enable preload on site '$SiteName'."
         Write-DeployStep "Would set compilation debug=false and executionTimeout=600 in the deployed web.config."
         Write-DeployStep "Would health check https://$HostName/ for up to $HealthCheckTimeoutSeconds seconds."
@@ -1573,6 +1832,17 @@ try {
         # "leaving the existing" file in place, and web.config is left pointing a
         # configSource at a file that no longer exists. Every request then 500s
         # before Rock starts, including the error page.
+        # Read before anything overwrites it. The site's own web.config carries
+        # values this branch has no other copy of -- see
+        # Merge-ServerOwnedWebConfigSettings -- and both branches destroy it: the
+        # dedicated site by deleting the directory, the in-place copy by writing
+        # the artifact's file over the top.
+        $existingWebConfig = ''
+        $existingWebConfigPath = Join-Path $SitePath 'web.config'
+        if (Test-Path $existingWebConfigPath) {
+            $existingWebConfig = Get-Content -Raw -Path $existingWebConfigPath
+        }
+
         $preservedStash = @{}
         foreach ($file in $PreservedFiles) {
             $existing = Join-Path $SitePath $file
@@ -1668,11 +1938,22 @@ try {
             Write-Warning "No rocks.pillars.* assemblies in bin. Binary file storage will not load and every image on the site will answer 404."
         }
 
-        Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString
+        Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString -ExistingWebConfig $existingWebConfig
         Ensure-AppPool -Name $AppPoolName
         Ensure-Website -Name $SiteName -PhysicalPath $SitePath -HostHeader $HostName -PoolName $AppPoolName -Thumbprint $CertificateThumbprint
     }
     else {
+        # Read before anything overwrites it. The site's own web.config carries
+        # values this branch has no other copy of -- see
+        # Merge-ServerOwnedWebConfigSettings -- and both branches destroy it: the
+        # dedicated site by deleting the directory, the in-place copy by writing
+        # the artifact's file over the top.
+        $existingWebConfig = ''
+        $existingWebConfigPath = Join-Path $SitePath 'web.config'
+        if (Test-Path $existingWebConfigPath) {
+            $existingWebConfig = Get-Content -Raw -Path $existingWebConfigPath
+        }
+
         $backupPath = Join-Path (Join-Path $BackupRoot $EnvironmentName) ((Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss") + "-$Sha")
         Ensure-Directory -Path $backupPath
         Write-DeployStep "Backing up $SitePath to $backupPath (excluding preserved user data)."
@@ -1740,7 +2021,7 @@ try {
         }
 
         Write-DeployStep "Copy complete."
-        Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString
+        Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString -ExistingWebConfig $existingWebConfig
         Ensure-Directory -Path (Split-Path -Parent $ManifestPath)
     }
 

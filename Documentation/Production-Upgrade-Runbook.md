@@ -1,26 +1,36 @@
 # Production Upgrade Runbook
 
-**Last verified:** 2026-08-25 · **Audience:** whoever is running the production cutover.
-Nothing in here has been executed. It is the checklist for the upgrade, written while the
-machinery for it was built.
+**Last verified:** 2026-09-14 · **Audience:** whoever is running the production cutover.
+Nothing on the production host has been executed. It is the checklist for the upgrade,
+written while the machinery for it was built.
 
-**Step 1 is done.** The pipeline changes merged to the default branch on 2026-08-25, so
-**Production Bootstrap Command Queue** is dispatchable and step 1's own evidence check passes.
-Everything from step 2 on is untouched, and step 2 is the irreversible one.
+**Steps 1 and 2 are done.** The pipeline changes merged to the default branch on 2026-08-25,
+so **Production Bootstrap Command Queue** is dispatchable. `productionBranch` now reads
+`passion-19.3.4`, and the `production` environment allows both `passion-19.3.4` and
+`passion-18.4.1` -- the new branch added, the old one deliberately kept until the deploy
+succeeds. **The irreversible step has therefore already been taken**: production is
+deployable only from the 19.x line until that PR is reverted. Everything from step 3 on is
+untouched, and step 4 is the one that takes production down.
 
-Re-read live against GCP on 2026-08-25, and all of it still holds: `connect-srv-prod` is
-`RUNNING` with `automaticRestart: false` and the `devstorage.read_only` scope alongside
-`logging.write` and `monitoring.write`, and carries no `windows-startup-script-ps1`.
-`connect-prod` is a 418 GB disk with `storageAutoResize: false`, nightly backups at 01:00 UTC,
-point-in-time recovery on with 7 days of transaction logs, the last four backups `SUCCESSFUL`,
-and exactly one user database. The rollback section's database-name warning did **not** hold and
-has been rewritten. The PR test fleet and staging are a different document
+Re-read live against GCP on 2026-09-14. `connect-srv-prod` is `RUNNING` in `us-east1-d`,
+still carries the `devstorage.read_only` scope alongside `logging.write` and
+`monitoring.write`, and still has **no** `windows-startup-script-ps1` -- its only metadata
+keys are `enable-osconfig`, `enable-windows-ssh` and `serial-port-enable`. So the bootstrap
+has not been run and production still cannot be deployed. `scheduling.automaticRestart` is
+now **`true`**; it was `false` when this runbook was written, and the warning that used to
+stand here has been rewritten rather than deleted, because what it protected against has
+changed shape rather than gone away. `connect-prod` is a 418 GB disk with
+`storageAutoResize: false`, nightly backups at 01:00 UTC, point-in-time recovery on with 7
+days of transaction logs, the last four backups `SUCCESSFUL`, and exactly one user database.
+The rollback section's database-name warning did **not** hold and has been rewritten. The PR
+test fleet and staging are a different document
 (`PR-Test-Environments-Operator-Runbook.md`); the trunk cutover described there has already
 happened, and this is the second half of it.
 
-At the time of writing, the trunk is `passion-19.3.4`, `productionBranch` is `passion-18.4.1`,
-and production is serving the 18.x line. Read the two values rather than trusting that
-sentence: `.github/pr-test-environments.json` on the default branch is the source for both.
+The trunk is `passion-19.3.4`, `productionBranch` is `passion-19.3.4`, and production is
+still serving the 18.x line -- the pin has moved, the code has not. Read the values rather
+than trusting that sentence: `.github/pr-test-environments.json` on the default branch is
+the source for both.
 
 ## What has to be true before any of this starts
 
@@ -48,10 +58,18 @@ publishes the scripts and stages the metadata, which changes nothing that is run
 be done in the open. Ticked, it stops the instance, widens the scope, and starts it again.
 Pick the window for the second half deliberately.
 
-**`connect-srv-prod` does not restart itself.** `scheduling.automaticRestart` is `false`, an
-AWS lift-and-shift leftover. The restart step retries the start six times and fails loudly if
-the instance is still down, but nothing behind it will try again. If that step throws, someone
-starts the instance by hand -- production is off until they do.
+**`scheduling.automaticRestart` is now `true`, and it does not cover this step.** It was
+`false` -- an AWS lift-and-shift leftover -- and was changed on production deliberately.
+Read what it actually does before relying on it here: it brings the instance back after a
+host failure or a maintenance event, meaning a crash. It does **not** restart an instance
+that was stopped on purpose, which is exactly what step 4 does. A deliberate `gcloud compute
+instances stop` stays stopped until something starts it.
+
+So the hazard is unchanged for the one step that matters. The restart step retries the start
+six times and fails loudly if the instance is still down, but nothing behind it will try
+again. If that step throws, someone starts the instance by hand -- production is off until
+they do. What `automaticRestart: true` buys is everything *after* the cutover: an unplanned
+host event no longer leaves production off until a human notices.
 
 **The scope change is a union, not a replacement.**
 `gcloud compute instances set-service-account --scopes=` overwrites the whole list, and
@@ -60,6 +78,56 @@ The workflow reads the current scopes, drops `devstorage.read_only`, adds
 `devstorage.read_write`, and dedupes. It does not grant `cloud-platform`, which is what
 staging runs on and is more than these scripts need: they reach `storage.googleapis.com`
 and the metadata server, and nothing else.
+
+**Production's `web.config` is not the artifact's, and four values in it cannot survive a
+straight copy.** The deploy copies the site in place with `robocopy /E`, which does not
+exclude `web.config`. Measured against the live box on 2026-09-14, every one of these
+differs between production's file and the one in the v19 artifact -- compared by hash, never
+printed:
+
+| Value | What it does | What replacing it costs |
+|---|---|---|
+| `PasswordKey` | hashes database-authenticated passwords (`Rock/Security/Authentication/Database.cs`) | **every staff login fails** -- a total lockout, with no error that names the cause |
+| `DataEncryptionKey` | decrypts encrypted attribute values (`Rock/Security/Encryption.cs`) | encrypted attributes and stored gateway credentials stop decrypting |
+| `machineKey` | signs sessions and ViewState | every session drops; ViewState MAC failures on any open page |
+| `RunJobsInIISContext` | `True` on production, `False` in the artifact | **every scheduled job silently stops** -- nothing errors, they just never run |
+
+Two more differ and are benign, confirmed rather than assumed. `OrgTimeZone` is
+`Eastern Standard Time` on the box against `Local` in the artifact, and the VM's own time
+zone *is* Eastern (`tzutil /g`), so the two agree. `EnableBundling` and
+`RedisConnectionString` exist only on the server and are referenced nowhere in 19.3.4.
+
+Production also registers a control prefix the artifact does not:
+`<add tagPrefix="Passion" ...>`. Three live `.ascx` pages under
+`Plugins\passion\crm\` depend on it, and because ASP.NET compiles `CodeFile=` pages on
+first request, losing it does not fail the deploy or the health check. It yellow-screens
+for whoever visits one of those pages first.
+
+**The file can be neither preserved nor copied, which is why this is a merge.** Preserving
+production's file breaks v19: 19.3.4 changes 376 lines against 18.4.1, nearly all of them
+mandatory `bindingRedirect` bumps plus nine new assembly references, and without them v19
+cannot load its own assemblies. Copying the artifact's file breaks the box, as above.
+Production's `web.config` is hand-maintained on the server and matches no branch in this
+repository -- it differs from the 18.4.1 file by 530 lines.
+
+`Merge-ServerOwnedWebConfigSettings` in `Deploy-RockEnvironment.ps1` is what resolves this.
+It reads the site's own `web.config` **before** the copy overwrites it, then carries exactly
+the named values forward into the artifact's file: the four above, any `OldPasswordKey*`
+rotation entries (matched by prefix, because the count is a property of the install), the
+`machineKey` element whole, and any control registration the artifact has no entry for. The
+artifact wins everything else, which is what keeps the assembly bindings intact. Anything on
+the server that it did not carry is reported as a warning rather than dropped in silence.
+
+This is the same idea as `$PreservedDirectories` and the server-owned theme files, one level
+further in: the file belongs to the artifact, a handful of values inside it belong to the
+box. `Tests/PrTestEnvironments/Pester/ServerOwnedWebConfigSettings.Tests.ps1` covers it,
+including against the real shipped `RockWeb/web.config`.
+
+**Staging cannot rehearse any of this.** Staging deploys with `mode: DedicatedSite`, which
+deletes the site directory and moves the extracted artifact into its place -- so staging
+runs the artifact's stock `web.config` and has never exercised production's keys. A
+successful staging login proves nothing about production's `PasswordKey`. Step 6's dry run
+is the only check that runs against the real file, and it runs against the real box.
 
 ## The ordering is forced, and not by choice
 
@@ -99,12 +167,17 @@ Two consequences to accept before opening it:
 
 Each step says what proves it worked. A step with no evidence behind it has not been done.
 
-1. **Land the pipeline changes on the default branch.** The bootstrap workflow, the
+1. **Land the pipeline changes on the default branch. — DONE.** The bootstrap workflow, the
    `-BootstrapPrefix` parameter on the agent and its installer, and the deploy script's
    progress logging. Confirm with `gh workflow list -R passiondev/Rock` that
    **Production Bootstrap Command Queue** appears.
 
-2. **Repoint `productionBranch`.** One PR, one string, on the default branch. Bump
+2. **Repoint `productionBranch`. — DONE.** Verified 2026-09-14: `productionBranch` reads
+   `passion-19.3.4`, and the `production` environment allows `passion-19.3.4` and
+   `passion-18.4.1`. Both halves below are satisfied; they are kept because the next
+   upgrade repeats them, and because the second half is the one no test can check.
+
+   One PR, one string, on the default branch. Bump
    `EXPECTED_PRODUCTION_BRANCH` in `Tests/PrTestEnvironments/test_base_branch_config.py` in
    the same commit -- it is the oracle the pin guard compares against, and
    `PRODUCTION_PIN_SITES` names the other site that has to move with it
@@ -137,6 +210,13 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    production branch with **restart_vm unticked**. It publishes the deployment scripts to
    `pr-environments/bootstrap/prod/` and writes the startup script into the instance's
    metadata. Production keeps serving throughout.
+
+   **This is the step that puts `Deploy-RockEnvironment.ps1` on the box, so it must run
+   after every change to that script.** The `web.config` merge described in the
+   preconditions lives in it, and the agent runs whatever is at that prefix -- not what is
+   in this repository. A bootstrap dispatched from a ref that predates the merge installs a
+   deploy script that will overwrite production's keys, and nothing later in this runbook
+   would catch it except step 6's dry run. Confirm the run's resolved SHA carries the fix.
 
    The startup script is now on the instance, and a startup script runs at every boot --
    not only the one step 5 triggers. That is deliberate and it is safe, because the script
@@ -216,12 +296,44 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    `C:\inetpub\wwwroot`, and if production does not live there this is the step that says so
    -- before a copy lands on the wrong directory.
 
+   **Then read the two `web.config` lines, which are the reason this dry run is not
+   optional.** The plan prints:
+
+   ```
+   Would carry this site's own web.config settings across: ...
+   Would carry any of this site's control registrations the artifact does not have: ...
+   ```
+
+   The first must name `PasswordKey`, `DataEncryptionKey`, `RunJobsInIISContext`,
+   `OrgTimeZone` and `machineKey`. The second must name `Passion`. **A plan that reports
+   `none found` for `PasswordKey` is the signal to stop** -- it means the deploy is about to
+   overwrite production's key with the artifact's and lock every staff member out, and it is
+   the only warning that arrives before rather than after. The preconditions above say what
+   each value costs.
+
+   This is also the only step in the runbook that reads production's real `web.config`.
+   Staging runs `DedicatedSite` and never had these values, so nothing earlier in the process
+   could have caught a fault here.
+
 7. **Deploy.** Same dispatch with `apply` ticked. One of the two named reviewers approves
    the `production` environment -- `Record approval` in the run is that gate. Self-review is
    allowed, so it can be the same person who dispatched it. The VM-side script backs the site
    up to `C:\RockBackups\production\<utc>-<sha>` before it copies anything, stops the app pool,
    copies over the site preserving `Content`, `App_Data`, `Logs`, `Uploads` and
    `web.ConnectionStrings.config`, then starts the pool and polls until the site answers.
+
+   **Confirm the `web.config` carry actually happened**, in the same log, on the line:
+
+   ```
+   Kept this server's own web.config settings: ...
+   ```
+
+   It should name the same values the dry run promised. `none found` here means the merge
+   read nothing -- stop before loading the site, because step 8 is what runs the migrations
+   and there is no cheap moment after it. A `WARNING` naming settings the deploy did not
+   carry is not a failure: it lists settings the artifact has no opinion about, and on this
+   install those are `EnableBundling` and `RedisConnectionString`, both unreferenced in
+   19.3.4. Read it rather than skipping it -- the next one might matter.
 
    The deploy log is now a timeline: every step carries an absolute UTC stamp and elapsed time,
    and the robocopy job summaries are no longer suppressed. That last part matters more than it
@@ -262,6 +374,27 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    wait. The probe has a 900 second window and recycles the app pool after 240 seconds of
    failures, because a faulted app domain caches its own startup exception and can never
    recover by retrying alone. Only the window expiring is a failure.
+
+   **Then check the four things the health check cannot see.** It fetches a page
+   anonymously, so it goes green whether or not any of these worked:
+
+   - **Log in as a staff member.** This is the `PasswordKey` check and the only one that
+     matters enough to do first. A failure here is a total lockout, and the site will look
+     perfectly healthy while it happens.
+   - **Open an encrypted attribute value** -- a financial gateway's settings under Admin
+     Tools is the direct one. Garbage or a decryption error is `DataEncryptionKey`.
+   - **Admin Tools > System Settings > Jobs**: confirm last-run times are advancing. This
+     is `RunJobsInIISContext`, and its failure mode is silence -- no error anywhere, the
+     jobs simply never fire.
+   - **Load one of the three plugin pages** under `Plugins/passion/crm/`
+     (`DynamicGroupRegistration`, `PassionChildPreRegistration`,
+     `PassionStudentPreRegistration`). These compile on first request, so a missing
+     `tagPrefix="Passion"` registration yellow-screens for the first real visitor rather
+     than failing the deploy.
+
+   All four are recoverable by hand if they fail -- the values are in the backup the deploy
+   took at `C:\RockBackups\production\<utc>-<sha>\web.config`. Finding out now is what
+   makes them cheap.
 
 9. **Put the branding back.** The upgrade takes it away, and nothing in the deploy puts
    it back. Migration `202508051740308_Rollup_20250805` repoints the internal site at the
@@ -352,12 +485,18 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    against staging's catalog first, with `apply` unticked, then with `apply` ticked, and
    confirm staging's theme changes on screen before this step is attempted on production.
 
-   One consequence of it never having run: the `database-write` environment it names does
-   not exist. GitHub creates a missing environment on first use with no protection rules,
-   and **an environment with no required reviewers approves itself**, so the apply gate is
-   currently decorative. Create the environment and give it a required reviewer before the
-   first production apply, or the dry run is the only thing standing between a dispatch and
-   a write.
+   One consequence of it never having run was that the `database-write` environment it names
+   did not exist. GitHub creates a missing environment on first use with no protection rules,
+   and **an environment with no required reviewers approves itself**, so the apply gate was
+   decorative. **Fixed 2026-09-14:** the environment now exists with required reviewers
+   `justinpbarnett` and `WoodsonJ`, self-review allowed -- the same shape as `production`.
+   Confirm it is still so before the first production apply:
+
+   ```bash
+   gh api repos/:owner/:repo/environments/database-write \
+     --jq '.protection_rules[] | select(.type=="required_reviewers")
+           | [.prevent_self_review, (.reviewers[].reviewer.login)]'
+   ```
 
    **Separately, confirm the deploy preserved the other themes' files.** This checks the
    half of step 9 that is supposed to need no action, which is exactly the half that fails
@@ -452,6 +591,18 @@ measured on staging. Decide by where you are:
   and then the old binaries. Restore the backup from step 5, or use point-in-time recovery to
   an instant before the deploy.
 
+**A lost `web.config` value is not a rollback.** If step 8's checks find a staff lockout, a
+decryption failure, jobs not firing or a missing `tagPrefix`, and everything else is
+healthy, the fix is one file and not a restore -- the migrations have already run and
+rolling the binaries back would leave 18.x against a 19.x schema. Take the value out of the
+backup the deploy took at `C:\RockBackups\production\<utc>-<sha>\web.config`, put it into
+the live `C:\inetpub\wwwroot\web.config`, and recycle the app pool. Edit the one element;
+do not copy the whole file over, or v19 loses the assembly bindings it needs -- that is the
+same trap the preconditions describe, taken from the other direction.
+
+Then find out why the merge did not carry it, because it will not carry it on the next
+deploy either.
+
 `connect-prod` carries exactly one user database, `RockConnectProd`, so a Cloud SQL restore
 takes back only what you intend even though it is instance-level. That is not true of the
 sandbox instance, which holds several -- do not carry the habit across.
@@ -486,6 +637,9 @@ back out loud before running it.
   `gh api repos/passiondev/Rock/environments/production --jq '.protection_rules'` rather than
   trusting a name written down here.
 
+  The `database-write` environment created on 2026-09-14 was given the same shape for the
+  same reason. If that trade is ever revisited, it applies to both.
+
 It is a live repository setting, and changing a live setting quietly is how a control ends up
 in place that nobody remembers agreeing to.
 
@@ -494,3 +648,8 @@ a deploy from any branch, with the guard inside the workflow doing all the refus
 2026-08-24 it was restricted to a single named branch, `passion-18.4.1`, so GitHub now refuses
 a wrong ref before an approver is paged. The cost is the one predicted here: the cutover has to
 move the policy as well as the pin. Step 2 carries that, because no test can see this setting.
+
+As of 2026-09-14 the policy names both `passion-19.3.4` and `passion-18.4.1`. That is step 2
+done and deliberately not finished: the old branch stays allowed until the v19 deploy has
+succeeded, because it is what lets the previous release be re-run from its own branch. Remove
+it once production is serving 19.x and has stayed up.
