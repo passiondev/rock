@@ -36,14 +36,31 @@ QUEUE_ACTION_SCRIPT = ACTIONS_DIR / "queue-vm-command" / "Write-VmCommand.ps1"
 
 # Every workflow that queues a command onto the VM and waits for the answer. Both
 # halves are one action for all of them: queue-vm-command and await-vm-command.
+#
+# Hand-written, because the claim each sweep below makes is that a *named*
+# workflow uses the shared action -- derived from the callers, that claim would
+# read "everything that calls the action calls the action" and a workflow that
+# reverted to its own enqueue would drop out of the list rather than fail.
+# `test_no_workflow_queues_from_outside_this_list` is the other direction, and it
+# exists because this list was two workflows short: db-anonymize-staging.yml and
+# db-set-theme-customization.yml were added to the fleet after it was written and
+# sat outside every sweep here, including the one that keeps a connection string
+# out of an interpolated payload. Both of those workflows carry one.
 QUEUE_PRODUCERS = [
+    "db-anonymize-staging.yml",
     "db-find-legacy-text-columns.yml",
+    "db-set-theme-customization.yml",
     "env-deploy-command.yml",
     "pr-test-deploy.yml",
     "pr-test-destroy-all.yml",
     "pr-test-lifecycle.yml",
     "pr-test-renew-certificates.yml",
 ]
+
+QUEUE_AGENT = (
+    harness.REPO_ROOT / "Deployment" / "PrTestEnvironments"
+    / "Invoke-PrEnvironmentCommandQueue.ps1"
+)
 
 
 def _local_action_references(parsed):
@@ -196,7 +213,7 @@ class LocalActionCheckoutTests(harness.HarnessAssertions, unittest.TestCase):
 
 
 class AwaitActionAdoptionTests(harness.HarnessAssertions, unittest.TestCase):
-    """The six producers all wait the same way now."""
+    """Every producer waits the same way now."""
 
     def test_every_queue_producer_waits_through_the_action(self):
         for name in QUEUE_PRODUCERS:
@@ -539,6 +556,110 @@ class QueueActionAdoptionTests(harness.HarnessAssertions, unittest.TestCase):
                     f"{name} job `{job_name}` hand-quotes an interpolated payload "
                     "value. Use toJSON(...) without the surrounding quotes.",
                 )
+
+    def test_no_workflow_queues_from_outside_this_list(self):
+        """The other direction, and the one the list cannot supply itself.
+
+        Every sweep above walks QUEUE_PRODUCERS, so a workflow missing from it is
+        not reported as a gap -- it is simply not looked at. Two were missing:
+        db-anonymize-staging.yml and db-set-theme-customization.yml joined the
+        fleet after the list was written, and for as long as they sat outside it
+        this class reported a clean result over two workflows that hand-quoted
+        free-text dispatch inputs into a JSON payload and one of which carries a
+        connection string. A hand-written list loses entries loudly, because the
+        sweep that walks it fails on the name it can no longer find. It gains
+        them silently. This is the half that does not.
+        """
+        queuing = sorted(
+            path.name
+            for path in sorted(harness.WORKFLOWS_DIR.glob("*.yml"))
+            if any(
+                (step.get("uses") or "") == QUEUE_ACTION
+                for job in (harness.workflow(path.name).get("jobs") or {}).values()
+                for step in (job.get("steps") or [])
+            )
+        )
+        self.assertNotVacuous(queuing, "no workflow calls the queue action at all")
+        self.assertEqual(
+            sorted(QUEUE_PRODUCERS),
+            queuing,
+            "QUEUE_PRODUCERS no longer names every workflow that queues a command "
+            "onto the VM. A workflow outside the list is one every other check in "
+            "this class passes over without saying so.",
+        )
+
+    def queue_verbs(self, name, step):
+        """The verbs one queue step can send.
+
+        Nearly always the step names one outright. `pr-test-lifecycle.yml` is the
+        exception: it picks between `stop` and `destroy` in JavaScript and hands
+        the answer over as `env.COMMAND`, so for an interpolated verb the
+        workflow's own text is read for quoted contract verbs and every one it
+        can reach is checked. A verb that resolves to nothing fails here rather
+        than returning an empty list, because an empty list is the state in which
+        the caller below checks a payload against no contract and passes.
+        """
+        contract_verbs = harness.command_contract_verbs(
+            QUEUE_AGENT.read_text(encoding="utf-8")
+        )
+        named = str((step.get("with") or {}).get("command") or "").strip()
+        if named in contract_verbs:
+            return [named]
+
+        text = (harness.WORKFLOWS_DIR / name).read_text(encoding="utf-8")
+        reachable = sorted(
+            verb for verb in contract_verbs if f"'{verb}'" in text or f'"{verb}"' in text
+        )
+        self.assertTrue(
+            reachable,
+            f"{name} queues `{named}`, which is neither a verb the contract has a "
+            "row for nor a choice this can resolve from the workflow's own text.",
+        )
+        return reachable
+
+    def test_every_payload_field_is_one_the_verb_binds(self):
+        """The producer held to the same contract as the binder and the agent.
+
+        A field no row binds is dropped without a word: the command queues, the
+        job goes green, and the value the operator typed into the dispatch box
+        never reaches the script. Nothing fails, because nothing on the VM was
+        ever told to expect it.
+
+        This is the third layer. Pester asserts the binder turns a document into
+        arguments; `test_command_queue` asserts the rows name scripts that exist;
+        this asserts the documents the workflows actually send are ones the rows
+        can read. Writing it needed the contract to state its whole surface
+        first: until `backupRoot` was bound and the rest declared unreachable, a
+        payload field the table did not mention was as likely to be a gap in the
+        table as a typo in the workflow, and a check that cannot tell those apart
+        is one somebody turns off.
+        """
+        agent = QUEUE_AGENT.read_text(encoding="utf-8")
+        kinds = harness.command_binding_kinds(agent)
+        checked = []
+
+        for name in QUEUE_PRODUCERS:
+            for job_name, step in self.queue_steps(name):
+                payload = str((step.get("with") or {}).get("payload") or "")
+                fields = re.findall(r'"([A-Za-z]\w*)"\s*:', payload)
+                for verb in self.queue_verbs(name, step):
+                    contract = harness.command_contract(agent, verb)
+                    bound = {
+                        field
+                        for kind in kinds
+                        for field in (contract.get(kind) or {})
+                    }
+                    for field in fields:
+                        checked.append((name, job_name, verb, field))
+                        self.assertIn(
+                            field,
+                            bound,
+                            f"{name} job `{job_name}` sends `{field}` to `{verb}`, "
+                            "which binds no such field. The value is dropped and "
+                            "the run still goes green.",
+                        )
+
+        self.assertNotVacuous(checked, "no queued payload carries a field")
 
 
 class QueueActionBehaviourTests(harness.HarnessAssertions, unittest.TestCase):

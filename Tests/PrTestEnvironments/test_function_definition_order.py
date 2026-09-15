@@ -30,7 +30,7 @@ SCRIPT_DIRS = [
 ]
 
 DEFINITION = re.compile(r"^function\s+([A-Za-z][\w-]*)", re.MULTILINE)
-INDENTED_DEFINITION = re.compile(r"^[ \t]+function\s+[A-Za-z][\w-]*", re.MULTILINE)
+INDENTED_DEFINITION = re.compile(r"^[ \t]+function\s+[A-Za-z][\w-]*")
 
 
 def scripts():
@@ -42,12 +42,20 @@ def scripts():
     return found
 
 
-def executable_lines(text):
-    """(line number, text) for lines that a runner will execute, at column 0 only.
+def code_lines(text):
+    """(line number, text) for every line that a runner will execute.
 
-    Block comments, line comments and here-string bodies are dropped. A here-string
-    can hold anything at all -- SQL, another script -- and matching a function name
-    inside one would report a call that is really just a word in a string."""
+    Block comments, line comments and here-string bodies are dropped, and the
+    indentation of what survives is kept. A here-string can hold anything at all
+    -- SQL, another script -- and matching a function name inside one would
+    report a call that is really just a word in a string.
+
+    Both tests below ask this rather than the raw file, and for the same reason
+    in both directions: a comment can say anything. The convention test used to
+    regex the raw text and reported `Deploy-RockEnvironment.ps1:2194 function and`
+    -- a line of .DESCRIPTION prose that happened to wrap onto the word. Nothing
+    is defined inside a comment, and nothing is called from one either.
+    """
     lines = []
     in_block_comment = False
     here_string_terminator = None
@@ -72,22 +80,47 @@ def executable_lines(text):
             here_string_terminator = opener.group(1) + "@"
 
         code = line.split("#", 1)[0] if not line.lstrip().startswith("#") else ""
-        if code.strip() and not code[0].isspace():
+        if code.strip():
             lines.append((number, code))
 
     return lines
 
 
+def executable_lines(text):
+    """The subset of `code_lines` at column 0, which is this file's file scope."""
+    return [(number, code) for number, code in code_lines(text) if not code[0].isspace()]
+
+
+def indented_definitions(text):
+    """`line number, declaration` for each function defined below file scope."""
+    return [
+        (number, code.strip())
+        for number, code in code_lines(text)
+        if code[0].isspace() and INDENTED_DEFINITION.match(code)
+    ]
+
+
 class ColumnZeroConventionTests(harness.HarnessAssertions, unittest.TestCase):
+    def test_an_indented_definition_is_still_caught(self):
+        """Calibration for the test below, which reports an empty list on a clean
+        tree and would report the same list if the scan had stopped working."""
+        planted = "function Outer {\n    function Inner {\n    }\n}\n"
+        self.assertEqual([(2, "function Inner {")], indented_definitions(planted))
+
+        commented = "<#\n    function Inner\n#>\nfunction Outer {\n}\n"
+        self.assertEqual(
+            [], indented_definitions(commented),
+            "comment prose is being read as a definition, which is the false "
+            "positive dropping the raw-text scan was for",
+        )
+
     def test_no_function_is_defined_indented(self):
         """The ordering check below reads column 0 as file scope. A function defined
         inside another one breaks that reading, and would be reported as a call."""
         offenders = []
         for path in scripts():
-            text = path.read_text(encoding="utf-8")
-            for match in INDENTED_DEFINITION.finditer(text):
-                line = harness.line_of(text, match.start())
-                offenders.append(f"{path.name}:{line} {match.group(0).strip()}")
+            for line, declaration in indented_definitions(path.read_text(encoding="utf-8")):
+                offenders.append(f"{path.name}:{line} {declaration}")
 
         self.assertEqual(
             [],

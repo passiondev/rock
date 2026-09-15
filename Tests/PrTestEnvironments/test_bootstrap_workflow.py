@@ -22,14 +22,24 @@ class BootstrapCommandQueueWorkflowTests(unittest.TestCase):
         # the flag order here would break that fix rather than notice it.
         self.assertIn("Deployment/PrTestEnvironments/*.ps1", text)
         self.assertIn("gsutil", text)
-        self.assertIn("gcloud compute instances list", text)
+        # Resolving the VM by its address is the claim; the lookup moved behind a
+        # composite action, and Pester/ResolveVmTarget.Tests.ps1 is what holds that
+        # one place honest. It had to move: this workflow and the diagnose run
+        # spelled the same gcloud filter two different ways, and only the
+        # certificate renewal checked that anything had been resolved.
+        self.assertIn("./.github/actions/resolve-vm", text)
         self.assertIn("GCP_VM_EXTERNAL_IP", text)
-        self.assertIn("gcloud compute instances add-metadata", text)
-        self.assertIn("windows-startup-script-ps1", text)
-        self.assertIn("gcloud compute instances stop", text)
-        self.assertIn("gcloud compute instances set-service-account", text)
+        # Staging and rebooting are the claim; both moved behind composite actions,
+        # and Pester/VmStartupScript.Tests.ps1 and Pester/RestartVm.Tests.ps1 are
+        # what hold those two places honest. The metadata key and the stop/start
+        # pair live there now -- asserting the strings here would pin the call
+        # sites of code this file no longer contains.
+        self.assertIn("./.github/actions/inject-startup-script", text)
+        self.assertIn("./.github/actions/restart-vm", text)
+        # The scope list stays asserted here because it stays this workflow's
+        # decision: restart-vm applies whatever it is handed, and the fleet is the
+        # caller that replaces rather than unions. See ADR-0006 for the same split.
         self.assertIn("https://www.googleapis.com/auth/cloud-platform", text)
-        self.assertIn("gcloud compute instances start", text)
         self.assertIn("Install-PrEnvironmentCommandQueueTask.ps1", text)
         self.assertIn("Invoke-PrEnvironmentCommandQueue.ps1", text)
         self.assertIn("PR_TEST_GCS_BUCKET", text)

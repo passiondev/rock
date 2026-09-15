@@ -34,9 +34,13 @@ The rule lands in two strengths, because the two surfaces differ in cost.
   action is a reusable module and its `run:` block is the implementation. There is
   no reason for that implementation to sit out of reach.
 
-- **Workflows: a downward-only ratchet.** 27 blocks sit over the limit today. The
-  test asserts the count has not risen, and fails when the count drops and the
+- **Workflows: a downward-only ratchet.** A backlog of blocks sits over the limit.
+  The test asserts the count has not risen, and fails when the count drops and the
   constant does not drop with it. So the backlog can only shrink.
+
+  Deliberately not written down here. `WORKFLOW_BACKLOG` is the number, this
+  document would be a second copy of it, and a ratchet's whole purpose is to move
+  -- so the copy would be wrong on the first change that worked.
 
 A script file gets a dot-source guard, so a test can load its functions without
 running its body:
@@ -62,8 +66,8 @@ Those names are now an interface with two sides and no compiler.
 `extract-powershell-blocks.py` still runs. It now covers a shrinking backlog rather
 than the whole pipeline.
 
-The test docstring names the 27 remaining blocks, so the number is a known debt
-rather than an unmeasured one.
+`WORKFLOW_BACKLOG` holds the count and the failure lists the blocks, so the debt
+is measured rather than estimated, and paying some of it off is a test change.
 
 ## What would reopen this
 

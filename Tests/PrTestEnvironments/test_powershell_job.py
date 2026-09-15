@@ -162,10 +162,11 @@ class ScriptsLiveInScriptFilesTests(harness.HarnessAssertions, unittest.TestCase
     # and branches want a test that can reach them.
     MAXIMUM_INLINE_LINES = 10
 
-    # What the workflows carried when the rule was written. It may fall. A change
-    # that raises it is adding script code nothing can run, which is the thing this
-    # file exists to stop.
-    WORKFLOW_BACKLOG = 27
+    # What the workflows carry now. It started at 27 when the rule was written and
+    # only falls: a change that raises it is adding script code nothing can run,
+    # which is the thing this file exists to stop. Extracting the deploy script
+    # drift comparison into .github/actions/report-script-drift took the first one.
+    WORKFLOW_BACKLOG = 26
 
     def _inline_blocks(self, paths):
         """(file, step name, executable line count) for every `run:` block."""
@@ -510,6 +511,11 @@ class PesterJobTests(harness.HarnessAssertions, unittest.TestCase):
 
         Quoted literals only. The same names appear in prose above each suite, and a
         comment saying `Deployment/PrTestEnvironments/*.ps1` is a glob, not a path.
+
+        This is also the loud half of what holds ADR-0004 in place: a suite that
+        moves its script path behind a fixture names nothing, and fails here. The
+        quiet half is in test_ci_trigger_coverage.py, which is the reason the
+        decision needed recording.
         """
         quoted = re.compile(r"""['"]([^'"]*?[A-Za-z0-9_-]+\.ps1)['"]""")
         swept = re.compile(r"""Get-RepositoryPath\s+['"]([^'"]+)['"]""")

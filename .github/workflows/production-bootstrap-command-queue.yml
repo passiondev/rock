@@ -271,15 +271,21 @@ jobs:
           Write-Host "ROCK-BOOTSTRAP: installed the command queue agent for queue $queueName."
           "@
 
-          $scriptFile = Join-Path $env:RUNNER_TEMP 'production-bootstrap-startup.ps1'
-          $startupScript | Out-File -FilePath $scriptFile -Encoding utf8
+          $startupScript | Out-File -FilePath (Join-Path $env:RUNNER_TEMP 'startup.ps1') -Encoding utf8
 
-          # Staging the metadata is not itself a production change: a startup script
-          # takes effect at the next boot and nothing here causes one.
-          gcloud compute instances add-metadata $vmName `
-            --zone=$vmZone `
-            --metadata-from-file=windows-startup-script-ps1=$scriptFile
-          if ($LASTEXITCODE -ne 0) { throw "Failed to stage the startup script on $vmName." }
+      # Staging the metadata is not itself a production change: a startup script
+      # takes effect at the next boot, and the restart below is behind its own input.
+      #
+      # The exit-code check this step used to carry is now the action's, along with
+      # a check nothing here ever did: that the here-string above produced valid,
+      # non-empty PowerShell. On this workflow that is the difference between an
+      # upgrade-day agent and a green run that installed nothing.
+      - name: Stage the startup script
+        uses: ./.github/actions/inject-startup-script
+        with:
+          vm-name: ${{ steps.vm.outputs.name }}
+          vm-zone: ${{ steps.vm.outputs.zone }}
+          script-path: ${{ runner.temp }}/startup.ps1
 
       - name: Restart the production VM to apply it
         id: restart

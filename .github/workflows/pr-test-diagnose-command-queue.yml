@@ -29,20 +29,31 @@ jobs:
         with:
           credentials-json: ${{ secrets.GCP_SA_KEY }}
 
+      # The VM lookup is shared; the delivery is not. This workflow does not queue a
+      # command, because what it diagnoses is an agent that is not consuming them --
+      # a command would arrive only in the case where nothing is wrong. ADR-0007.
+      #
+      # It also used to filter on `accessConfigs[0].natIP` where its two siblings
+      # filter on `accessConfigs.natIP`, and it carried an unresolved name straight
+      # into the stop and start below. Both are the action's problem now.
+      - name: Resolve the VM
+        id: vm
+        uses: ./.github/actions/resolve-vm
+        with:
+          external-ip: ${{ secrets.GCP_VM_EXTERNAL_IP }}
+          fallback-name: ${{ secrets.GCP_VM_NAME }}
+          fallback-zone: ${{ secrets.GCP_ZONE }}
+
       - name: Run diagnostics through VM startup script
         shell: pwsh
+        env:
+          VM_NAME: ${{ steps.vm.outputs.name }}
+          VM_ZONE: ${{ steps.vm.outputs.zone }}
         run: |
           $bucketName = $env:PR_TEST_GCS_BUCKET
           $diagnosticId = $env:DIAGNOSTIC_ID
-          $vmName = "${{ secrets.GCP_VM_NAME }}"
-          $vmZone = "${{ secrets.GCP_ZONE }}"
-
-          $vmByIp = gcloud compute instances list --filter="networkInterfaces.accessConfigs[0].natIP=${{ secrets.GCP_VM_EXTERNAL_IP }}" --format="csv[no-heading](name,zone)" | Select-Object -First 1
-          if (![string]::IsNullOrWhiteSpace($vmByIp)) {
-            $parts = $vmByIp.Split(',')
-            $vmName = $parts[0]
-            $vmZone = ($parts[1] -split '/')[-1]
-          }
+          $vmName = $env:VM_NAME
+          $vmZone = $env:VM_ZONE
 
           $startupScript = @"
           `$ErrorActionPreference = 'Continue'
@@ -99,24 +110,45 @@ jobs:
           Write-GcsObjectFile -ObjectName 'pr-environments/diagnostics/$diagnosticId.txt' -Path `$log
           "@
 
-          $scriptFile = Join-Path $env:RUNNER_TEMP 'pr-test-diagnostics-startup.ps1'
-          $startupScript | Out-File -FilePath $scriptFile -Encoding utf8
+          $startupScript | Out-File -FilePath (Join-Path $env:RUNNER_TEMP 'startup.ps1') -Encoding utf8
 
-          gcloud compute instances add-metadata $vmName `
-            --zone=$vmZone `
-            --metadata-from-file=windows-startup-script-ps1=$scriptFile
+      - name: Stage the diagnostics startup script
+        uses: ./.github/actions/inject-startup-script
+        with:
+          vm-name: ${{ steps.vm.outputs.name }}
+          vm-zone: ${{ steps.vm.outputs.zone }}
+          script-path: ${{ runner.temp }}/startup.ps1
 
-          gcloud compute instances stop $vmName --zone=$vmZone
-          Start-Sleep -Seconds 10
-          gcloud compute instances start $vmName --zone=$vmZone
-
-          "VM_NAME=$vmName" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "VM_ZONE=$vmZone" | Out-File -FilePath $env:GITHUB_ENV -Append
+      # This reboot takes staging and the whole pr-* fleet down for the minutes Rock
+      # needs to warm, and it leaves the diagnostics payload as the VM's startup
+      # script until a bootstrap rewrites it. Both are the cost of the only channel
+      # this workflow has -- see ADR-0007 -- not incidental steps around it.
+      # No scopes: this run only reads what is already there. The bootstrap is
+      # what grants, and a diagnose run that quietly widened the instance's scopes
+      # would be changing the thing it was called in to observe.
+      - name: Reboot the VM to run the diagnostics
+        uses: ./.github/actions/restart-vm
+        with:
+          vm-name: ${{ steps.vm.outputs.name }}
+          vm-zone: ${{ steps.vm.outputs.zone }}
+          down-message: >-
+            Staging and the pr-* fleet are DOWN -- start it by hand.
 
       - name: Print VM serial output after startup
         if: always()
         shell: pwsh
+        env:
+          VM_NAME: ${{ steps.vm.outputs.name }}
+          VM_ZONE: ${{ steps.vm.outputs.zone }}
         run: |
+          # `always()`, so this runs even when the resolve step is what failed --
+          # in which case there is no VM to read a serial port from, and asking
+          # gcloud anyway buries the real error under a usage message.
+          if ([string]::IsNullOrWhiteSpace($env:VM_NAME)) {
+            Write-Host "No VM was resolved, so there is no serial output to read."
+            exit 0
+          }
+
           Start-Sleep -Seconds 120
           gcloud compute instances get-serial-port-output $env:VM_NAME --zone=$env:VM_ZONE --port=1 | Select-Object -Last 300
 

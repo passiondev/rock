@@ -1,0 +1,50 @@
+name: Restart a VM to run its staged startup script
+description: >
+  Stop the instance, optionally change its service account scopes while it is
+  down, and start it again with a bounded retry.
+
+inputs:
+  vm-name:
+    description: The instance to restart.
+    required: true
+  vm-zone:
+    description: The instance's zone, bare rather than a resource URL.
+    required: true
+  down-message:
+    description: >
+      One sentence naming what is offline if the instance never starts again.
+      The same failed start leaves the test box carrying staging and the whole
+      pr-* fleet, and an operator reading the run needs to be told which.
+    required: true
+  scopes:
+    description: >
+      Service account scopes to set while the instance is stopped, comma
+      separated. Omit to leave the service account alone -- the caller decides
+      the policy, and an empty list here means no call rather than no scopes.
+    required: false
+    default: ""
+
+# The other half of the startup-script channel. inject-startup-script writes the
+# script to metadata; nothing runs it until the machine boots, so every caller
+# that stages also reboots. Both fleet workflows spelled that reboot themselves
+# and had drifted: the bootstrap checked neither the stop nor the scope change,
+# so a refused stop reported a green bootstrap whose agent never installed.
+#
+# production-bootstrap-command-queue.yml is deliberately not a caller. Its restart
+# reads the instance's current scopes, refuses to continue when the read looks
+# implausible, and unions rather than replaces -- all before the stop, because
+# there is nothing to recover to once production is down. See Restart-Vm.ps1.
+runs:
+  using: composite
+  steps:
+    - name: Restart the VM
+      shell: pwsh
+      env:
+        RESTART_VM_NAME: ${{ inputs.vm-name }}
+        RESTART_VM_ZONE: ${{ inputs.vm-zone }}
+        RESTART_DOWN_MESSAGE: ${{ inputs.down-message }}
+        RESTART_SCOPES: ${{ inputs.scopes }}
+        # A literal, and the only thing the script's early-return guard reads.
+        RESTART_INVOKED: "1"
+      run: |
+        & "$env:GITHUB_ACTION_PATH/Restart-Vm.ps1"

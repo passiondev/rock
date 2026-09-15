@@ -81,19 +81,23 @@ jobs:
           # still open, so treat this as removing one candidate, not as the fix.
           gsutil -h "Content-Type:text/plain; charset=utf-8" -m cp Deployment/PrTestEnvironments/*.ps1 Deployment/Database/*.ps1 gs://$bucketName/pr-environments/bootstrap/latest/
 
+      - name: Resolve the VM
+        id: vm
+        uses: ./.github/actions/resolve-vm
+        with:
+          external-ip: ${{ secrets.GCP_VM_EXTERNAL_IP }}
+          fallback-name: ${{ secrets.GCP_VM_NAME }}
+          fallback-zone: ${{ secrets.GCP_ZONE }}
+
       - name: Install command queue scheduled task through VM startup script
         shell: pwsh
+        env:
+          VM_NAME: ${{ steps.vm.outputs.name }}
+          VM_ZONE: ${{ steps.vm.outputs.zone }}
         run: |
           $bucketName = $env:PR_TEST_GCS_BUCKET
-          $vmName = "${{ secrets.GCP_VM_NAME }}"
-          $vmZone = "${{ secrets.GCP_ZONE }}"
-
-          $vmByIp = gcloud compute instances list --filter="networkInterfaces.accessConfigs.natIP=${{ secrets.GCP_VM_EXTERNAL_IP }}" --format="csv[no-heading](name,zone)" | Select-Object -First 1
-          if (![string]::IsNullOrWhiteSpace($vmByIp)) {
-            $parts = $vmByIp.Split(',')
-            $vmName = $parts[0]
-            $vmZone = ($parts[1] -split '/')[-1]
-          }
+          $vmName = $env:VM_NAME
+          $vmZone = $env:VM_ZONE
 
           Write-Host "Bootstrapping PR command queue on VM $vmName in zone $vmZone"
           $startupScript = @"
@@ -166,28 +170,26 @@ jobs:
           # this removes the only trigger until that lands.
           "@
 
-          $scriptFile = Join-Path $env:RUNNER_TEMP 'pr-test-bootstrap-startup.ps1'
-          $startupScript | Out-File -FilePath $scriptFile -Encoding utf8
+          $startupScript | Out-File -FilePath (Join-Path $env:RUNNER_TEMP 'startup.ps1') -Encoding utf8
 
-          gcloud compute instances add-metadata $vmName `
-            --zone=$vmZone `
-            --metadata-from-file=windows-startup-script-ps1=$scriptFile
+      # Staging is its own step so the payload can be checked before it is written
+      # to the instance. This workflow used to stage without looking at gcloud's
+      # exit code, and nothing here or downstream ever looked at the script itself.
+      - name: Stage the startup script
+        uses: ./.github/actions/inject-startup-script
+        with:
+          vm-name: ${{ steps.vm.outputs.name }}
+          vm-zone: ${{ steps.vm.outputs.zone }}
+          script-path: ${{ runner.temp }}/startup.ps1
 
-          gcloud compute instances stop $vmName --zone=$vmZone
-          gcloud compute instances set-service-account $vmName `
-            --zone=$vmZone `
-            --scopes=https://www.googleapis.com/auth/cloud-platform
-          Start-Sleep -Seconds 10
-          $started = $false
-          for ($attempt = 1; $attempt -le 6; $attempt++) {
-            gcloud compute instances start $vmName --zone=$vmZone
-            if ($LASTEXITCODE -eq 0) {
-              $started = $true
-              break
-            }
-            Write-Warning "VM start attempt $attempt failed; retrying in 30 seconds."
-            Start-Sleep -Seconds 30
-          }
-          if (!$started) {
-            throw "Failed to start VM $vmName in $vmZone after retries."
-          }
+      # The scopes are a flat replacement here, which is this fleet's policy and
+      # not the shared action's: the test box carries nothing that a wider grant
+      # would put at risk. Production reads and unions instead -- see restart-vm.
+      - name: Reboot the VM to apply it
+        uses: ./.github/actions/restart-vm
+        with:
+          vm-name: ${{ steps.vm.outputs.name }}
+          vm-zone: ${{ steps.vm.outputs.zone }}
+          scopes: https://www.googleapis.com/auth/cloud-platform
+          down-message: >-
+            Staging and the pr-* fleet are DOWN -- start it by hand.

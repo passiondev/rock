@@ -39,16 +39,15 @@ ANONYMIZE_COMMAND = "anonymize-staging"
 PRODUCTION_DATA_SOURCE = "172.20.0.8"
 
 
-def _strip_comments(text):
-    """Drop block and line comments.
+# Comments stripped by the harness. The anonymizer quotes the house rule it
+# diverges from, and a scan that could not tell an explanation from a call
+# would be satisfied by deleting the explanation.
+_strip_comments = harness.strip_powershell_comments
 
-    Every claim this file makes is about what the script *does*, and the script
-    explains all of it in prose -- it names the production instance, it says it
-    writes no pre-image table, it describes the UPDATE it runs. A scan that could
-    not tell an explanation from the thing explained would be satisfied by a
-    script that only commented."""
-    text = re.sub(r"<#.*?#>", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
-    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+
+def _contract():
+    """This command's row of the queue agent's contract table."""
+    return harness.command_contract(QUEUE_AGENT.read_text(), ANONYMIZE_COMMAND)
 
 
 class ScriptExistsTests(unittest.TestCase):
@@ -743,27 +742,23 @@ class KeepListIsReachableTests(unittest.TestCase):
     script cannot pass it."""
 
     def test_the_queue_agent_forwards_the_keep_list(self):
-        body = QUEUE_AGENT.read_text()
-
-        arm = body[body.index(f'"{ANONYMIZE_COMMAND}"') :]
-        arm = arm[: arm.index("default {")]
-        self.assertIn("keepEmailDomains", arm)
-        self.assertIn("KeepEmailDomains", arm, "the field is read but not passed on")
+        self.assertEqual(
+            _contract().get("List", {}).get("keepEmailDomains"),
+            "KeepEmailDomains",
+            "the field is read but not passed on",
+        )
 
     def test_a_command_without_the_field_still_runs(self):
         """Commands are JSON documents that outlive the code that wrote them. One
         queued before this field existed must still run, and must err toward
-        anonymizing more rather than fewer."""
-        body = QUEUE_AGENT.read_text()
+        anonymizing more rather than fewer.
 
-        arm = body[body.index(f'"{ANONYMIZE_COMMAND}"') :]
-        arm = arm[: arm.index("default {")]
-        self.assertIn(
-            "PSObject.Properties.Name -contains 'keepEmailDomains'",
-            arm,
-            "the keep list is read without checking the field is there, so an "
-            "older command throws under StrictMode instead of running",
-        )
+        List is the binding kind that says so: absent, blank, or nothing but commas
+        all forward no keep list at all, which anonymizes everyone."""
+        contract = _contract()
+
+        self.assertIn("keepEmailDomains", contract.get("List", {}))
+        self.assertNotIn("keepEmailDomains", contract.get("Required", {}))
 
     def test_the_workflow_exposes_the_keep_list(self):
         spec = yaml.safe_load(ANONYMIZE_WORKFLOW.read_text())
@@ -914,50 +909,43 @@ class TheAnonymizerCanActuallyBeRunTests(unittest.TestCase):
         )
 
     def test_the_queue_agent_has_a_command_that_runs_the_anonymizer(self):
-        agent = QUEUE_AGENT.read_text()
-
-        self.assertIn(f'"{ANONYMIZE_COMMAND}" {{', agent)
-        self.assertIn(ANONYMIZER.name, agent)
-        self.assertIn(f"'{ANONYMIZE_COMMAND}' = ", agent)
+        self.assertIn(
+            ANONYMIZE_COMMAND, harness.command_contract_verbs(QUEUE_AGENT.read_text())
+        )
+        self.assertEqual(_contract().get("Script"), ANONYMIZER.name)
 
     def test_the_agent_refuses_the_command_without_an_expected_catalog(self):
         """Every other optional field on every other command degrades to something
         sensible when it is missing. This one must not: the value it carries is the
-        operator stating which catalog they mean, and absent means unstated."""
-        agent = _strip_comments(QUEUE_AGENT.read_text())
+        operator stating which catalog they mean, and absent means unstated.
 
-        arm = agent[agent.index(f'"{ANONYMIZE_COMMAND}" {{') :]
-        arm = arm[: arm.index("default {")]
-
-        self.assertIn("expectedCatalog", arm)
-        self.assertRegex(
-            arm,
-            r"throw\s+\"anonymize-staging requires an expectedCatalog",
-            "the agent forwards a missing expectedCatalog instead of refusing it",
+        Required is the binding kind that refuses by name. Moved to Optional the
+        field would simply be dropped, and the script's own -ExpectedCatalog
+        default -- there isn't one -- would decide what got rewritten."""
+        self.assertEqual(
+            _contract().get("Required", {}).get("expectedCatalog"),
+            "ExpectedCatalog",
         )
 
     def test_the_agent_defaults_the_command_to_a_dry_run(self):
-        agent = _strip_comments(QUEUE_AGENT.read_text())
+        """Apply is a Flag, the binding kind that has to be asked for. As an
+        Optional it would be forwarded whenever the field is present -- including
+        `apply: false`, which binds a switch to $true."""
+        contract = _contract()
 
-        arm = agent[agent.index(f'"{ANONYMIZE_COMMAND}" {{') :]
-        arm = arm[: arm.index("default {")]
-
-        self.assertRegex(
-            arm,
-            r"-contains 'apply'\)\s*-and\s*\$Command\.apply\)",
-            "the agent does not gate Apply on the command explicitly asking for it",
-        )
+        self.assertEqual(contract.get("Flag", {}).get("apply"), "Apply")
+        for kind in ("Required", "Optional", "Verbatim"):
+            self.assertNotIn("apply", contract.get(kind, {}))
 
     def test_the_command_has_a_timeout_that_outlasts_a_real_run(self):
-        """The fallback is 600s. Batched UPDATEs over every Person and PhoneNumber
-        row in a prod-derived catalog run longer than that, and a run killed part-way
-        is reported as a failure -- which invites the reading that it did nothing and
+        """Batched UPDATEs over every Person and PhoneNumber row in a prod-derived
+        catalog run for the better part of an hour, and a run killed part-way is
+        reported as a failure -- which invites the reading that it did nothing and
         leaves real addresses in place."""
-        agent = QUEUE_AGENT.read_text()
+        timeout = _contract().get("TimeoutSeconds")
 
-        match = re.search(rf"'{ANONYMIZE_COMMAND}'\s*=\s*(\d+)", agent)
-        self.assertIsNotNone(match, "no timeout is declared for the command")
-        self.assertGreaterEqual(int(match.group(1)), 1800)
+        self.assertIsNotNone(timeout, "no timeout is declared for the command")
+        self.assertGreaterEqual(timeout, 1800)
 
     def test_a_workflow_exists_to_dispatch_that_command(self):
         self.assertTrue(

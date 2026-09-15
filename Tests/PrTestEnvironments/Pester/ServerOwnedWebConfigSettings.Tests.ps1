@@ -31,7 +31,7 @@ BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
     $script:DeployScript = Get-RepositoryPath 'Deployment/PrTestEnvironments/Deploy-RockEnvironment.ps1'
-    . (Import-ScriptFunction -Path $script:DeployScript -Name 'Merge-ServerOwnedWebConfigSettings', 'Set-ProductionCompilationSettings')
+    . (Import-ScriptFunction -Path $script:DeployScript -Name 'Get-ServerOwnedWebConfigSettings', 'Merge-ServerOwnedWebConfigSettings', 'Set-ProductionCompilationSettings')
 
     $script:Keys = @('PasswordKey', 'DataEncryptionKey', 'RunJobsInIISContext', 'OrgTimeZone')
     $script:Prefixes = @('OldPasswordKey')
@@ -290,6 +290,152 @@ Describe 'Merge-ServerOwnedWebConfigSettings' {
             # Whatever the shipped file redirects to, it is still there afterwards.
             $before = ([regex]::Matches($script:Shipped, '<bindingRedirect ')).Count
             ([regex]::Matches($result.WebConfig, '<bindingRedirect ')).Count | Should -Be $before
+        }
+    }
+}
+
+Describe 'Get-ServerOwnedWebConfigSettings' {
+    <#
+        The read half, and the reason it was split out: the dry-run plan an
+        operator reads before a cutover used to work the same question out for
+        itself, and the two answers had drifted.
+
+        A plan is not a log. It is read to decide whether to run the thing at all,
+        so a line that reports a setting the merge would not carry -- or omits one
+        it would -- is worse than no line, because it is acted on.
+    #>
+
+    BeforeAll {
+        $script:Found = Get-ServerOwnedWebConfigSettings `
+            -ExistingWebConfig $script:Server `
+            -AppSettingKeys $script:Keys `
+            -AppSettingKeyPrefixes $script:Prefixes
+    }
+
+    Context 'what it finds on the box' {
+
+        It 'finds every appSettings key the server has, owned or not' {
+            @($script:Found.AppSettings.Keys) | Should -Contain 'PasswordKey'
+            @($script:Found.AppSettings.Keys) | Should -Contain 'RedisConnectionString'
+        }
+
+        It 'owns the named keys and the prefix family, and nothing else' {
+            @($script:Found.OwnedKeys) | Should -Be @(
+                'PasswordKey', 'DataEncryptionKey', 'RunJobsInIISContext', 'OrgTimeZone',
+                'OldPasswordKey', 'OldPasswordKey1'
+            )
+        }
+
+        It 'resolves the prefix family off the server, which is the only file that knows its size' {
+            # OldPasswordKey, OldPasswordKey1, OldPasswordKey2 and so on: Rock reads
+            # them in order so a key rotation does not lock out anyone whose hash
+            # predates it, and how many exist is not knowable from the repository.
+            @($script:Found.OwnedKeys | Where-Object { $_ -like 'OldPasswordKey*' }).Count | Should -Be 2
+        }
+
+        It 'carries whole elements, so an attribute this code does not know about rides along' {
+            $script:Found.AppSettings['PasswordKey'] | Should -Be '<add key="PasswordKey" value="SERVER-PASSWORD-KEY" />'
+        }
+
+        It 'finds the machineKey element' {
+            $script:Found.MachineKey | Should -Match 'SERVERVALIDATION'
+        }
+
+        It 'finds every control registration, including the one the artifact also has' {
+            @($script:Found.Registrations.Keys) | Should -Be @('Rock', 'Passion')
+        }
+
+        It 'does not claim a named key the box does not actually have' {
+            # The operator's stop signal. "A production plan that reports 'none
+            # found' for PasswordKey is the signal to stop" only works while the
+            # plan reports what is there rather than what it was told to look for.
+            $partial = $script:Server -replace '<add key="DataEncryptionKey"[^>]*>', ''
+
+            $found = Get-ServerOwnedWebConfigSettings -ExistingWebConfig $partial `
+                -AppSettingKeys $script:Keys -AppSettingKeyPrefixes $script:Prefixes
+
+            @($found.OwnedKeys) | Should -Not -Contain 'DataEncryptionKey'
+            @($found.OwnedKeys) | Should -Contain 'PasswordKey'
+        }
+
+        It 'leaves the artifact value alone for a key the box does not have' {
+            # The other side of the same invariant: the merge carries only what
+            # this function says is owned, so a key claimed and not present would
+            # overwrite the artifact's value with nothing at all.
+            $partial = $script:Server -replace '<add key="DataEncryptionKey"[^>]*>', ''
+            $result = & $script:Merge $script:Artifact $partial
+
+            $result.WebConfig | Should -Match '<add key="DataEncryptionKey" value="ARTIFACT-ENCRYPTION-KEY" />'
+            @($result.Carried) | Should -Not -Contain 'DataEncryptionKey'
+        }
+
+        It 'owns nothing when the box has no web.config' {
+            # A first deploy onto an empty site. The plan says "none found" and the
+            # merge returns the artifact untouched; both read this the same way.
+            $none = Get-ServerOwnedWebConfigSettings -ExistingWebConfig '' `
+                -AppSettingKeys $script:Keys -AppSettingKeyPrefixes $script:Prefixes
+
+            @($none.OwnedKeys).Count | Should -Be 0
+            @($none.Registrations.Keys).Count | Should -Be 0
+            $none.MachineKey | Should -BeNullOrEmpty
+        }
+    }
+
+    Context 'the plan and the merge, on the same pair of files' {
+
+        BeforeAll {
+            $script:Applied = & $script:Merge $script:Artifact $script:Server
+        }
+
+        It 'promises exactly the settings the merge then carries' {
+            # The plan's line is OwnedKeys plus machineKey. The merge's Carried is
+            # the same list plus the tagPrefix entries it decided on, which the plan
+            # does not claim. Anything else and the operator is reading a promise
+            # the apply run does not keep.
+            $promised = @($script:Found.OwnedKeys) + @('machineKey')
+            $kept = @($script:Applied.Carried | Where-Object { $_ -notlike 'tagPrefix:*' })
+
+            $promised.Count | Should -BeGreaterThan 1
+            @($kept) | Should -Be @($promised)
+        }
+
+        It 'offers the registrations as candidates, and the merge takes the subset the artifact lacks' {
+            # This is the one the plan cannot decide: the artifact is not downloaded
+            # when the plan runs, so which registrations survive is unknowable then.
+            # The plan says "would consider"; only this comparison is allowed to be
+            # a subset rather than an equality.
+            $offered = @($script:Found.Registrations.Keys)
+            $taken = @($script:Applied.Carried |
+                Where-Object { $_ -like 'tagPrefix:*' } |
+                ForEach-Object { $_ -replace '^tagPrefix:', '' })
+
+            @($taken).Count | Should -BeGreaterThan 0
+            foreach ($prefix in $taken) { $offered | Should -Contain $prefix }
+            $taken | Should -Not -Contain 'Rock'
+        }
+
+        It 'reports as dropped only keys it does not own' {
+            foreach ($key in @($script:Applied.Dropped)) {
+                @($script:Found.OwnedKeys) | Should -Not -Contain $key
+            }
+            @($script:Applied.Dropped) | Should -Contain 'RedisConnectionString'
+        }
+    }
+
+    Context 'against the web.config that actually ships' {
+
+        It 'finds the same owned keys in the shipped file as the merge carries from it' {
+            # Fixtures prove the patterns handle the shape written down here; only
+            # the shipped file proves they handle the shape that ships.
+            $shipped = Get-Content -Raw -Path (Join-Path (Get-RepositoryPath 'RockWeb') 'web.config')
+
+            $found = Get-ServerOwnedWebConfigSettings -ExistingWebConfig $shipped `
+                -AppSettingKeys $script:Keys -AppSettingKeyPrefixes $script:Prefixes
+            $applied = & $script:Merge $script:Artifact $shipped
+
+            @($found.OwnedKeys).Count | Should -BeGreaterThan 0
+            @($applied.Carried | Where-Object { $_ -notlike 'tagPrefix:*' -and $_ -ne 'machineKey' }) |
+                Should -Be @($found.OwnedKeys)
         }
     }
 }

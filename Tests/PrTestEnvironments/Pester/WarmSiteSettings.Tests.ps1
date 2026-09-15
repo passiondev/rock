@@ -181,6 +181,13 @@ Describe 'Which deploy modes reach the warm settings' {
     It 'still keeps identity out of the InPlace path' {
         # The other half of the split. An InPlace deploy updates a site somebody
         # else built, so restating its app pool identity is not the deploy's call.
+        #
+        # Asked in two steps, because the branch is a named function now. It used
+        # to climb to an enclosing `if ($Mode -eq 'DedicatedSite')`, and when the
+        # branch body moved into Invoke-DedicatedSiteReplace there was no longer
+        # an `if` above these calls at all. Both halves are needed: a call inside
+        # the right function proves nothing if that function is reached on every
+        # deploy.
         $identityCalls = $script:Ast.FindAll({
             param($node)
             $node -is [System.Management.Automation.Language.CommandAst] -and
@@ -190,16 +197,36 @@ Describe 'Which deploy modes reach the warm settings' {
         @($identityCalls).Count | Should -BeGreaterThan 0
 
         foreach ($call in $identityCalls) {
-            $guarded = $false
+            $enclosingFunction = $null
             $enclosing = $call.Parent
             while ($null -ne $enclosing) {
-                if ($enclosing -is [System.Management.Automation.Language.IfStatementAst] -and
-                    $enclosing.Clauses[0].Item1.Extent.Text -match 'DedicatedSite') {
-                    $guarded = $true
+                if ($null -eq $enclosingFunction -and
+                    $enclosing -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
+                    $enclosingFunction = $enclosing.Name
                 }
                 $enclosing = $enclosing.Parent
             }
-            $guarded | Should -BeTrue -Because "$($call.GetCommandName()) must stay inside the DedicatedSite branch"
+            $enclosingFunction | Should -Be 'Invoke-DedicatedSiteReplace' `
+                -Because "$($call.GetCommandName()) must stay in the branch that builds the site, not the one that overwrites production's"
         }
+
+        $branchCalls = $script:Ast.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.CommandAst] -and
+            $node.GetCommandName() -eq 'Invoke-DedicatedSiteReplace'
+        }, $true)
+
+        @($branchCalls).Count | Should -Be 1 -Because 'one call site is what makes the guard below a complete statement'
+
+        $guarded = $false
+        $enclosing = $branchCalls[0].Parent
+        while ($null -ne $enclosing) {
+            if ($enclosing -is [System.Management.Automation.Language.IfStatementAst] -and
+                $enclosing.Clauses[0].Item1.Extent.Text -match 'DedicatedSite') {
+                $guarded = $true
+            }
+            $enclosing = $enclosing.Parent
+        }
+        $guarded | Should -BeTrue -Because 'the branch itself has to be reached only on a DedicatedSite deploy'
     }
 }

@@ -24,7 +24,9 @@ BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
     $script:AgentScript = Get-RepositoryPath 'Deployment/PrTestEnvironments/Invoke-PrEnvironmentCommandQueue.ps1'
-    . (Import-ScriptFunction -Path $script:AgentScript -Name 'Read-GcsObjectText', 'Sync-DeploymentScripts')
+    . (Import-ScriptFunction -Path $script:AgentScript `
+            -Name 'Read-GcsObjectText', 'Sync-DeploymentScripts' `
+            -Supplied 'Get-GcsAccessToken', 'Get-GcsObjectList', 'BucketName')
 
     $script:BucketName = 'connect-file-storage'
     $script:ScriptText = "param([string]`$Name)`nWrite-Host `"hello `$Name`"`n"
@@ -200,5 +202,108 @@ Describe 'Sync-DeploymentScripts' {
         Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
 
         @(Get-ChildItem -Path $script:Destination -Filter '*.sync').Count | Should -Be 0
+    }
+}
+
+Describe 'the record Sync-DeploymentScripts leaves' {
+    <#
+        Everything this function reports, it reports through Write-Host and
+        Write-Warning, and it runs before the command loop starts -- outside any
+        command's captured output, so none of it reaches the bucket. That is why
+        "the refresh has never delivered a file to connect-srv-test" stood for
+        weeks as a claim nobody could check: there was no artifact that would
+        distinguish not delivering from not being watched.
+
+        These pin the artifact. Deploy-RockEnvironment.ps1 reads it back and puts
+        it in the deploy timeline -- see Write-DeployScriptProvenance -- so the
+        next deploy after a refresh says out loud which copy of the script is
+        running and when it last changed.
+    #>
+
+    BeforeEach {
+        $script:NextContent = $null
+        $script:Destination = Join-Path ([System.IO.Path]::GetTempPath()) ("syncstate-" + [System.Guid]::NewGuid().ToString('n'))
+        New-Item -ItemType Directory -Path $script:Destination -Force | Out-Null
+        $script:Listed = @()
+        $script:FetchMap = @{}
+        $script:StateFile = 'script-sync-state.json'
+    }
+
+    AfterEach {
+        Remove-Item -LiteralPath $script:Destination -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'records a file it refreshed' {
+        $name = $script:Prefix + $script:DeployScript
+        $script:Listed = @($name)
+        $script:FetchMap = @{ $name = $script:ScriptText }
+
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
+
+        $state = Get-Content -Raw (Join-Path $script:Destination $script:StateFile) | ConvertFrom-Json
+        $entry = @($state.files | Where-Object { $_.name -eq $script:DeployScript })
+        $entry.Count | Should -Be 1
+        $entry[0].status | Should -Be 'refreshed'
+    }
+
+    It 'records a file that was already current, which is not the same as one it never saw' {
+        # The distinction the missing artifact destroyed. "identical" means the
+        # object was fetched, decoded and compared; a missing entry means the
+        # listing never offered it.
+        $name = $script:Prefix + $script:DeployScript
+        $script:Listed = @($name)
+        $script:FetchMap = @{ $name = $script:ScriptText }
+
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
+
+        $state = Get-Content -Raw (Join-Path $script:Destination $script:StateFile) | ConvertFrom-Json
+        @($state.files | Where-Object { $_.name -eq $script:DeployScript })[0].status | Should -Be 'identical'
+    }
+
+    It 'records why it skipped a file that does not parse' {
+        $name = $script:Prefix + $script:StopScript
+        $script:Listed = @($name)
+        $script:FetchMap = @{ $name = 'function {{{ broken' }
+
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination -WarningAction SilentlyContinue
+
+        $state = Get-Content -Raw (Join-Path $script:Destination $script:StateFile) | ConvertFrom-Json
+        $entry = @($state.files | Where-Object { $_.name -eq $script:StopScript })
+        $entry[0].status | Should -Be 'skipped-unparseable'
+        $entry[0].detail | Should -Not -BeNullOrEmpty
+    }
+
+    It 'stamps when it ran and how many objects it saw' {
+        $name = $script:Prefix + $script:DeployScript
+        $script:Listed = @($name)
+        $script:FetchMap = @{ $name = $script:ScriptText }
+
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
+
+        $state = Get-Content -Raw (Join-Path $script:Destination $script:StateFile) | ConvertFrom-Json
+        $state.objectsSeen | Should -Be 1
+        $state.prefix | Should -Be $script:Prefix
+        [datetime]::Parse($state.lastRunUtc) | Should -BeOfType [datetime]
+    }
+
+    It 'writes the record even when the prefix held nothing' {
+        # An empty listing is the single most interesting outcome to be able to
+        # prove, because it is the one the unexplained claim needs ruled in or out.
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
+
+        $state = Get-Content -Raw (Join-Path $script:Destination $script:StateFile) | ConvertFrom-Json
+        $state.objectsSeen | Should -Be 0
+        @($state.files).Count | Should -Be 0
+    }
+
+    It 'is not itself a .ps1, so the next refresh does not try to run it' {
+        $name = $script:Prefix + $script:DeployScript
+        $script:Listed = @($name)
+        $script:FetchMap = @{ $name = $script:ScriptText }
+
+        Sync-DeploymentScripts -Prefix $script:Prefix -Destination $script:Destination
+
+        (Join-Path $script:Destination $script:StateFile) | Should -Not -BeLike '*.ps1'
     }
 }

@@ -38,10 +38,20 @@ import pipeline_harness as harness
 
 REPO_ROOT = harness.REPO_ROOT
 SUITE_DIR = REPO_ROOT / "Tests" / "PrTestEnvironments"
+PESTER_DIR = SUITE_DIR / "Pester"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "deployment-pipeline-tests.yml"
 
 # REPO_ROOT / "a" / "b" / "c" -- the only way this suite addresses repository files.
 READ_PATH = re.compile(r'REPO_ROOT\s*((?:/\s*"[^"]+"\s*)+)')
+
+# The Pester half addresses the tree through one helper, and in two shapes:
+# `Get-RepositoryPath 'a/b'` for a path it names outright, and
+# `Join-Path (Get-RepositoryPath 'a') 'b'` for one it builds a leaf onto. Both are
+# the spelled-out form ADR-0003 asks for, just in PowerShell.
+PESTER_JOINED = re.compile(
+    r"""Join-Path\s+\(\s*Get-RepositoryPath\s+['"]([^'"$]+)['"]\s*\)\s+['"]([^'"$]+)['"]"""
+)
+PESTER_DIRECT = re.compile(r"""Get-RepositoryPath\s+['"]([^'"$]+)['"]""")
 
 
 def _read_paths():
@@ -61,6 +71,41 @@ def _read_paths():
         for match in READ_PATH.finditer(source.read_text()):
             parts = re.findall(r'"([^"]+)"', match.group(1))
             found.setdefault("/".join(parts), set()).add(source.name)
+    for path, sources in _pester_read_paths().items():
+        found.setdefault(path, set()).update(sources)
+    return found
+
+
+def _pester_read_paths():
+    """Every repository path the Pester suites resolve, in the same posix form.
+
+    The Python half of this suite has been scanned since the trigger gap was first
+    found; the Pester half never was, and it reads files the Python half does not.
+    `RockWeb/web.config` is the one that mattered: twelve assertions across two
+    suites read the file that actually ships, and no `paths:` entry matched it, so
+    the release that edits it was the release that ran none of them.
+
+    A joined path consumes its root. `Join-Path (Get-RepositoryPath 'RockWeb')
+    'web.config'` reads one file, and reporting the bare `RockWeb` beside it would
+    demand a `RockWeb/**` trigger -- which would run this suite on every content
+    change in Rock and teach everyone to ignore it.
+
+    What this reads is a literal call, so a suite that resolves its path through a
+    helper is invisible here -- and invisible quietly, because the set shrinks and
+    every assertion downstream still passes. ADR-0004 records the measurement: nine
+    anchors on Deploy-RockEnvironment.ps1 fell to one, green at every step.
+    """
+    found = {}
+    for suite in sorted(PESTER_DIR.glob("*.ps1")):
+        text = suite.read_text(encoding="utf-8")
+        consumed = []
+        for match in PESTER_JOINED.finditer(text):
+            consumed.append(match.span())
+            found.setdefault(f"{match.group(1)}/{match.group(2)}", set()).add(suite.name)
+        for match in PESTER_DIRECT.finditer(text):
+            if any(start <= match.start() < end for start, end in consumed):
+                continue
+            found.setdefault(match.group(1), set()).add(suite.name)
     return found
 
 
@@ -80,10 +125,11 @@ def _covered(path, patterns):
 
 # A path the suite names precisely because the tree should not have it. Rock 19
 # deleted `Rock.Version/AssemblySharedInfo.cs` and moved the version into
-# `Directory.Build.props`; the staging catalog guard reads whichever of the two the
-# branch it is deploying actually has, and test_environment_deploy.py pins the order
-# it tries them in. Both name the historical path on a tree that no longer carries
-# it, and that is correct rather than stale.
+# `Directory.Build.props`; both deploy guards read whichever of the two the branch
+# they are deploying actually has, through one reader that
+# test_rock_version_reader.py runs against both layouts. The suite names the
+# historical path on a tree that no longer carries it, and that is correct rather
+# than stale.
 ABSENT_ON_PURPOSE = {
     "Rock.Version/AssemblySharedInfo.cs",
 }
@@ -118,6 +164,27 @@ class TriggerCoversWhatTheSuiteReadsTests(harness.HarnessAssertions, unittest.Te
 
         self.assertGreater(len(paths), 20, "the path scan found almost nothing -- it has stopped working")
         self.assertIn(".github/pr-test-environments.json", paths)
+
+    def test_the_scan_reaches_the_pester_suites(self):
+        """The Pester half is scanned by a second reader, and a reader can stop
+        reading. If the helper is renamed or the suites start building paths some
+        other way, every file they guard leaves this check quietly -- which is the
+        state `RockWeb/web.config` was already in."""
+        pester = _pester_read_paths()
+
+        self.assertNotVacuous(pester, "the Pester path scan found nothing -- it has stopped working")
+        self.assertIn(
+            "RockWeb/web.config",
+            pester,
+            "the Pester scan no longer sees RockWeb/web.config, which two suites read "
+            "and twelve assertions depend on",
+        )
+        self.assertNotIn(
+            "RockWeb",
+            pester,
+            "the scan reported the bare RockWeb root, which would demand a RockWeb/** "
+            "trigger and run this suite on every content change in Rock",
+        )
 
     def test_the_scan_reaches_the_shared_harness(self):
         """The harness is not a `test_*.py` file, so the scan had to be widened to

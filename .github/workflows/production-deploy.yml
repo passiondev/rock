@@ -272,38 +272,17 @@ jobs:
           #
           # Rock declares its version in two different places depending on the line,
           # and this guard has to span both -- it is least dispensable exactly during
-          # the upgrade, when one line is on each side of the comparison. Through
-          # 18.x it lives in Rock.Version/AssemblySharedInfo.cs as
-          #   [assembly: AssemblyVersion( "18.4.1" )]
-          # Rock 19 deleted that file and moved the version into
-          # Directory.Build.props as
-          #   <Version>19.3.4</Version>
-          # Reading only the old path would make every v19 ref unreadable, and an
-          # unreadable version is a hard refusal below -- the guard would block the
-          # upgrade it exists to make safe. Both candidate files are consulted in
-          # order and the first one that yields a version wins. 18.x ships a
-          # Directory.Build.props too, but it carries no <Version>, so probing the
-          # old path first is what keeps 18.x answering 18.x.
-          #
-          # `<Version>` is matched literally and cannot be confused with the
-          # neighbouring `<FileVersion>` or `<InformationalVersion>`: both contain
-          # "Version" but neither contains "<Version>".
-          VERSION_FILES="Rock.Version/AssemblySharedInfo.cs Directory.Build.props"
+          # the upgrade, when one line is on each side of the comparison. Which two
+          # files, in which order, and read with which pattern, are all in
+          # .github/scripts/rock-version.sh, shared with the staging catalog guard.
+          # The two guards each answered that themselves until 2026-09-15, in
+          # opposite orders, and only agreed because this tree carries one of the two
+          # files. Addressed through GITHUB_WORKSPACE rather than relatively so the
+          # step can be run from a fixture directory by its test.
+          . "$GITHUB_WORKSPACE/.github/scripts/rock-version.sh"
 
-          version_of() {
-            sed -n 's/.*AssemblyVersion( *"\([^"]*\)".*/\1/p; s/.*<Version>\([^<]*\)<\/Version>.*/\1/p' "$1" | head -1
-          }
-
-          for candidate in $VERSION_FILES; do
-            [ -f "$candidate" ] || continue
-            ref_version="$(version_of "$candidate")"
-            if [ -n "$ref_version" ]; then
-              echo "Read Rock $ref_version from $candidate."
-              break
-            fi
-          done
-          if [ -z "$ref_version" ]; then
-            echo "::error::Could not read the Rock version from the chosen ref (looked in: $VERSION_FILES). Refusing to deploy a ref whose Rock version cannot be established."
+          if ! ref_version="$(rock_version_of_tree)"; then
+            echo "::error::Refusing to deploy a ref whose Rock version cannot be established."
             exit 1
           fi
 
@@ -318,15 +297,17 @@ jobs:
             echo "::warning::Could not read 'productionBranch' from $config_path on '$DEFAULT_BRANCH'; taking the expected version from the default branch instead."
           fi
 
-          for candidate in $VERSION_FILES; do
-            # A default branch on the other line simply will not have one of these
-            # paths, so a 404 here is an expected outcome and not a failure.
+          # The same candidates in the same order, fetched one at a time because
+          # the expected side is a branch rather than a checkout. A default branch
+          # on the other line simply will not have one of these paths, so a 404
+          # here is an expected outcome and not a failure.
+          for candidate in "${ROCK_VERSION_FILES[@]}"; do
             if ! gh api "repos/$REPOSITORY/contents/$candidate?ref=$version_branch" \
                  --jq '.content' 2>/dev/null | tr -d '\n' | base64 -d > default-version-file 2>/dev/null; then
               rm -f default-version-file
               continue
             fi
-            expected_version="$(version_of default-version-file)"
+            expected_version="$(rock_version_of_file default-version-file)"
             rm -f default-version-file
             if [ -n "$expected_version" ]; then
               echo "Read expected Rock $expected_version from $candidate on '$version_branch'."
@@ -334,7 +315,7 @@ jobs:
             fi
           done
           if [ -z "$expected_version" ]; then
-            echo "::error::Could not read the Rock version from the production branch ($version_branch) (looked in: $VERSION_FILES)."
+            echo "::error::Could not read the Rock version from the production branch ($version_branch) (looked in: ${ROCK_VERSION_FILES[*]})."
             exit 1
           fi
 

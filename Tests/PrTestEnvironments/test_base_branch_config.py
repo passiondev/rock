@@ -21,11 +21,13 @@ ENVIRONMENT_DEPLOY_TEST = pathlib.Path(__file__).with_name("test_environment_dep
 DEV_RUNBOOK = REPO_ROOT / "Documentation" / "PR-Test-Environments-Developer-Runbook.md"
 OP_RUNBOOK = REPO_ROOT / "Documentation" / "PR-Test-Environments-Operator-Runbook.md"
 PILOT_ISSUE = REPO_ROOT / "Documentation" / "Discussion Docs" / "PR-Test-Environments-Issues" / "12-pilot-rollout.md"
+CONTEXT_DOC = REPO_ROOT / "CONTEXT.md"
 
 # The branch PR test environments deploy from. Declared once here so a version
 # bump is a one-line change in this file plus the JSON config -- previously the
 # branch name was repeated in five places and every one of them had to be found
-# by hand. Bump this together with .github/pr-test-environments.json.
+# by hand. Bump this together with .github/pr-test-environments.json and the
+# trunk row in CONTEXT.md, which defines the word for every other document.
 EXPECTED_BASE_BRANCH = "passion-19.4.4"
 EXPECTED_ENVIRONMENT_DOMAIN = "staging.connect.passion.team"
 
@@ -138,6 +140,18 @@ def _python_trunk_constants(path):
     return re.findall(r'^TRUNK_BRANCH = "([^"]+)"', path.read_text(), re.MULTILINE)
 
 
+def _context_trunk_row(path):
+    """The trunk row of CONTEXT.md's branch table. Scoped to that one row on
+    purpose: the rest of the file names branches in prose that are not pins --
+    the previous production line, the retired trunk in the cutover note -- and a
+    whole-file sweep would read those as drift. The row is the definition of the
+    word, so it is the one place in the glossary that has to agree with the code."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("| **trunk** |"):
+            return TRUNK_BRANCH_PATTERN.findall(line)
+    return []
+
+
 class PinSite(NamedTuple):
     """One place a trunk branch name is written down, and how to read it back.
     `read_pins` returns a list because several sites hold more than one -- a
@@ -201,6 +215,7 @@ BASE_BRANCH_PIN_SITES = [
     PinSite("staging-deploy.yml: workflow_dispatch ref default", STAGING_WORKFLOW, _dispatch_ref_defaults),
     PinSite("deployment-pipeline-tests.yml: push branches", PIPELINE_TESTS_WORKFLOW, _push_branches),
     PinSite("test_environment_deploy.py: TRUNK_BRANCH", ENVIRONMENT_DEPLOY_TEST, _python_trunk_constants),
+    PinSite("CONTEXT.md: the trunk row", CONTEXT_DOC, _context_trunk_row),
 ]
 
 # Pinned to the production Rock line, not the trunk. Kept in the same shape as the
@@ -217,7 +232,11 @@ class CutoverGateFailClosedTests(unittest.TestCase):
     on the retired branch reads *that branch's* config, which still names
     itself, so the comparison passes and the site keeps deploying old-minor
     artifacts onto the migrated catalog -- pr-3 again, once per environment.
-    Read from the default branch and the same flip rejects it immediately."""
+    Read from the default branch and the same flip rejects it immediately.
+
+    ADR-0005 records why this asymmetry survives every proposal to read the config
+    through one shared step: one reader means one ref, and either choice breaks the
+    other half quietly."""
 
     def assertContains(self, path, needle, why):
         """assertIn dumps the entire file into the failure when the haystack is a

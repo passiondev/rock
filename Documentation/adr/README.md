@@ -31,6 +31,12 @@ points at is one nobody will find.
 | [0001](0001-no-shared-powershell-module.md) | The deploy scripts copy their shared helpers rather than importing a module |
 | [0002](0002-script-code-lives-in-script-files.md) | Script code lives in a `.ps1` or `.sh`, never inlined into YAML |
 | [0003](0003-tests-spell-repository-paths-out.md) | Test files write repository paths out in full rather than through an accessor |
+| [0004](0004-pester-suites-name-their-own-script.md) | Pester suites name the script they lift from, at their own call site |
+| [0005](0005-fleet-config-is-read-at-each-call-site.md) | The fleet config is read at each call site, and its values are pinned rather than shared |
+| [0006](0006-one-deploy-workflow-per-command-verb.md) | The deploy path is one workflow per command verb, not one deploy workflow |
+| [0007](0007-the-diagnose-run-does-not-go-through-the-command-queue.md) | The diagnose run reaches the VM through the startup script, not the command queue |
+| [0008](0008-the-startup-script-channel-is-staged-and-rebooted-separately.md) | The startup-script channel is two actions, and production's restart is not a caller |
+| [0009](0009-the-hand-deploy-build-stays-a-separate-workflow.md) | The hand-deploy build stays a separate workflow from the artifact build |
 
 ## Format
 

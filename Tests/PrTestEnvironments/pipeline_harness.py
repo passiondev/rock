@@ -59,7 +59,7 @@ ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 # paths out for that reason, and the cost is one line each.
 #
 # The same answer governs how far `workflow()` goes, which is the part of the card
-# that looks half-finished and is not. Eight files call it; the rest still parse a
+# that looks half-finished and is not. Some files call it; the rest still parse a
 # module-level constant of their own. Those constants are the declaration -- a file
 # saying `REPO_ROOT / ".github" / "workflows" / "pr-test-deploy.yml"` is how the
 # scan learns that file reads that workflow. Swapping them for `workflow("...")`
@@ -150,6 +150,44 @@ def steps(parsed, job=None):
     return found
 
 
+# The T-SQL a script issues when it changes something. One list, because two
+# tests read it for opposite purposes -- proving the read-only finder contains
+# none of these, and sorting `Deployment/Database` into the scripts that write and
+# the scripts that do not -- and two lists would let a verb be added to the
+# classifier while the read-only scan went on ignoring it.
+SQL_WRITE_VERBS = (
+    r"\bALTER\s+TABLE\b",
+    # `UPDATE [dbo].[x]`, `UPDATE $table`, `UPDATE dbo.x` and `UPDATE TOP (n)
+    # $table` -- the last one is how the anonymizer batches, and pinned to `[` this
+    # matched none of it. Found by sorting Deployment/Database with this list and
+    # having the anonymizer come back read-only.
+    r"\bUPDATE\s+(?:TOP\s*\([^)]*\)\s*)?(?:\[|\$|dbo\.)",
+    r"\bDELETE\s+FROM\b",
+    r"\bINSERT\s+INTO\b",
+    r"\bDROP\s+\w",
+    r"\bTRUNCATE\s+TABLE\b",
+    r"\bCREATE\s+(TABLE|INDEX|PROCEDURE)\b",
+    r"\bEXEC(UTE)?\s+sp_",
+)
+
+
+def strip_powershell_comments(text):
+    """`text` with block and line comments blanked, line numbers preserved.
+
+    Four files had a copy of this, differing only in a lambda parameter name. It
+    is here for the reason `line_of` is: correct every time somebody writes it,
+    which is why it kept getting written, and the cost is not the duplication but
+    that a fix to one copy reaches none of the others.
+
+    Every caller needs it for the same reason. These scripts explain in comments
+    exactly the thing the test scans for -- the read-only finder names the write
+    it deliberately does not perform, the anonymizer quotes the house rule it
+    diverges from -- so without this, adding the explanation fails the test that
+    the explanation is about."""
+    text = re.sub(r"<#.*?#>", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
+    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+
+
 def powershell_function(text, name):
     """The body of one PowerShell function, from its declaration to the next one.
 
@@ -163,6 +201,149 @@ def powershell_function(text, name):
         raise AssertionError(f"no `{marker}` in the text under test")
     body = text.split(marker, 1)[1]
     return body.split("\nfunction ", 1)[0]
+
+
+def powershell_function_lines(text, name):
+    """Line range `[start, end)` of one PowerShell function, 0-indexed.
+
+    `powershell_function` above answers the same question as a string, which is
+    what a test wants when it greps the body. This is for the tests that ask
+    where a line *is* -- whether the icacls grant sits inside the branch that
+    wipes the directory, whether the server-owned restore runs where there is
+    anything to restore. Those need line numbers on both sides of the question.
+
+    Four of them counted braces from `if ($Mode -eq \'DedicatedSite\') {` to find
+    that range. A branch condition is a weak thing to anchor on: the same line
+    appears twice in the deploy script at the same indent, one of them inside
+    Resolve-DeploymentTarget, and the docstring of one of those tests still
+    records the version that matched an app-pool naming block and passed while
+    the overlay sat on the production path. A function name is not ambiguous in
+    that way, and when the ordering moves into a named function the anchor moves
+    with it instead of quietly matching nothing.
+
+    The range is the body, so `start` is the line after the declaration and `end`
+    is the closing brace's line. Raises when the name is absent, for the reason
+    `powershell_function` does: a missing range is a passing test.
+    """
+    lines = text.splitlines()
+    declaration = re.compile(rf"^function\s+{re.escape(name)}\b")
+    openers = [index for index, line in enumerate(lines) if declaration.match(line)]
+    if not openers:
+        raise AssertionError(f"no column-zero `function {name}` in the text under test")
+    if len(openers) > 1:
+        raise AssertionError(
+            f"`function {name}` is defined {len(openers)} times, at lines "
+            + ", ".join(str(index + 1) for index in openers)
+        )
+
+    depth = 0
+    start = None
+    for index in range(openers[0], len(lines)):
+        line = lines[index]
+        depth += line.count("{") - line.count("}")
+        if start is None and "{" in line:
+            start = index + 1
+        if start is not None and depth <= 0:
+            return start, index
+    raise AssertionError(f"`function {name}` is never closed")
+
+
+def _balanced(text, start):
+    """The text from the `{` at or after `start` to the brace that closes it."""
+    open_index = text.index("{", start)
+    depth = 0
+    for index in range(open_index, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_index + 1 : index]
+    raise AssertionError("unbalanced braces from index %d" % open_index)
+
+
+def command_binding_kinds(text):
+    """The section names of a contract row that bind a field to a script parameter.
+
+    Asked of the queue agent rather than restated here. `Get-CommandBindingKind`
+    is the one place the binder reads them from, and a section it does not
+    recognise is a refusal rather than a binding that quietly does nothing -- so
+    a Python test carrying its own copy of the six names would be holding rows to
+    a list that can drift away from the one doing the refusing, in the direction
+    that passes.
+    """
+    body = powershell_function(text, "Get-CommandBindingKind")
+    returned = re.search(r"return\s+@\(([^)]*)\)", body)
+    if returned is None:
+        raise AssertionError("Get-CommandBindingKind no longer returns a list literal")
+    return re.findall(r"'([^']+)'", returned.group(1))
+
+
+def command_contract(text, verb):
+    """One verb's row of the queue agent's contract table, as its sections.
+
+    Returns `Script` and `TimeoutSeconds` as a string and an int, each binding
+    section -- `Required`, `Optional`, `Flag`, `List`, `Verbatim`, `Runtime` --
+    as a dict from the queued document's field name to the script parameter it
+    reaches, and `Unreachable` as the list of script parameters that row holds
+    out of reach. Absent sections are absent, not empty, so a test can say a
+    field is bound as a Flag by where it turns up.
+
+    Both shapes are read because the row has two. A binding section maps a name
+    to a name and is written `[ordered]@{}`; `Unreachable` names parameters and
+    nothing else, so it is a plain `@()`. Reading only the first shape dropped
+    the second silently, which for a reader whose whole job is to say what a row
+    contains is the failure to avoid.
+
+    Three files sliced the old switch's arm for this by hand, each with its own
+    spelling of the arm's opening brace, and then regexed the slice. Those regexes
+    were reading a script the tests could not run: the switch lived inside the
+    block handed to Start-Job, so matching its source text was the only assertion
+    available. The table it became is data, and this reads it as data.
+
+    The behaviour behind a row is asserted by calling the binder --
+    Pester/CommandContract.Tests.ps1 does that. What is left for Python is the
+    half that crosses languages: that the workflows queue the verbs this table
+    has rows for, and that the rows name scripts that exist.
+    """
+    rows = _balanced(text, text.index("$contracts = [ordered]@{"))
+
+    marker = re.search(rf"^\s*'{re.escape(verb)}'\s*=\s*@\{{", rows, re.MULTILINE)
+    if marker is None:
+        raise AssertionError(f"the contract table has no row for '{verb}'")
+
+    row = _balanced(rows, marker.start())
+    contract = {}
+
+    script = re.search(r"Script\s*=\s*'([^']+)'", row)
+    if script:
+        contract["Script"] = script.group(1)
+
+    timeout = re.search(r"TimeoutSeconds\s*=\s*(\d+)", row)
+    if timeout:
+        contract["TimeoutSeconds"] = int(timeout.group(1))
+
+    for section in re.finditer(r"^\s*(\w+)\s*=\s*\[ordered\]@\{", row, re.MULTILINE):
+        body = _balanced(row, section.start())
+        contract[section.group(1)] = dict(
+            re.findall(r"(\w+)\s*=\s*'([^']+)'", body)
+        )
+
+    for section in re.finditer(r"^\s*(\w+)\s*=\s*@\(", row, re.MULTILINE):
+        opened = row.index("(", section.start())
+        closed = row.index(")", opened)
+        contract[section.group(1)] = re.findall(r"'([^']+)'", row[opened + 1 : closed])
+
+    return contract
+
+
+def command_contract_verbs(text):
+    """Every verb the queue agent has a row for."""
+    rows = _balanced(text, text.index("$contracts = [ordered]@{"))
+    return [
+        match.group(1)
+        for match in re.finditer(r"^\s*'([a-z][a-z0-9-]*)'\s*=\s*@\{", rows, re.MULTILINE)
+    ]
 
 
 @functools.lru_cache(maxsize=1)

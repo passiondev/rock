@@ -31,7 +31,9 @@ BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
     $script:AgentScript = Get-RepositoryPath 'Deployment/PrTestEnvironments/Invoke-PrEnvironmentCommandQueue.ps1'
-    . (Import-ScriptFunction -Path $script:AgentScript -Name 'Invoke-WithRetry', 'Complete-QueuedCommand')
+    . (Import-ScriptFunction -Path $script:AgentScript `
+            -Name 'Invoke-WithRetry', 'Complete-QueuedCommand' `
+            -Supplied 'Write-GcsObjectText', 'Remove-GcsObject')
 
     $script:CommandObject = 'pr-environments/commands-prod/pending/abc123.json'
     $script:ResultObject = 'pr-environments/commands-prod/results/abc123.json'
@@ -174,7 +176,8 @@ Describe 'Completing a queued command' {
 Describe 'Removing the command object' {
 
     BeforeAll {
-        . (Import-ScriptFunction -Path $script:AgentScript -Name 'Remove-GcsObject')
+        . (Import-ScriptFunction -Path $script:AgentScript -Name 'Remove-GcsObject' `
+                -Supplied 'Invoke-GcsRequest', 'BucketName')
 
         $script:BucketName = 'connect-file-storage'
         $script:DeleteCalls = 0

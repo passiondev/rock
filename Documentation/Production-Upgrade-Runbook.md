@@ -406,6 +406,16 @@ Each step says what proves it worked. A step with no evidence behind it has not 
    copies over the site preserving `Content`, `App_Data`, `Logs`, `Uploads` and
    `web.ConnectionStrings.config`, then starts the pool and polls until the site answers.
 
+   The deploy's header block names that root on a `backups     : C:\RockBackups\production`
+   line, and every restore path below assumes it. If `C:` has no room for a second copy of the
+   site -- which is what this step fails on, and it fails after the pool is already stopped --
+   the root can be moved for one run by queueing the deploy document by hand with
+   `"backupRoot": "D:\\RockBackups"`, then reading that header line back and rewriting the
+   restore command under **Rollback** against it. No dispatch input sets this, on purpose:
+   every restore path below is written out as `C:\RockBackups\production\<utc>-<sha>`, and a
+   box that could move it would make all of them wrong for the one run somebody is reading
+   them during.
+
    **Confirm the `web.config` carry actually happened**, in the same log, on the line:
 
    ```

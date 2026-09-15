@@ -19,7 +19,7 @@ BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
     $script:ActionScript = Get-RepositoryPath '.github/actions/queue-vm-command/Write-VmCommand.ps1'
-    . (Import-ScriptFunction -Path $script:ActionScript -Name 'New-VmCommand', 'Get-RedactedCommand', 'Clear-StaleResult', 'Assert-ValidQueueName')
+    . (Import-ScriptFunction -Path $script:ActionScript -Name 'New-VmCommand', 'Get-RedactedCommand', 'Clear-StaleResult', 'Assert-ValidQueueName', 'Get-SecretFieldNamePattern', 'Get-PasswordValuePattern')
 
     $script:Password = 'hunter2-correct-horse'
     $script:ConnectionString = "Data Source=tcp:10.0.0.5,1433;Initial Catalog=RockSandbox;User Id=rock;password=$($script:Password);Encrypt=true;"

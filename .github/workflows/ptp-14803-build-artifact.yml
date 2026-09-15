@@ -14,10 +14,18 @@ name: Hand-deploy set (build only, no cloud credentials)
 # catalog. This workflow requests `contents: read` and consumes no secrets, so
 # it cannot do any of that.
 #
-# Fails loudly on purpose. The upstream build steps use `continue-on-error` and
-# only warn when a Rock.* project fails, which yields a green run containing a
-# stale DLL. Every step here hard-exits, and the verify step asserts our changes
-# are actually present in the compiled output before anything is uploaded.
+# Fails loudly on purpose. Every step here hard-exits, on every project, and the
+# verify step asserts our changes are actually present in the compiled output
+# before anything is uploaded -- it reads .NET metadata rather than trusting an
+# exit code, because a green run carrying a stale DLL is the failure that costs
+# the most when the output is hand-copied onto a live server.
+#
+# That used to be a difference from pr-test-artifact.yml, which built every
+# Rock.* project behind `continue-on-error`. It is not any more: that workflow
+# now sorts its projects, exits on anything the deployed site serves, and keeps
+# only test and plugin assemblies advisory. What remains different is the scope --
+# seven projects and four output files here against a whole RockWeb package --
+# and that is enough on its own.
 
 # Dispatch only. This carried `push: [deploy/ptp-14803-18.4.1]` until 2026-08-21,
 # which was the whole reason it read as an orphan: the one branch that could fire
@@ -52,9 +60,10 @@ jobs:
       # -- was valid as recently as the 2026-05-06 build-develop run, which
       # logged msbuild 17.14.40.60911 from exactly there. The runner image has
       # moved to Visual Studio 18 since, so that path now fails with "is not
-      # recognized as ... an executable program". build-develop.yml and
-      # pr-test-artifact.yml still carry it behind continue-on-error, so today
-      # they would go green having compiled nothing.
+      # recognized as ... an executable program". build-develop.yml has since been
+      # removed and pr-test-artifact.yml asks vswhere the same way this does,
+      # pinned by test_msbuild_is_resolved_via_vswhere_not_a_pinned_version_folder.
+      # The hardcoded path is the thing to keep out, not a live fault elsewhere.
       - name: Locate MSBuild
         run: |
           $ErrorActionPreference = 'Stop'
@@ -92,15 +101,25 @@ jobs:
         with:
           node-version: "18"
 
+      # `js-obsidian-`, not the `js-` that pr-test-artifact.yml uses. The two
+      # workflows cache different trees -- that one carries five node_modules,
+      # this one carries the two it builds -- and they used to spell the same key
+      # over them. actions/cache restores whatever archive the key names, so
+      # whichever ran first won: a dispatch of this build saved a two-tree archive
+      # under the shared key, and the next artifact build got a hit, restored two
+      # of its five trees, and skipped its own save because a hit does not write
+      # back. The installs are unconditional, so nothing built wrong -- the
+      # artifact build just reinstalled three trees from scratch on every run
+      # until the lockfiles changed, quietly and for as long as that hash lasted.
       - name: Cache JavaScript Dependencies
         uses: actions/cache@v4
         with:
           path: |
             Rock.JavaScript.Obsidian/node_modules
             Rock.JavaScript.Obsidian.Blocks/node_modules
-          key: js-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          key: js-obsidian-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            js-${{ runner.os }}-
+            js-obsidian-${{ runner.os }}-
 
       # The framework has to be built before the blocks. Its dist/ supplies the
       # @Obsidian/* declarations that the blocks' build:types step resolves

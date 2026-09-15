@@ -393,6 +393,33 @@ class ProductionBootstrapWorkflowTests(unittest.TestCase):
                     "requested one",
                 )
 
+    def test_the_production_restart_is_not_routed_through_the_shared_action(self):
+        """ADR-0008. The fleet's two bootstraps stage and reboot through
+        `inject-startup-script` and `restart-vm`, and from the actions directory
+        production reads as the one caller that never migrated. It is not going to.
+
+        Its restart reads the instance's current scopes, refuses to continue when
+        that read looks implausible, and unions rather than replaces -- all before
+        `instances stop`, because once production is down there is nothing left to
+        recover to. The fleet replaces the list with cloud-platform outright. The
+        test above pins the pre-stop half; this pins the fact that it is still here
+        to pin."""
+        text = WORKFLOW.read_text()
+
+        self.assertNotIn(
+            "./.github/actions/restart-vm",
+            text,
+            "production's restart now runs the shared fleet action, which stops "
+            "the instance before its scope read can refuse -- see ADR-0008",
+        )
+        restart = self._step("Restart the production VM to apply it")["run"]
+        self.assertIn("gcloud compute instances stop", restart)
+        self.assertIn("gcloud compute instances start", restart)
+
+        # Staging is shared, though, and this is the half that shows the split is
+        # about the restart rather than about production keeping its own copies.
+        self.assertIn("./.github/actions/inject-startup-script", text)
+
     def test_the_staging_bootstrap_still_owns_only_staging(self):
         """The inverse of the isolation: if the staging bootstrap ever learns the
         production queue name, both workflows install onto whichever VM ran last."""

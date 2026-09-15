@@ -15,6 +15,7 @@ way.
 
 import ast
 import pathlib
+import re
 import unittest
 
 import pipeline_harness as harness
@@ -60,6 +61,100 @@ class OneRepositoryRootTests(harness.HarnessAssertions, unittest.TestCase):
             "parents[2]",
             (SUITE_DIR / "pipeline_harness.py").read_text(encoding="utf-8"),
             "the harness no longer derives the repository root, so nothing does",
+        )
+
+
+class OnePowerShellReaderTests(harness.HarnessAssertions, unittest.TestCase):
+    """The same story as the repository root, one directory over.
+
+    Four files declared their own `_strip_comments`, and the four bodies differed
+    only in a lambda parameter name. They agreed, so nothing was visibly wrong.
+    What made it worth undoing is that every one of them exists for the same
+    reason -- these scripts explain in comments the exact construct the test scans
+    for -- so a fix to the stripping in one file is a fix the other three need and
+    do not get.
+
+    The alias is fine and is what the four files carry now. A fresh definition is
+    not: it is the copy coming back.
+    """
+
+    def test_no_test_file_defines_its_own_powershell_comment_stripper(self):
+        offenders = []
+        for name, text in suite_sources():
+            for node in ast.walk(ast.parse(text)):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and re.search(
+                    r"strip.*comment", node.name, re.IGNORECASE
+                ):
+                    offenders.append(f"{name}:{node.lineno} {node.name}")
+
+        self.assertEqual(
+            [],
+            offenders,
+            "these declare their own PowerShell comment stripper instead of taking "
+            "the harness one, so a fix to the stripping reaches only the file it was "
+            "made in: " + ", ".join(offenders),
+        )
+
+    def test_the_harness_is_the_one_place_that_strips_them(self):
+        """The ban above is worth something only while the harness still has the
+        function. Without this, deleting it from the harness leaves a suite where
+        nothing strips comments and nothing says so."""
+        self.assertTrue(
+            callable(getattr(harness, "strip_powershell_comments", None)),
+            "the harness no longer strips PowerShell comments, so the four files "
+            "that alias it import nothing",
+        )
+
+    def test_the_files_that_read_powershell_use_it(self):
+        users = [name for name, text in suite_sources() if "strip_powershell_comments" in text]
+        self.assertNotVacuous(
+            users, "no test file uses the harness stripper, so the ban above watches nothing"
+        )
+
+
+class OneContractReaderTests(harness.HarnessAssertions, unittest.TestCase):
+    """The same story again, on the queue agent's contract table.
+
+    Three files sliced the agent's verb table by hand -- find the arm's opening
+    brace, cut to the next `default {`, regex the middle -- each with its own
+    spelling of the brace. They were reading a script no test could run: the verb
+    switch lived inside the block handed to Start-Job, in a runspace nothing here
+    can reach, so matching its source was the only assertion available.
+
+    The table is data now, and the harness reads it as data. What must not come
+    back is a file parsing it for itself: a slice that misses returns the empty
+    string, every assertion inside it stops being able to fail, and the file goes
+    on reporting that a command it no longer finds is correctly configured.
+    """
+
+    def test_no_test_file_parses_the_contract_table_for_itself(self):
+        offenders = [
+            name
+            for name, text in suite_sources()
+            if "[ordered]@{" in text or 'index("default {")' in text
+        ]
+
+        self.assertEqual(
+            [],
+            offenders,
+            "these read the agent's contract table by hand instead of taking the "
+            "harness reader, so a change to the table's shape leaves them slicing "
+            "nothing and asserting nothing: " + ", ".join(offenders),
+        )
+
+    def test_the_harness_is_the_one_place_that_reads_it(self):
+        """The ban is worth something only while the harness still has the reader."""
+        for name in ("command_contract", "command_contract_verbs"):
+            self.assertTrue(
+                callable(getattr(harness, name, None)),
+                f"the harness no longer provides {name}, so the files that call it "
+                "import nothing",
+            )
+
+    def test_the_files_that_read_the_agent_use_it(self):
+        users = [name for name, text in suite_sources() if "command_contract" in text]
+        self.assertNotVacuous(
+            users, "no test file reads the contract table, so the ban above watches nothing"
         )
 
 

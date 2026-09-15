@@ -243,7 +243,15 @@ class TheCheckoutTheActionRequiresTests(harness.HarnessAssertions, unittest.Test
 
 
 class GcsBucketFallbackTests(harness.HarnessAssertions, unittest.TestCase):
-    """The twelve copies of the bucket-name expression that nothing can collapse."""
+    """The copies of the bucket-name expression that nothing can collapse.
+
+    Uncounted, for the reason AUTHENTICATING_WORKFLOWS above is listed rather than
+    counted. This said "twelve" against seventeen copies for long enough that the
+    number had stopped meaning anything -- twelve is how many files carry them.
+
+    What nothing can collapse is the point, and ADR-0005 is where it is written
+    down: a job's `env:` is evaluated before any step runs, so the value cannot
+    come from a step output and the expression has to be written where it is."""
 
     def test_every_copy_is_byte_identical(self):
         self.assertOneShape(

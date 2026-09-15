@@ -1,0 +1,44 @@
+name: Stage a VM startup script
+description: >
+  Check that a generated Windows startup script is real, parseable PowerShell,
+  then write it to the VM's metadata. Staging only -- this does not reboot.
+
+inputs:
+  vm-name:
+    description: The instance to stage the script on.
+    required: true
+  vm-zone:
+    description: The instance's zone, bare rather than a resource URL.
+    required: true
+  script-path:
+    description: >
+      Path to the startup script the caller has already generated and written.
+      A path rather than the content: these scripts are built as here-strings full
+      of backticks and `$`, and passing several hundred such lines back through a
+      YAML input would put them through another round of expansion.
+    required: true
+
+# The startup script is the second way a command reaches these VMs, alongside the
+# queue. Three workflows use it -- the fleet bootstrap, production's bootstrap and
+# the diagnose run -- and each carried its own copy of the staging.
+#
+# The copies had drifted the usual way: production checked whether gcloud accepted
+# the metadata and the other two did not. None of the three checked what they were
+# staging, which is the gap worth a module. A startup script is a metadata string
+# until the machine reboots; nothing between here and that boot looks at it. A
+# here-string that interpolated to nothing stages green, boots green and installs
+# nothing -- on production's bootstrap, that is an upgrade-day agent that was never
+# there. See Set-VmStartupScript.ps1.
+runs:
+  using: composite
+  steps:
+    - name: Stage the startup script
+      shell: pwsh
+      env:
+        VSS_VM_NAME: ${{ inputs.vm-name }}
+        VSS_VM_ZONE: ${{ inputs.vm-zone }}
+        VSS_SCRIPT_PATH: ${{ inputs.script-path }}
+        # A literal, and the only thing the script's early-return guard reads.
+        VSS_INVOKED: "1"
+      run: |
+        & "$env:GITHUB_ACTION_PATH/Set-VmStartupScript.ps1"

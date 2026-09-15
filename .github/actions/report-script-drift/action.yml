@@ -1,0 +1,42 @@
+name: Report deploy script drift
+description: >
+  Warn when the deploy scripts published to the VMs are not the ones in this
+  commit. Reports only -- this action cannot fail a deploy.
+
+inputs:
+  bucket:
+    description: >
+      The GCS bucket holding the bootstrap prefix the VMs sync from. One bucket
+      serves the whole fleet and the named environments, so every caller passes
+      the same value and the published set compared is the same set.
+    required: true
+
+# The caller must have checked out Deployment/PrTestEnvironments and
+# Deployment/Database. An action cannot widen its caller's sparse-checkout, and a
+# missing local copy is reported here as a check that could not run rather than as
+# a clean result -- which is correct, and is still not what the caller wanted.
+#
+# Why this is an action and not two copies of sixty lines: the comparison had no
+# test that ran a single branch of it, including the branch that decides whether
+# "in sync" is a true answer. The step is also the reason a `continue-on-error`
+# flag no longer sits on any caller. That flag was load-bearing -- a gsutil outage
+# here must not block a deploy -- and it was one forgotten line away from turning
+# a reporting step into a deploy blocker. A composite action's steps do not take
+# the flag at all, so the guarantee moved into Get-ScriptDrift.ps1, where it is
+# the script's own property and no caller can drop it.
+runs:
+  using: composite
+  steps:
+    - name: Compare the published scripts with this commit
+      shell: pwsh
+      env:
+        DRIFT_BUCKET: ${{ inputs.bucket }}
+        # A literal, and the only thing the script's early-return guard reads.
+        # See the sibling note in queue-vm-command/action.yml.
+        DRIFT_INVOKED: "1"
+      # $env:GITHUB_ACTION_PATH, not ${{ github.action_path }}, and quoted: an
+      # expression is pasted in as raw text, so one space in the path and pwsh
+      # reads the first word as the command. See RunnerExpressionPlacementTests in
+      # Tests/PrTestEnvironments/test_powershell_job.py.
+      run: |
+        & "$env:GITHUB_ACTION_PATH/Get-ScriptDrift.ps1"

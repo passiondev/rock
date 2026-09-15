@@ -45,6 +45,10 @@ name: Deployment Pipeline Tests
       - 'RockWeb/Styles/**'
       - 'RockWeb/Bin/**'
       - 'RockWeb/packages.config'
+      # Two Pester suites assert against the web.config that actually ships, and
+      # upstream edits it most releases. Named as the one file rather than
+      # RockWeb/**, which would run this suite on every content change in Rock.
+      - 'RockWeb/web.config'
       # Narrow on purpose, and it is a licence guard rather than a behaviour one.
       # test_theme_branding.py fails if a Font Awesome Pro webfont is ever committed
       # here: this repository is a public fork, the Pro fonts are licensed binaries,
@@ -62,9 +66,9 @@ name: Deployment Pipeline Tests
       - 'RockWeb/Themes/**'
       - 'RockWeb/Blocks/**'
       - 'Rock.JavaScript.Obsidian.Blocks/**'
-      # Both read by test_environment_deploy.py, which checks the production version
-      # guard against whichever file this checkout actually declares its version in,
-      # rather than against a fixture that can drift from it. 18.x uses the first;
+      # Both read by test_rock_version_reader.py, which checks the reader both deploy
+      # guards share against whichever file this checkout actually declares its
+      # version in, rather than against a fixture that can drift from it. 18.x uses the first;
       # Rock 19 deleted it and moved the version into the second. Both are listed so
       # the suite still triggers on a version change from either line -- dropping the
       # stale one at cutover would be the kind of silent gap that only shows up as a
@@ -105,6 +109,10 @@ name: Deployment Pipeline Tests
       - 'RockWeb/Styles/**'
       - 'RockWeb/Bin/**'
       - 'RockWeb/packages.config'
+      # Two Pester suites assert against the web.config that actually ships, and
+      # upstream edits it most releases. Named as the one file rather than
+      # RockWeb/**, which would run this suite on every content change in Rock.
+      - 'RockWeb/web.config'
       - 'RockWeb/Assets/Fonts/FontAwesome/**'
       - 'RockWeb/Plugins/**'
       - 'RockWeb/Themes/**'

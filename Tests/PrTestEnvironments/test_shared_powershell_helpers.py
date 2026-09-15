@@ -26,26 +26,59 @@ BOOTSTRAP_WORKFLOW = (
     harness.REPO_ROOT / ".github" / "workflows" / "pr-test-bootstrap-command-queue.yml"
 )
 
+# Two roots, because the copies that matter most cross between them. The queue's
+# redaction rule has to be the same sentence on the producer -- whose PowerShell
+# sits beside its action.yml under `.github/actions/` per ADR-0002 -- and on the
+# agent under Deployment/. This module only ever looked at the second, so the
+# producer keyed on the shape of a field name while the agent carried a list of
+# two known ones, and nothing here could see the pair to compare them.
+HELPER_ROOTS = (
+    DEPLOY_DIR,
+    harness.REPO_ROOT / ".github" / "actions",
+)
+
+
+def helper_scripts():
+    """`{repo-relative path: path}` for every script that could carry a copy."""
+    found = {}
+    for root in HELPER_ROOTS:
+        for path in sorted(root.rglob("*.ps1")):
+            found[path.relative_to(harness.REPO_ROOT).as_posix()] = path
+    return found
+
 # Each helper, and every file expected to carry a copy. Listing the files rather
 # than counting them means a new copy appearing somewhere unexpected is a failure
 # that names itself, instead of a number quietly going up.
+DEPLOYMENT = "Deployment/PrTestEnvironments"
+QUEUE_ACTION = ".github/actions/queue-vm-command"
+
 SHARED_HELPERS = {
     "Get-GcsAccessToken": [
-        "Deploy-PrEnvironment.ps1",
-        "Deploy-RockEnvironment.ps1",
-        "Invoke-PrEnvironmentCommandQueue.ps1",
+        f"{DEPLOYMENT}/Deploy-PrEnvironment.ps1",
+        f"{DEPLOYMENT}/Deploy-RockEnvironment.ps1",
+        f"{DEPLOYMENT}/Invoke-PrEnvironmentCommandQueue.ps1",
     ],
     "ConvertTo-ManifestHashtable": [
-        "Invoke-PrEnvironmentCleanup.ps1",
-        "Invoke-SandboxRefreshWithPrEnvironments.ps1",
-        "Stop-PrEnvironment.ps1",
+        f"{DEPLOYMENT}/Invoke-PrEnvironmentCleanup.ps1",
+        f"{DEPLOYMENT}/Invoke-SandboxRefreshWithPrEnvironments.ps1",
+        f"{DEPLOYMENT}/Stop-PrEnvironment.ps1",
     ],
     "Ensure-Directory": [
-        "Deploy-PrEnvironment.ps1",
-        "Deploy-RockEnvironment.ps1",
-        "Invoke-PrEnvironmentCertificateRenewal.ps1",
-        "Invoke-SandboxRefreshWithPrEnvironments.ps1",
-        "Set-PrEnvironmentRuntimeConfiguration.ps1",
+        f"{DEPLOYMENT}/Deploy-PrEnvironment.ps1",
+        f"{DEPLOYMENT}/Deploy-RockEnvironment.ps1",
+        f"{DEPLOYMENT}/Invoke-PrEnvironmentCertificateRenewal.ps1",
+        f"{DEPLOYMENT}/Invoke-SandboxRefreshWithPrEnvironments.ps1",
+        f"{DEPLOYMENT}/Set-PrEnvironmentRuntimeConfiguration.ps1",
+    ],
+    # The two halves of what "redacted" means, one on each side of the queue.
+    # These are the reason HELPER_ROOTS has a second entry.
+    "Get-SecretFieldNamePattern": [
+        f"{DEPLOYMENT}/Invoke-PrEnvironmentCommandQueue.ps1",
+        f"{QUEUE_ACTION}/Write-VmCommand.ps1",
+    ],
+    "Get-PasswordValuePattern": [
+        f"{DEPLOYMENT}/Invoke-PrEnvironmentCommandQueue.ps1",
+        f"{QUEUE_ACTION}/Write-VmCommand.ps1",
     ],
 }
 
@@ -108,9 +141,10 @@ class SharedHelperTests(harness.HarnessAssertions, unittest.TestCase):
         for name, expected_files in SHARED_HELPERS.items():
             with self.subTest(helper=name):
                 found = []
+                scripts = helper_scripts()
                 for filename in expected_files:
-                    path = DEPLOY_DIR / filename
-                    bodies = function_body(path.read_text(), name)
+                    self.assertIn(filename, scripts, f"{filename} is not under any HELPER_ROOTS")
+                    bodies = function_body(scripts[filename].read_text(), name)
                     self.assertEqual(
                         1,
                         len(bodies),
@@ -127,11 +161,11 @@ class SharedHelperTests(harness.HarnessAssertions, unittest.TestCase):
 
     def test_the_expected_files_are_the_ones_that_carry_each_helper(self):
         actual = {name: [] for name in SHARED_HELPERS}
-        for path in sorted(DEPLOY_DIR.glob("*.ps1")):
+        for relative, path in helper_scripts().items():
             text = path.read_text()
             for name in SHARED_HELPERS:
                 if function_body(text, name):
-                    actual[name].append(path.name)
+                    actual[name].append(relative)
 
         for name, expected in SHARED_HELPERS.items():
             self.assertEqual(
@@ -141,6 +175,45 @@ class SharedHelperTests(harness.HarnessAssertions, unittest.TestCase):
                 "SHARED_HELPERS so a new copy is held to the others rather than "
                 "drifting unwatched.",
             )
+
+    def test_every_helper_duplicated_in_the_tree_is_accounted_for(self):
+        """The two lists above are hand-kept, and the sweep that uses them only
+        looks at the names they already hold.
+
+        So the guard knows which files carry `Ensure-Directory` and says nothing at
+        all about a tenth helper someone copies into a second script tomorrow. That
+        copy is exactly the thing ADR-0001 traded a shared module for a test to
+        catch, and it would arrive unwatched.
+
+        Derived from the tree, so the failure names the new helper rather than a
+        count. A copy is either held identical or declared divergent on purpose --
+        there is no third state, and this is the line that says so."""
+        defined = {}
+        for relative, path in helper_scripts().items():
+            text = path.read_text()
+            for match in re.finditer(r"^[ \t]*function\s+([A-Za-z]+-[A-Za-z0-9]+)", text, re.MULTILINE):
+                defined.setdefault(match.group(1), set()).add(relative)
+
+        duplicated = {name for name, files in defined.items() if len(files) > 1}
+        self.assertNotVacuous(duplicated, "no helper appears in two scripts, so this check compares nothing")
+
+        accounted = set(SHARED_HELPERS) | set(DELIBERATELY_DIVERGENT)
+        unwatched = sorted(duplicated - accounted)
+        self.assertEqual(
+            [],
+            unwatched,
+            "these helpers are defined in more than one deploy script and neither "
+            "list mentions them, so nothing holds the copies together:\n  "
+            + "\n  ".join(f"{name} in {', '.join(sorted(defined[name]))}" for name in unwatched),
+        )
+
+        stale = sorted(name for name in DELIBERATELY_DIVERGENT if name not in duplicated)
+        self.assertEqual(
+            [],
+            stale,
+            "these are declared divergent but no longer appear in two scripts, so "
+            "the declaration is stale: " + ", ".join(stale),
+        )
 
     def test_the_divergent_pair_is_not_quietly_pinned(self):
         # A guard against this module over-reaching later. These five differ

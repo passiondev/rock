@@ -19,7 +19,7 @@ for the same thing.
 
 | Term | Means | Where it is spelled that way |
 |---|---|---|
-| **trunk** | The branch the team currently develops on and staging deploys from. Today `passion-19.3.4`. | prose, `TRUNK_BRANCH` in the suite |
+| **trunk** | The branch the team currently develops on and staging deploys from. Today `passion-19.4.4`. | prose, `TRUNK_BRANCH` in the suite |
 | **base branch** | The branch a pull request targets. For an eligible PR this equals the trunk, which is why the two words get used interchangeably — but the gate exists precisely to catch the case where they differ. | `baseBranch` in `.github/pr-test-environments.json`, `EXPECTED_BASE_BRANCH` in the suite |
 | **default branch** | GitHub's repository setting. **Not a synonym for the trunk.** | `context.payload.repository.default_branch` |
 | **production branch** | The branch production actually runs, which lags the trunk until production is upgraded. | `productionBranch` in the config, `EXPECTED_PRODUCTION_BRANCH` in the suite |
@@ -35,6 +35,21 @@ the authority on it.
 
 Prefer **trunk** in prose. Keep `baseBranch`, `default branch` and
 `productionBranch` where they name a concrete key or setting.
+
+**The declared version** is the Rock version a checkout says it is; **the pinned
+minor** is the Rock minor the thing being deployed to is already on. Both deploy
+guards compare the one against the other, because Rock migrates its database on
+the first request after a deploy and a mismatch is not reversible:
+`production-deploy.yml` against the production branch, `staging-deploy.yml`
+against the pin the `pr-*` fleet shares.
+
+Where the declared version is read from moves at a major upgrade -- an assembly
+attribute in `Rock.Version/AssemblySharedInfo.cs` through 18.x, `<Version>` in
+`Directory.Build.props` from Rock 19 -- so both guards read it through one
+script, `.github/scripts/rock-version.sh`. They read it themselves until
+2026-09-15, probing the two files in opposite orders, and agreed only because a
+checkout carries one of the two. Which file answers first is the whole of what
+that order decides, and the argument for it lives with the script.
 
 ## Environments
 
@@ -74,7 +89,7 @@ shared catalog is was the one place nothing checked.
 | Term | Means |
 |---|---|
 | **command** | One JSON object naming work for the VM: `deploy`, `destroy`, `renew-certificate`, `find-legacy-text-columns`. |
-| **the queue** | The GCS prefix the commands travel through: `pending/`, `in-progress/`, `results/`. |
+| **the queue** | The GCS prefix the commands travel through: `pending/` then `results/`. A `processing/` prefix is declared and unused -- the agent runs a command in place under `pending/`, so there is no claim marker and no middle state. |
 | **producer** | A workflow that writes a command. |
 | **the agent** | `Invoke-PrEnvironmentCommandQueue.ps1`, the scheduled task on the VM that consumes them. |
 | **enqueue** / **poll** | Writing a command, and waiting for its result. The two halves of the protocol. |

@@ -41,6 +41,11 @@ function New-VmCommand {
         concept -- the PR fleet's `deploy` verb reads sandboxConnectionString and
         `deploy-environment` reads connectionString -- and renaming either means
         republishing the queue agent to the VM before any deploy would work.
+
+        That is a parameter and not a constant because the two verbs are two
+        contracts, which is also why the deploy path is one workflow per verb
+        rather than one deploy workflow: ADR-0006. A caller that had to pick the
+        field name would be the same caller deciding which script runs on the VM.
     #>
     [CmdletBinding()]
     [OutputType([System.Collections.Specialized.OrderedDictionary])]
@@ -115,6 +120,43 @@ function New-VmCommand {
     return $queued
 }
 
+function Get-SecretFieldNamePattern {
+    <#
+    .SYNOPSIS
+        The shape of a command field name whose value must never reach a log.
+
+    .DESCRIPTION
+        A shape, not a list of known names. CONTEXT.md states the rule -- redaction
+        keys on the shape of a field name -- because two producers once redacted
+        `connectionString` while the one holding the sandbox password called the
+        same thing `sandboxConnectionString`, and the log that mattered was the one
+        that had never heard of the second name.
+
+        Both halves of the queue need the identical rule: the producer redacts what
+        it echoes into a public Actions log, the agent redacts what it uploads to
+        the bucket, and a field name nobody has invented yet has to be covered by
+        both without either being edited. Copied rather than shared, because no
+        module can reach the VM (ADR-0001); test_shared_powershell_helpers.py is
+        what holds the copies identical.
+    #>
+    return '(?i)(connectionstring|password|secret|token|credential)'
+}
+
+function Get-PasswordValuePattern {
+    <#
+    .SYNOPSIS
+        The keyword backstop for a secret sitting inside an ordinary value.
+
+    .DESCRIPTION
+        The name rule cannot see a password embedded in a value that arrived under
+        an innocuous name, or quoted inside a line of output a deploy printed. This
+        catches `password=` up to the next delimiter. The two patterns together are
+        what "redacted" means on both sides of the queue, which is why they are
+        named and copied as a pair.
+    #>
+    return '(?i)(password\s*=\s*)([^;"''\r\n]+)'
+}
+
 function Get-RedactedCommand {
     <#
     .SYNOPSIS
@@ -135,8 +177,10 @@ function Get-RedactedCommand {
     # A field whose *name* reads as a secret is redacted whatever it holds. This
     # is the half that has to work for a field name nobody has invented yet; the
     # password keyword below is the half that has to work when this one fails.
-    # Local for the same reason as $envelopeFields above.
-    $secretNamePattern = '(?i)(connectionstring|password|secret|token|credential)'
+    # Read from a function rather than a file-scope constant for the same reason as
+    # $envelopeFields above: a constant is $null when the Pester suite loads these
+    # definitions on their own, and `-match $null` matches everything.
+    $secretNamePattern = Get-SecretFieldNamePattern
 
     $redacted = [ordered]@{}
     foreach ($key in $Command.Keys) {
@@ -147,7 +191,7 @@ function Get-RedactedCommand {
 
         $value = $Command[$key]
         if ($value -is [string]) {
-            $redacted[$key] = [regex]::Replace($value, '(?i)(password\s*=\s*)([^;"''\r\n]+)', '${1}<redacted>')
+            $redacted[$key] = [regex]::Replace($value, (Get-PasswordValuePattern), '${1}<redacted>')
             continue
         }
 

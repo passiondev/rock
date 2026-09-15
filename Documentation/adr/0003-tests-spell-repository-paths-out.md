@@ -60,8 +60,10 @@ That trades a small repeated cost for a guard nobody can quietly defeat. A revie
 who does not know why will read the verbosity as an oversight, which is what this
 record answers.
 
-An architecture review has proposed the accessor twice. The second proposal fell
-mid-implementation, once somebody traced the scan.
+An architecture review has proposed the accessor three times. The second proposal
+fell mid-implementation, once somebody traced the scan. The third arrived in
+PowerShell rather than Python, aimed at the Pester suites, and fell the same way
+against the same reasoning -- ADR-0004.
 
 ## What would reopen this
 

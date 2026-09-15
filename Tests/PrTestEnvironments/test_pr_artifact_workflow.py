@@ -461,6 +461,11 @@ class HandDeployBuildStaysCredentialFreeTests(harness.HarnessAssertions, unittes
     and the record is here rather than in a commit message because the same two
     readings are what an automated scan produces.
 
+    A second review then recommended it again -- retire the file, or make it call
+    the artifact build with inputs -- which is how this docstring learned it was
+    the wrong place to keep the answer. The decision is ADR-0009 now; what follows
+    is why, and the tests below are what hold it.
+
     "Nobody triggers it." It was pinned to `push: [deploy/ptp-14803-18.4.1]`, a
     branch on the prune list, which is a real problem and is fixed -- it is dispatch
     only now, pinned by test_workflow_triggers_survive_pruning.py. The capability was
@@ -506,6 +511,55 @@ class HandDeployBuildStaysCredentialFreeTests(harness.HarnessAssertions, unittes
                 text,
                 f"{forbidden} appeared in the hand-deploy build. It uploads to nothing "
                 "on purpose; the artifact workflow is where a cloud session belongs.",
+            )
+
+    def test_the_two_builds_do_not_cache_different_trees_under_one_key(self):
+        """They cache different node_modules sets, so they must not share a key.
+
+        actions/cache restores the archive a key names, not the paths the current
+        run asks for, and a hit skips the post-job save. Both workflows spelled
+        `js-<os>-<lockhash>` over different path lists, so a dispatch of this build
+        saved a two-tree archive that the next artifact build then restored as two
+        of its five -- and did not write back, because it had hit. Nothing built
+        wrong: the installs are unconditional. The artifact build just reinstalled
+        three trees from scratch on every run for as long as that hash held.
+
+        Divergence in the paths is correct here -- this build compiles two of the
+        five. It is the shared key over those different paths that is the fault."""
+        def js_cache(workflow, job):
+            for step in workflow["jobs"][job]["steps"]:
+                if step.get("name") == "Cache JavaScript Dependencies":
+                    return step["with"]
+            self.fail("no JavaScript cache step")
+
+        mine = js_cache(self.workflow(), "build")
+        theirs = js_cache(harness.workflow(WORKFLOW_PATH.name), "package")
+
+        self.assertNotEqual(
+            sorted(mine["path"].split()),
+            sorted(theirs["path"].split()),
+            "the two builds now cache the same trees, which would make this test "
+            "the wrong guard -- they should share a key at that point, not differ",
+        )
+        self.assertNotEqual(
+            mine["key"],
+            theirs["key"],
+            "both builds cache different node_modules sets under one key, so "
+            "whichever runs first decides what the other restores",
+        )
+
+        # The fallback matters as much as the key: `restore-keys` is a prefix
+        # match, so a distinct key with the other's prefix beneath it lands back
+        # in the same archive.
+        for fallback in mine.get("restore-keys", "").split():
+            self.assertFalse(
+                theirs["key"].startswith(fallback),
+                f"restore-key {fallback!r} falls back onto the artifact build's cache",
+            )
+        for fallback in theirs.get("restore-keys", "").split():
+            self.assertFalse(
+                mine["key"].startswith(fallback),
+                f"the artifact build falls back onto this build's smaller cache via {fallback!r}",
             )
 
     def test_the_steps_it_shares_with_the_artifact_build_are_byte_identical(self):

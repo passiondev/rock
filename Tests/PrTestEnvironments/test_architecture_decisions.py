@@ -53,10 +53,44 @@ REQUIRED_FIELDS = (
     "- **Enforced by:**",
 )
 
+# A heading with nothing under it passes a check that looks for the heading, and
+# tells the reader nothing. The shortest real section is forty words -- `What
+# would reopen this` in ADR-0003 -- so this sits well under every record written
+# so far and well over a stub, which is the only line it has to draw.
+MINIMUM_SECTION_WORDS = 20
+
+# What a field holds when somebody meant to come back to it. A `Status:` reading
+# `TBD` is worse than a missing one: the shape check goes green and the reader
+# takes it as a decision.
+PLACEHOLDER = re.compile(r"(?i)^(?:tbd|todo|t\.?b\.?d\.?|n/?a|xxx|\?+|<[^>]*>)\W*$")
+
 
 def adr_files():
     """Every record in the directory, README excluded, ordered by number."""
     return sorted(path for path in ADR_DIR.glob("*.md") if path.name != "README.md")
+
+
+def sections_of(text):
+    """`{heading: body}` for every `##` section of a record.
+
+    Split on the heading line rather than searched for it, so a body is everything
+    up to the next heading. That is what `carries text` has to measure: a heading
+    followed straight by the next heading yields an empty body, and an empty body
+    is the case this reader exists to make visible."""
+    parts = re.split(r"^(## .+)$", text, flags=re.MULTILINE)
+    return {parts[i].strip(): parts[i + 1] for i in range(1, len(parts), 2)}
+
+
+def field_value(text, field):
+    """What a record writes after one of its header fields, or None if absent.
+
+    The first matching line only. ADR-0002 carries `- **` bullets inside its
+    sections as well, and a sweep of every bold bullet would read those as header
+    fields."""
+    for line in text.splitlines():
+        if line.startswith(field):
+            return line[len(field):].strip()
+    return None
 
 
 def adr_number(path):
@@ -74,7 +108,9 @@ def cited_files_of(path):
 
 
 class RecordShapeTests(harness.HarnessAssertions, unittest.TestCase):
-    """Each record carries the sections that make it a decision rather than a rule."""
+    """Each record carries the sections that make it a decision rather than a rule,
+    and fills them. The headings were checked for presence alone until 2026-09-15,
+    which meant a record could satisfy every one of them and say nothing."""
 
     def test_there_are_records_to_check(self):
         self.assertNotVacuous(
@@ -106,6 +142,94 @@ class RecordShapeTests(harness.HarnessAssertions, unittest.TestCase):
                         text,
                         f"{path.name} is missing its `{field}` header field.",
                     )
+
+    def test_every_required_section_carries_text(self):
+        """The headings are checked for presence above, which a skeleton satisfies.
+
+        Whoever writes the next record copies the last one, and a copied record
+        arrives with the right headings and the previous record's reasoning deleted
+        from under them. `What would reopen this` is the one that matters and the
+        one most likely to be left blank -- it is the section a writer reaches
+        last, after the decision already feels settled."""
+        for path in adr_files():
+            sections = sections_of(path.read_text())
+            for heading in REQUIRED_HEADINGS:
+                with self.subTest(record=path.name, section=heading):
+                    body = sections.get(heading, "")
+                    self.assertGreaterEqual(
+                        len(body.split()),
+                        MINIMUM_SECTION_WORDS,
+                        f"{path.name} has the `{heading}` heading and "
+                        f"{len(body.split())} words under it. A heading with nothing "
+                        "beneath it reads as an answered question, so the reader stops "
+                        "there rather than asking.",
+                    )
+
+    def test_every_header_field_carries_a_value(self):
+        """Same gap one level up. `- **Enforced by:**` with nothing after it satisfies
+        the field check and then reads back as an empty enforcer list in
+        `cited_files_of`, which is the field the citation direction runs on."""
+        for path in adr_files():
+            text = path.read_text()
+            for field in REQUIRED_FIELDS:
+                with self.subTest(record=path.name, field=field):
+                    value = field_value(text, field)
+                    self.assertTrue(
+                        value,
+                        f"{path.name} writes `{field}` and leaves it empty.",
+                    )
+                    self.assertIsNone(
+                        PLACEHOLDER.match(value),
+                        f"{path.name} writes `{field} {value}`, which is a note to "
+                        "come back rather than an answer. A record is accepted or it "
+                        "is not written yet.",
+                    )
+
+    def test_a_record_that_is_only_headings_fails_these_checks(self):
+        """Every record in the tree passes the two tests above, and so would a tree
+        the readers cannot parse. This builds the skeleton those tests exist to
+        reject and requires each of them to see it -- so a `sections_of` that stops
+        matching the heading style, or a `field_value` that stops finding fields,
+        fails here rather than going quietly green everywhere."""
+        # Titled without a number on purpose, and described without one here.
+        # `CITATION` sweeps this file along with the rest of the tree, so a
+        # four-digit number behind that prefix -- in the skeleton or in a comment
+        # about it -- reads as a citation of a record that does not exist. Writing
+        # the example out is what caught it.
+        skeleton = "\n".join(
+            ["# A record that says nothing", ""]
+            + [f"{field} " for field in REQUIRED_FIELDS]
+            + ["", *(line for heading in REQUIRED_HEADINGS for line in (heading, ""))]
+        )
+
+        self.assertEqual(
+            sorted(REQUIRED_HEADINGS),
+            sorted(sections_of(skeleton)),
+            "sections_of no longer splits a record on its headings, so the section "
+            "check reads every body as missing or every body as the whole file.",
+        )
+
+        for heading in REQUIRED_HEADINGS:
+            with self.subTest(section=heading):
+                self.assertLess(
+                    len(sections_of(skeleton)[heading].split()),
+                    MINIMUM_SECTION_WORDS,
+                    f"an empty `{heading}` section counts as filled, so the check "
+                    "passes on a record with nothing under its headings.",
+                )
+
+        for field in REQUIRED_FIELDS:
+            with self.subTest(field=field):
+                self.assertFalse(
+                    field_value(skeleton, field),
+                    f"an empty `{field}` reads back as a value, so the field check "
+                    "passes on a header nobody filled in.",
+                )
+
+        self.assertIsNotNone(
+            PLACEHOLDER.match("TBD"),
+            "PLACEHOLDER no longer matches the word it was written for.",
+        )
 
     def test_every_record_is_numbered_uniquely(self):
         numbers = [adr_number(path) for path in adr_files()]

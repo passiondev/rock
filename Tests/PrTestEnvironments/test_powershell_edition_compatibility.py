@@ -50,27 +50,12 @@ SEVEN_ONLY = [
 ]
 
 
-def _strip_comments(text):
-    """Drop block comments and line comments so a construct *named in prose* is not
-    reported as a use of it. The fixes for these bugs explain themselves in comments,
-    and several of those comments have to quote the very parameter they replaced --
-    without this, adding the explanation would re-fail the test that motivated it.
-
-    Quote handling is deliberately shallow: a `#` inside a string literal ends the line
-    early here. That can only ever hide a real match, never invent one, and no script in
-    this directory puts one of these constructs after a `#` in a string.
-
-    Block comments are replaced by their own newlines rather than deleted, so the line
-    numbers in a failure still point at the offending line in the real file. Collapsing
-    them instead reported Invoke-SandboxRefreshWithPrEnvironments.ps1:80 for a bug that
-    lives on line 89, which sends the reader to an unrelated line."""
-    text = re.sub(
-        r"<#.*?#>",
-        lambda match: "\n" * match.group(0).count("\n"),
-        text,
-        flags=re.DOTALL,
-    )
-    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+# Comments stripped by the harness, so a construct *named in prose* is not
+# reported as a use of it. The fixes for these bugs explain themselves in
+# comments, and several of those comments have to quote the very parameter they
+# replaced -- without this, adding the explanation would re-fail the test that
+# motivated it.
+_strip_comments = harness.strip_powershell_comments
 
 
 class PowerShellEditionCompatibilityTests(unittest.TestCase):

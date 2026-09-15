@@ -40,22 +40,24 @@ jobs:
           # still open, so treat this as removing one candidate, not as the fix.
           gsutil -h "Content-Type:text/plain; charset=utf-8" -m cp Deployment/PrTestEnvironments/*.ps1 gs://$env:PR_TEST_GCS_BUCKET/pr-environments/bootstrap/latest/
 
-      - name: Resolve VM and temporarily allow ACME HTTP-01
+      - name: Resolve the VM
+        id: vm
+        uses: ./.github/actions/resolve-vm
+        with:
+          external-ip: ${{ secrets.GCP_VM_EXTERNAL_IP }}
+          fallback-name: ${{ secrets.GCP_VM_NAME }}
+          fallback-zone: ${{ secrets.GCP_ZONE }}
+
+      # This step's guard against an unresolved VM is where the action's came from.
+      # It was the only one of the three callers that had it.
+      - name: Temporarily allow ACME HTTP-01
         shell: pwsh
+        env:
+          VM_NAME: ${{ steps.vm.outputs.name }}
+          VM_ZONE: ${{ steps.vm.outputs.zone }}
         run: |
-          $vmName = "${{ secrets.GCP_VM_NAME }}"
-          $vmZone = "${{ secrets.GCP_ZONE }}"
-
-          $vmByIp = gcloud compute instances list --filter="networkInterfaces.accessConfigs.natIP=${{ secrets.GCP_VM_EXTERNAL_IP }}" --format="csv[no-heading](name,zone)" | Select-Object -First 1
-          if (![string]::IsNullOrWhiteSpace($vmByIp)) {
-            $parts = $vmByIp.Split(',')
-            $vmName = $parts[0]
-            $vmZone = ($parts[1] -split '/')[-1]
-          }
-
-          if ([string]::IsNullOrWhiteSpace($vmName) -or [string]::IsNullOrWhiteSpace($vmZone)) {
-            throw "Could not resolve PR environment VM name/zone."
-          }
+          $vmName = $env:VM_NAME
+          $vmZone = $env:VM_ZONE
 
           # The renewal command runs through the command-queue scheduled task on the
           # VM, so the VM has to be powered on. PR environments may be stopped to save
@@ -83,9 +85,6 @@ jobs:
           # broad firewall administration permissions in GitHub Actions.
           gcloud compute instances add-tags $vmName --zone=$vmZone --tags=$env:ACME_TAG
 
-          "VM_NAME=$vmName" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "VM_ZONE=$vmZone" | Out-File -FilePath $env:GITHUB_ENV -Append
-
       # No payload: the verb is the whole command.
       - name: Queue certificate renewal command
         uses: ./.github/actions/queue-vm-command
@@ -109,6 +108,9 @@ jobs:
       - name: Remove temporary ACME HTTP-01 network tag
         if: always()
         shell: pwsh
+        env:
+          VM_NAME: ${{ steps.vm.outputs.name }}
+          VM_ZONE: ${{ steps.vm.outputs.zone }}
         run: |
           if (![string]::IsNullOrWhiteSpace($env:VM_NAME) -and ![string]::IsNullOrWhiteSpace($env:VM_ZONE)) {
             gcloud compute instances remove-tags $env:VM_NAME --zone=$env:VM_ZONE --tags=$env:ACME_TAG

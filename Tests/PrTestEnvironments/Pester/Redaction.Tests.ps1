@@ -13,7 +13,7 @@ BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
     $script:QueueScript = Get-RepositoryPath 'Deployment/PrTestEnvironments/Invoke-PrEnvironmentCommandQueue.ps1'
-    . (Import-ScriptFunction -Path $script:QueueScript -Name 'Get-RedactedText', 'Get-CommandSecrets')
+    . (Import-ScriptFunction -Path $script:QueueScript -Name 'Get-RedactedText', 'Get-CommandSecrets', 'Get-SecretFieldNamePattern', 'Get-PasswordValuePattern')
 
     $script:Password = 'hunter2-correct-horse'
     $script:ConnectionString = "Data Source=tcp:10.0.0.5,1433;Initial Catalog=RockSandbox;User Id=rock;password=$($script:Password);Encrypt=true;"
@@ -104,6 +104,36 @@ Describe 'Get-CommandSecrets' {
 
     It 'ignores a property that is present but blank' {
         $command = [pscustomobject]@{ connectionString = '   ' }
+
+        @(Get-CommandSecrets -Command $command).Count | Should -Be 0
+    }
+
+    It 'collects a secret-shaped field name it has never been told about' {
+        # The same five names QueueCommand.Tests.ps1 puts through the producer.
+        # This side used to hold a literal list of two, so every one of these was
+        # redacted in the public Actions log and printed in full in the log the
+        # agent uploads to the bucket -- the more durable of the two, and the one
+        # a person actually goes and reads after a failure.
+        foreach ($name in 'restoreConnectionString', 'adminPassword', 'apiToken', 'clientSecret', 'gcpCredential') {
+            $command = [pscustomobject]@{ $name = "Server=a;password=$($script:Password);" }
+
+            $secrets = Get-CommandSecrets -Command $command
+
+            $secrets | Should -Contain "Server=a;password=$($script:Password);" -Because "$name reads as a secret"
+            $secrets | Should -Contain $script:Password -Because "$name reads as a secret"
+        }
+    }
+
+    It 'keys on the shape of the name whatever its casing' {
+        $command = [pscustomobject]@{ SANDBOXCONNECTIONSTRING = "Server=a;password=$($script:Password);" }
+
+        Get-CommandSecrets -Command $command | Should -Contain $script:Password
+    }
+
+    It 'leaves a field that does not read as a secret to the keyword backstop' {
+        # Get-CommandSecrets is the name half only. A password inside a field
+        # called `notes` is Get-RedactedText's job, and the pair below proves it.
+        $command = [pscustomobject]@{ notes = "connecting with password=$($script:Password);" }
 
         @(Get-CommandSecrets -Command $command).Count | Should -Be 0
     }

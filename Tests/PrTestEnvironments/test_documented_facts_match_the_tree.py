@@ -31,6 +31,7 @@ DEVOPS_OPEN_ITEMS = REPO_ROOT / "Documentation" / "Training" / "DevOps-Open-Item
 FACILITATOR_SCRIPT = REPO_ROOT / "Documentation" / "Training" / "Facilitator-Script-Rock-CICD-Training.md"
 
 BASE_BRANCH_TEST = REPO_ROOT / "Tests" / "PrTestEnvironments" / "test_base_branch_config.py"
+CONTEXT_DOC = REPO_ROOT / "CONTEXT.md"
 
 # Everything an engineer or an operator is pointed at. Requirement and incident
 # documents are absent on purpose: they record what was true on a date, and
@@ -43,6 +44,7 @@ REFERENCE_DOCS = [
     FORK_LOCAL_CHANGES,
     DEVOPS_OPEN_ITEMS,
     FACILITATOR_SCRIPT,
+    CONTEXT_DOC,
 ]
 
 

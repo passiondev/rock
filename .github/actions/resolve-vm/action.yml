@@ -1,0 +1,64 @@
+name: Resolve the PR environment VM
+description: >
+  Find the VM by its external IP, falling back to the configured name and zone,
+  and fail when neither answers.
+
+inputs:
+  external-ip:
+    description: >
+      The external IP the VM is expected to answer on. This is the lookup, and it
+      wins over the fallback: the IP is what an operator can see responding, while
+      the configured name and zone are secrets set once that outlive a rebuild of
+      the instance.
+    required: true
+  fallback-name:
+    description: >
+      Instance name to use when no instance answers on the IP. Together with
+      fallback-zone; one without the other is treated as neither, because a
+      resolved name carrying someone else's zone makes gcloud report a live VM as
+      nonexistent.
+    required: false
+    default: ''
+  fallback-zone:
+    description: >
+      Zone to use when no instance answers on the IP. A full zone resource URL is
+      accepted and reduced to its last segment, which is the only form gcloud
+      takes for --zone.
+    required: false
+    default: ''
+
+outputs:
+  name:
+    description: The resolved instance name.
+    value: ${{ steps.resolve.outputs.name }}
+  zone:
+    description: The resolved zone, always bare rather than a resource URL.
+    value: ${{ steps.resolve.outputs.zone }}
+
+# Three workflows reach the VM without going through the command queue -- the
+# bootstrap that installs the queue agent, the certificate renewal and the
+# diagnose run -- and each began by turning an external IP into a name and zone.
+# They cannot use `queue-vm-command`, because two of them exist for the case where
+# the queue agent is not running, and the bootstrap is what puts it there.
+#
+# So the nine lines were copied three times, and had drifted twice over: one
+# caller filters on `accessConfigs[0].natIP` where the others filter on
+# `accessConfigs.natIP`, and only the certificate renewal checked that anything
+# had been resolved before handing the name to gcloud. The logic is in
+# Resolve-VmTarget.ps1 rather than inline here so that Pester can execute the
+# parsing and the fallback -- see ADR-0002.
+runs:
+  using: composite
+  steps:
+    - name: Resolve the VM
+      id: resolve
+      shell: pwsh
+      env:
+        RVM_EXTERNAL_IP: ${{ inputs.external-ip }}
+        RVM_FALLBACK_NAME: ${{ inputs.fallback-name }}
+        RVM_FALLBACK_ZONE: ${{ inputs.fallback-zone }}
+        # A literal, and the only thing the script's early-return guard reads.
+        # See the sibling note in queue-vm-command/action.yml.
+        RVM_INVOKED: "1"
+      run: |
+        & "$env:GITHUB_ACTION_PATH/Resolve-VmTarget.ps1"

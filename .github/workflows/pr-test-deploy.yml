@@ -213,16 +213,22 @@ jobs:
       # and staging still share one database until someone sets one of them.
       SANDBOX_CONNECTION_STRING: Data Source=${{ secrets.PR_TEST_DB_DATA_SOURCE || secrets.CLOUD_SQL_CONNECTION_NAME }};Initial Catalog=${{ vars.PR_TEST_DB_NAME || secrets.DB_NAME }};User Id=${{ secrets.DB_USER }};password=${{ secrets.DB_PASSWORD }};MultipleActiveResultSets=true;Encrypt=true;TrustServerCertificate=true;Connection Timeout=30;
     steps:
-      # Two composite actions in this job: the wait below, and the public-URL check
-      # at the end. The verification lives in an action so the staging/production
-      # path and the pr-* fleet ask the identical question -- see
-      # .github/actions/verify-public-url, which carries the reasoning behind every
-      # branch of it. Checked out first because `uses: ./...` reads from the working
-      # tree, and sparse because this job needs nothing else from it.
-      - name: Check out the composite actions
+      # Four composite actions in this job. Two of them -- the public-URL check and
+      # the drift report -- exist so that the staging/production path and the pr-*
+      # fleet ask the identical question; see the reasoning in each. Checked out
+      # first because `uses: ./...` reads from the working tree, and sparse because
+      # this job needs nothing else from it.
+      #
+      # The two Deployment directories are here for the drift report, which
+      # compares them against the copies published to the VMs. It is the same two
+      # the bootstrap uploads, and one of them holds Deploy-PrEnvironment.ps1 --
+      # the script this very job is about to queue a command for.
+      - name: Check out the deploy scripts and composite actions
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
+            Deployment/PrTestEnvironments
+            Deployment/Database
             .github/actions
           sparse-checkout-cone-mode: false
 
@@ -230,6 +236,41 @@ jobs:
         uses: ./.github/actions/gcp-session
         with:
           credentials-json: ${{ secrets.GCP_SA_KEY }}
+
+      # Staging, production and the fleet all build through pr-test-artifact.yml
+      # and upload to the same bucket with the same action, differing only by
+      # slug. Nothing verifies that upload afterwards, so a queued command naming
+      # a missing artifact fails on the VM several minutes later, in a log nobody
+      # is watching. Checking here turns that into an immediate failure in the run
+      # that caused it.
+      #
+      # Six lines and a copy of env-deploy-command.yml's, deliberately. Behind an
+      # action the interface would be as large as the implementation, and the
+      # reason that workflow's version exists is stated there.
+      # This file declares no default shell, so a step that does not say `pwsh`
+      # runs under bash, where `$env:X` is the empty string and `$LASTEXITCODE`
+      # does not exist -- the check would pass on every run, including the ones it
+      # exists to catch.
+      - name: Confirm the artifact exists before queueing
+        shell: pwsh
+        run: |
+          gsutil -q stat "$env:ARTIFACT_GCS_PATH"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Artifact not found at $env:ARTIFACT_GCS_PATH"
+            exit 1
+          }
+          Write-Host "Artifact present: $env:ARTIFACT_GCS_PATH"
+
+      # The fleet runs Deploy-PrEnvironment.ps1, and the VM gets that file from the
+      # bootstrap prefix rather than from this checkout -- so an edit to it merged
+      # this morning may not be on the box, and the deploy below would succeed
+      # anyway, running the old copy. This job is the one most likely to be running
+      # just after somebody changed that script. Reports only; it cannot fail the
+      # deploy.
+      - name: Report deploy script drift
+        uses: ./.github/actions/report-script-drift
+        with:
+          bucket: ${{ env.PR_TEST_GCS_BUCKET }}
 
       # The connection string goes through secret-value rather than the payload:
       # this is the producer that holds the sandbox password, and it is the reason

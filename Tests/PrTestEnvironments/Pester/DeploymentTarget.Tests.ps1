@@ -24,6 +24,11 @@
     from, which is where the damage lives.
 #>
 
+# At the top level and not only in BeforeAll: the -ForEach below is resolved during
+# Pester's discovery pass, which runs before any BeforeAll, so the helper it calls
+# has to be in scope by then.
+Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
+
 BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
@@ -111,10 +116,13 @@ Describe 'Resolve-DeploymentTarget' {
             $script:MissingPath = Join-Path $TestDrive 'not-a-directory'
 
             # The IIS: drive is the one thing that cannot exist here. The shape
-            # this returns is load-bearing, not incidental -- see the two shape
-            # tests below. A mock that only ever returns one of them is what let
-            # a production-only crash through a green suite on 2026-09-14.
-            Mock Get-ItemProperty { [pscustomobject]@{ Value = 'RockProdPool' } }
+            # this returns is load-bearing, not incidental -- see the shape test
+            # below. A mock that only ever returns one of them is what let a
+            # production-only crash through a green suite on 2026-09-14, so the
+            # values come from Get-IisReturnShape rather than being written out.
+            $script:AppPoolShapes = @(Get-IisReturnShape -Kind ApplicationPool -Value 'RockProdPool')
+            $shape = $script:AppPoolShapes[0]
+            Mock Get-ItemProperty { $shape }
         }
 
         It 'requires a target path, because there is nothing to derive one from' {
@@ -148,13 +156,17 @@ Describe 'Resolve-DeploymentTarget' {
             Should -Invoke Get-ItemProperty -Times 1
         }
 
-        It 'reads the app pool when IIS hands back a bare string' {
-            # What production actually returned, dry run 34911854406. Windows
-            # PowerShell 5.1's WebAdministration provider gives the String, and
-            # the .Value read that works against a ConfigurationAttribute is a
-            # terminating error under Set-StrictMode. InPlace is production-only,
-            # so this shape reached a real deploy before it ever reached a test.
-            Mock Get-ItemProperty { 'RockProdPool' }
+        # Driven off the registry rather than written out twice. The bare String is
+        # what production actually returned on dry run 34911854406: Windows
+        # PowerShell 5.1's WebAdministration provider gives it, and the .Value read
+        # that works against a ConfigurationAttribute is a terminating error there
+        # under Set-StrictMode. InPlace is production-only, so that shape reached a
+        # real deploy before it ever reached a test. A shape added to
+        # Get-IisReturnShape is covered here without anybody remembering to add a
+        # case.
+        It 'reads the app pool back from shape <_>' -ForEach (Get-IisReturnShape -Kind ApplicationPool -Value 'RockProdPool') {
+            $shape = $_
+            Mock Get-ItemProperty { $shape }
 
             $target = Resolve-DeploymentTarget -Mode 'InPlace' -TargetSitePath $script:SitePath `
                 -TargetSiteName 'Rock' @script:Common
@@ -173,8 +185,9 @@ Describe 'Resolve-DeploymentTarget' {
                 Should -Throw "*application pool of IIS site 'Rock'*"
         }
 
-        It 'refuses an app pool name that is only whitespace' {
-            Mock Get-ItemProperty { [pscustomobject]@{ Value = '   ' } }
+        It 'refuses an app pool name that is only whitespace, in shape <_>' -ForEach (Get-IisReturnShape -Kind ApplicationPool -Value '   ') {
+            $shape = $_
+            Mock Get-ItemProperty { $shape }
 
             { Resolve-DeploymentTarget -Mode 'InPlace' -TargetSitePath $script:SitePath `
                     -TargetSiteName 'Rock' @script:Common } |

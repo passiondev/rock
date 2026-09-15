@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 Deploys a built RockWeb artifact to a named long-lived environment (staging, production).
 
@@ -632,8 +632,22 @@ function Save-UnhealthyDiagnostics {
 
     $lines.Add("=== Application logs under App_Data\Logs ===")
     try {
-        $logFiles = @(Get-ChildItem (Join-Path $SiteRoot 'App_Data\Logs') -Filter '*.log' -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 3)
+        # Rock writes RockExceptions.csv / RockApplication.csv / MigrationLog.csv.
+        # Filtering on '*.log' matched none of them and instead picked up a stale
+        # Rock.log from a previous logging config, so the report carried year-old
+        # webhook noise while the actual startup failure went uncollected.
+        $logDir = Join-Path $SiteRoot 'App_Data\Logs'
+        $preferred = @('RockExceptions.csv', 'RockApplication.csv', 'MigrationLog.csv')
+        $allLogs = @(Get-ChildItem $logDir -Include '*.csv', '*.log' -File -Recurse -ErrorAction SilentlyContinue)
+        # Preferred files first, in the order listed, then whatever else is most recent.
+        $logFiles = @()
+        foreach ($name in $preferred) {
+            $logFiles += @($allLogs | Where-Object { $_.Name -eq $name })
+        }
+        $logFiles += @($allLogs |
+            Where-Object { $preferred -notcontains $_.Name } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 3)
         if ($logFiles.Count -eq 0) { $lines.Add("(no log files)") }
         foreach ($logFile in $logFiles) {
             $lines.Add("--- $($logFile.Name) modified=$($logFile.LastWriteTimeUtc.ToString('o')) bytes=$($logFile.Length)")
@@ -689,7 +703,7 @@ function Save-UnhealthyDiagnostics {
     if ($ArtifactGcsPath -match '^gs://([^/]+)/') { $bucket = $Matches[1] }
     if ([string]::IsNullOrWhiteSpace($bucket)) {
         Write-Warning "Could not determine the bucket from $ArtifactGcsPath; diagnostics not uploaded."
-        return
+        return $null
     }
 
     $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')
@@ -697,8 +711,205 @@ function Save-UnhealthyDiagnostics {
     $report | Out-File -FilePath $localPath -Encoding utf8 -Force
     $objectName = "pr-environments/diagnostics/$EnvironmentName/$stamp-$Sha.txt"
     Write-GcsObjectFromFile -Bucket $bucket -ObjectName $objectName -Path $localPath
-    Write-Host "Collected diagnostics for the unhealthy site: gs://$bucket/$objectName"
-    Write-Host "Read it with: gsutil cat gs://$bucket/$objectName"
+
+    # Write-DeployStep, not Write-Host: the command queue captures only the former.
+    # On 2026-09-14 this report existed, named the culprit assembly 72 times, and
+    # nothing in the deploy log said so -- roughly 40 minutes went into rediscovering
+    # by hand what was already sitting in the bucket.
+    $diagnosticsUri = "gs://$bucket/$objectName"
+    Write-DeployStep "Collected diagnostics for the unhealthy site: $diagnosticsUri"
+    Write-DeployStep "Read it with: gsutil cat $diagnosticsUri"
+    return $diagnosticsUri
+}
+
+function Get-MigrationFingerprint {
+    <#
+        .SYNOPSIS
+        A cheap marker for "has Rock run database migrations since I last looked".
+
+        .DESCRIPTION
+        Rock migrates the database on first request after a deploy, and the file
+        backup this script takes covers only the file system. Once migrations
+        have run, restoring the backup puts old binaries against a new schema,
+        which is a worse state than the failure being rolled back from -- the
+        database restore point has to come out too.
+
+        The rollback advice printed on an unhealthy deploy has no way to know
+        that on its own, so it is captured before the copy and compared after:
+        MigrationLog.csv is the only on-disk trace migrations leave, and its size
+        and last-write time are enough to tell "it moved" from "it did not".
+        Returns $null when the file does not exist, which is itself meaningful --
+        a log that appears where there was none means migrations ran.
+    #>
+    param([Parameter(Mandatory = $true)][string]$SiteRoot)
+
+    $path = Join-Path $SiteRoot 'App_Data\Logs\MigrationLog.csv'
+    $item = Get-Item -Path $path -ErrorAction SilentlyContinue
+    if ($null -eq $item) { return $null }
+    return ('{0}:{1}' -f $item.Length, $item.LastWriteTimeUtc.ToString('o'))
+}
+
+function Invoke-OrphanedAssemblyReconciliation {
+    <#
+        .SYNOPSIS
+        Quarantines core Rock assemblies the live site still has and the artifact
+        does not ship.
+
+        .DESCRIPTION
+        The copy onto a live site runs without /MIR and without /PURGE, on purpose:
+        a purge here would delete uploaded content and the server's own files. The
+        cost of that choice is that nothing is ever removed, so an assembly dropped
+        between Rock versions stays in bin forever, and the next version loads it.
+
+        That is not theoretical. On 2026-09-14 the v19 cutover left v18's
+        Rock.SignNow.dll behind; it referenced a type v19 deleted, MEF composition
+        threw while building EntityTypeCache, Application_Start aborted, and every
+        request on the production site returned 500 for the life of the app domain.
+        Removing one file fixed it. Finding out which file took most of an outage.
+
+        Deliberately scoped to bin\Rock.*.dll and nothing else. Plugin assemblies
+        (rocks.pillars.*, com.*, org.*) are absent from the artifact by design --
+        they are installed onto the server and are not the pipeline's to remove --
+        and the same reconciliation applied to them would delete the site's
+        plugins on every deploy. 'Rock.' with the dot is the whole safety story
+        between this function and that outcome, so the regex is anchored and
+        anything starting 'rocks.' is refused a second time further down.
+
+        Returns the names it quarantined. Moves, never deletes: the files land
+        beside the deploy's own backup and the log prints the command to put them
+        back.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$SiteRoot,
+        [Parameter(Mandatory = $true)][string]$ArtifactRoot,
+        [Parameter(Mandatory = $true)][string]$QuarantineRoot
+    )
+
+    $siteBin = Join-Path $SiteRoot 'bin'
+    $artifactBin = Join-Path $ArtifactRoot 'bin'
+    if (-not (Test-Path $siteBin) -or -not (Test-Path $artifactBin)) {
+        Write-DeployStep "Orphan check skipped: bin is missing from the site or the artifact."
+        return @()
+    }
+
+    $isCore = { param($name) $name -match '(?i)^Rock\.' -and $name -notmatch '(?i)^rocks\.' }
+
+    $artifactCore = @(Get-ChildItem -Path $artifactBin -Filter '*.dll' -File -ErrorAction SilentlyContinue |
+        Where-Object { & $isCore $_.Name })
+
+    # The artifact is the authority for what should exist, so an artifact that
+    # does not look like Rock must not be allowed to authorise removals. Both
+    # gates below fail closed: a bad extract reports and changes nothing rather
+    # than emptying bin.
+    if (-not ($artifactCore.Name -contains 'Rock.dll')) {
+        Write-DeployStep "Orphan check skipped: the artifact's bin has no Rock.dll, so it cannot be trusted to say what is orphaned."
+        return @()
+    }
+    if ($artifactCore.Count -lt 20) {
+        Write-DeployStep "Orphan check skipped: the artifact ships only $($artifactCore.Count) core assemblies, which is too few to reconcile against."
+        return @()
+    }
+
+    $shipped = @{}
+    foreach ($assembly in $artifactCore) { $shipped[$assembly.Name] = $true }
+
+    $orphans = @(Get-ChildItem -Path $siteBin -Filter '*.dll' -File -ErrorAction SilentlyContinue |
+        Where-Object { (& $isCore $_.Name) -and -not $shipped.ContainsKey($_.Name) })
+
+    if ($orphans.Count -eq 0) {
+        Write-DeployStep "Orphan check: bin holds $($artifactCore.Count) core assemblies and none are unaccounted for."
+        return @()
+    }
+
+    # A version bump drops a handful of assemblies. Dozens means the comparison
+    # is wrong -- a half-extracted artifact, a changed bin layout -- and the
+    # right response to not understanding the input is to report it, not to move
+    # files on a production site.
+    $ceiling = 25
+    if ($orphans.Count -gt $ceiling) {
+        Write-DeployStep "Orphan check found $($orphans.Count) core assemblies absent from the artifact, which is more than the $ceiling this deploy will act on. Quarantining nothing; inspect by hand: $($orphans.Name -join ', ')."
+        return @()
+    }
+
+    Ensure-Directory -Path $QuarantineRoot
+    $quarantined = @()
+    foreach ($orphan in $orphans) {
+        # Belt and braces. If the anchored match above is ever loosened, a plugin
+        # assembly reaching this line must still not be moved.
+        if ($orphan.Name -notmatch '(?i)^Rock\.' -or $orphan.Name -match '(?i)^rocks\.') { continue }
+        try {
+            $hash = (Get-FileHash -Path $orphan.FullName -Algorithm SHA256).Hash
+            Move-Item -Path $orphan.FullName -Destination (Join-Path $QuarantineRoot $orphan.Name) -Force
+            $quarantined += $orphan.Name
+            Write-DeployStep "Quarantined orphaned core assembly $($orphan.Name) ($($orphan.Length) bytes, sha256 $($hash.Substring(0,16))...)."
+        }
+        catch {
+            Write-DeployStep "Could not quarantine $($orphan.Name): $($_.Exception.Message). It is still in bin and may break startup."
+        }
+    }
+
+    if ($quarantined.Count -gt 0) {
+        Write-DeployStep "Quarantined $($quarantined.Count) orphaned core assembly/assemblies to $QuarantineRoot. Undo with: Move-Item '$QuarantineRoot\*.dll' '$siteBin'"
+    }
+    return $quarantined
+}
+
+function Write-OrphanedBlockReport {
+    <#
+        .SYNOPSIS
+        Reports, without touching, block files the live site has and the artifact
+        does not ship.
+
+        .DESCRIPTION
+        The same non-purging copy that strands assemblies strands .ascx files, and
+        Rock's RegisterBlockTypes walks the filesystem rather than the database:
+        every orphaned block is compiled at startup to read its attributes, so a
+        v18 block left behind after a v19 deploy throws a compile error or a
+        DuplicateSystemGuidException whether or not any page uses it. Production
+        carried 92 of these on 2026-09-14 and logged 82 exceptions in one minute
+        because of them.
+
+        Report-only, unlike the assembly reconciliation above, and the difference
+        is intentional. An orphaned core assembly breaks startup outright and its
+        removal is unambiguously correct. An orphaned block file is noisy rather
+        than fatal, and Blocks\ is somewhere a plugin may legitimately have
+        installed a file this pipeline knows nothing about -- deleting on that
+        guess costs more than the noise does. So the deploy names them and leaves
+        the decision to a person.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$SiteRoot,
+        [Parameter(Mandatory = $true)][string]$ArtifactRoot
+    )
+
+    $siteBlocks = Join-Path $SiteRoot 'Blocks'
+    $artifactBlocks = Join-Path $ArtifactRoot 'Blocks'
+    if (-not (Test-Path $siteBlocks) -or -not (Test-Path $artifactBlocks)) { return @() }
+
+    $shipped = @{}
+    foreach ($file in (Get-ChildItem -Path $artifactBlocks -Filter '*.ascx' -File -Recurse -ErrorAction SilentlyContinue)) {
+        $shipped[$file.FullName.Substring($artifactBlocks.Length).TrimStart('\', '/')] = $true
+    }
+    if ($shipped.Count -lt 100) { return @() }
+
+    $orphans = @(Get-ChildItem -Path $siteBlocks -Filter '*.ascx' -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { -not $shipped.ContainsKey($_.FullName.Substring($siteBlocks.Length).TrimStart('\', '/')) } |
+        ForEach-Object { $_.FullName.Substring($siteBlocks.Length).TrimStart('\', '/') } |
+        Sort-Object)
+
+    if ($orphans.Count -eq 0) {
+        Write-DeployStep "Block check: all $($shipped.Count) shipped block files accounted for, no orphans under Blocks."
+        return @()
+    }
+
+    Write-DeployStep "Block check: $($orphans.Count) block file(s) under Blocks are not in this artifact. They are compiled at startup and can log DuplicateSystemGuidException or compile errors. Not removed -- review and delete by hand if they are from an older version."
+    foreach ($orphan in ($orphans | Select-Object -First 40)) {
+        Write-DeployStep "  orphaned block: $orphan"
+    }
+    if ($orphans.Count -gt 40) {
+        Write-DeployStep "  ... and $($orphans.Count - 40) more."
+    }
+    return $orphans
 }
 
 function Stop-EnvironmentAppPool {
@@ -936,11 +1147,11 @@ function Sync-SharedSiteAssets {
     )
 
     if ([string]::IsNullOrWhiteSpace($SourceRoot) -or !(Test-Path $SourceRoot)) {
-        Write-Host "Shared site asset source not found; skipping overlay. SourceRoot=$SourceRoot"
+        Write-DeployStep "Shared site asset source not found; skipping overlay. SourceRoot=$SourceRoot"
         return
     }
     if ((Resolve-Path $SourceRoot).Path -eq (Resolve-Path $DestinationRoot).Path) {
-        Write-Host "Shared asset source is the destination; skipping overlay."
+        Write-DeployStep "Shared asset source is the destination; skipping overlay."
         return
     }
 
@@ -1118,11 +1329,11 @@ function Sync-ServerOwnedAssets {
     )
 
     if ([string]::IsNullOrWhiteSpace($SourceRoot) -or !(Test-Path $SourceRoot)) {
-        Write-Host "Server-owned asset source not found; skipping. SourceRoot=$SourceRoot"
+        Write-DeployStep "Server-owned asset source not found; skipping. SourceRoot=$SourceRoot"
         return
     }
     if ((Resolve-Path $SourceRoot).Path -eq (Resolve-Path $DestinationRoot).Path) {
-        Write-Host "Server-owned asset source is the destination; skipping."
+        Write-DeployStep "Server-owned asset source is the destination; skipping."
         return
     }
 
@@ -1305,6 +1516,95 @@ function Set-ProductionCompilationSettings {
     return $WebConfig
 }
 
+function Get-ServerOwnedWebConfigSettings {
+    <#
+    .SYNOPSIS
+        What this server's web.config holds that a deploy has to decide about.
+
+    .DESCRIPTION
+        The read half of the merge below, split out because it has two callers
+        and they were disagreeing.
+
+        A dry run returns before the artifact is downloaded, so the plan cannot
+        merge anything -- there is no incoming file yet. What it can do, and what
+        an operator reads it for, is state which server-owned settings this site
+        actually has for the apply run to carry. That is this function, and the
+        merge is this function plus the rewriting.
+
+        Written out twice, the two drifted, which is the failure this split
+        undoes. The plan listed every control registration on the box under a line
+        promising the ones the artifact lacks -- a promise only the merge can keep,
+        because only it has the artifact to compare against.
+
+        Pure, like Set-ProductionCompilationSettings and for the same reason: an
+        operator's last check before a cutover should be testable without IIS, a
+        server, or a file on disk.
+
+    .PARAMETER ExistingWebConfig
+        The web.config already on the server. Empty means there was none, and
+        nothing is owned.
+
+    .PARAMETER AppSettingKeys
+        appSettings keys this server owns, by exact name.
+
+    .PARAMETER AppSettingKeyPrefixes
+        appSettings keys this server owns by prefix, for families whose members
+        cannot be listed in advance -- see OldPasswordKey in the merge below.
+    #>
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$ExistingWebConfig,
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$AppSettingKeys = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$AppSettingKeyPrefixes = @()
+    )
+
+    # Elements, not values. The whole <add /> travels in the merge, so an
+    # attribute this code does not know about rides across with it.
+    $found = @{
+        AppSettings   = [ordered]@{}
+        OwnedKeys     = @()
+        MachineKey    = ''
+        Registrations = [ordered]@{}
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ExistingWebConfig)) { return $found }
+
+    foreach ($setting in [regex]::Matches($ExistingWebConfig, '<add\s+key="([^"]+)"[^>]*>')) {
+        $key = $setting.Groups[1].Value
+        if (-not $found.AppSettings.Contains($key)) { $found.AppSettings[$key] = $setting.Value }
+    }
+
+    # Named keys first, then the prefix families, because that is the order an
+    # operator reads them back in.
+    $owned = @()
+    foreach ($key in $AppSettingKeys) {
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+        if ($found.AppSettings.Contains($key)) { $owned += $key }
+    }
+    foreach ($prefix in $AppSettingKeyPrefixes) {
+        if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
+        foreach ($key in @($found.AppSettings.Keys)) {
+            if ($key.StartsWith($prefix, [System.StringComparison]::Ordinal)) { $owned += $key }
+        }
+    }
+    $found.OwnedKeys = @($owned | Select-Object -Unique)
+
+    $machineKey = [regex]::Match($ExistingWebConfig, '<machineKey\b[^>]*>')
+    if ($machineKey.Success) { $found.MachineKey = $machineKey.Value }
+
+    # Every registration the box has. Which of them survive is the merge's call
+    # and not this one's: it depends on what the artifact registers, and the
+    # artifact is not here yet when the plan asks.
+    foreach ($registration in [regex]::Matches($ExistingWebConfig, '<add\s+tagPrefix="([^"]+)"[^>]*>')) {
+        $tagPrefix = $registration.Groups[1].Value
+        if (-not $found.Registrations.Contains($tagPrefix)) {
+            $found.Registrations[$tagPrefix] = $registration.Value
+        }
+    }
+
+    return $found
+}
+
 function Merge-ServerOwnedWebConfigSettings {
     <#
     .SYNOPSIS
@@ -1404,43 +1704,32 @@ function Merge-ServerOwnedWebConfigSettings {
     $merged = $IncomingWebConfig
     $carried = @()
 
-    # Prefix families are resolved against the server's file, because only it
-    # knows how many OldPasswordKey entries this particular install has.
-    $keys = @()
-    foreach ($key in $AppSettingKeys) {
-        if (-not [string]::IsNullOrWhiteSpace($key)) { $keys += $key }
-    }
-    foreach ($prefix in $AppSettingKeyPrefixes) {
-        if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
-        $prefixPattern = '<add\s+key="(' + [regex]::Escape($prefix) + '[^"]*)"[^>]*>'
-        foreach ($found in [regex]::Matches($ExistingWebConfig, $prefixPattern)) {
-            $keys += $found.Groups[1].Value
-        }
-    }
-    $keys = @($keys | Select-Object -Unique)
+    # What the box has. Prefix families are resolved there and not here, because
+    # only the server's own file knows how many OldPasswordKey entries this
+    # particular install has -- and because the dry-run plan asks the same
+    # question and has to get the same answer.
+    $found = Get-ServerOwnedWebConfigSettings `
+        -ExistingWebConfig $ExistingWebConfig `
+        -AppSettingKeys $AppSettingKeys `
+        -AppSettingKeyPrefixes $AppSettingKeyPrefixes
 
-    # The whole <add /> element travels, not just the value, so an attribute this
-    # code does not know about rides across with it.
-    #
     # Every replace below goes through a MatchEvaluator and a count of 1. The
     # evaluator is what stops a '$' anywhere in a carried value being read as a
     # substitution group -- these are base64 and hex today, and the day one of
     # them is not is not the day to discover that. The count is what stops a
     # second <appSettings> somewhere in the file collecting a duplicate.
-    foreach ($key in $keys) {
+    foreach ($key in $found.OwnedKeys) {
+        $fromServer = $found.AppSettings[$key]
         $elementPattern = '<add\s+key="' + [regex]::Escape($key) + '"[^>]*>'
-        $fromServer = [regex]::Match($ExistingWebConfig, $elementPattern)
-        if (-not $fromServer.Success) { continue }
 
         if ([regex]::IsMatch($merged, $elementPattern)) {
-            $replacement = $fromServer.Value
-            $merged = ([regex]$elementPattern).Replace($merged, { param($m) $replacement }, 1)
+            $merged = ([regex]$elementPattern).Replace($merged, { param($m) $fromServer }, 1)
         }
         elseif ([regex]::IsMatch($merged, '<appSettings[^>]*>')) {
             # The artifact has no entry for a key the server does. Add one rather
             # than leave a setting the site depends on to ConfigurationManager
             # handing back null.
-            $merged = ([regex]'<appSettings[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n    " + $fromServer.Value) }, 1)
+            $merged = ([regex]'<appSettings[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n    " + $fromServer) }, 1)
         }
         else { continue }
         $carried += $key
@@ -1449,16 +1738,16 @@ function Merge-ServerOwnedWebConfigSettings {
     # machineKey, as a whole element. Inserted rather than skipped when the
     # artifact has none: ASP.NET would otherwise generate one per app domain and
     # every recycle would sign everybody out.
-    $machineKeyPattern = '<machineKey\b[^>]*>'
-    $serverMachineKey = [regex]::Match($ExistingWebConfig, $machineKeyPattern)
-    if ($serverMachineKey.Success) {
+    if (![string]::IsNullOrWhiteSpace($found.MachineKey)) {
+        $machineKeyPattern = '<machineKey\b[^>]*>'
+        $serverMachineKey = $found.MachineKey
+
         if ([regex]::IsMatch($merged, $machineKeyPattern)) {
-            $replacement = $serverMachineKey.Value
-            $merged = ([regex]$machineKeyPattern).Replace($merged, { param($m) $replacement }, 1)
+            $merged = ([regex]$machineKeyPattern).Replace($merged, { param($m) $serverMachineKey }, 1)
             $carried += 'machineKey'
         }
         elseif ([regex]::IsMatch($merged, '<system\.web[^>]*>')) {
-            $merged = ([regex]'<system\.web[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n    " + $serverMachineKey.Value) }, 1)
+            $merged = ([regex]'<system\.web[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n    " + $serverMachineKey) }, 1)
             $carried += 'machineKey'
         }
     }
@@ -1467,20 +1756,22 @@ function Merge-ServerOwnedWebConfigSettings {
     # name alone: if the artifact registers the same prefix against a different
     # assembly then the artifact wins, because that is a v19 decision and not
     # this server's.
-    foreach ($registration in [regex]::Matches($ExistingWebConfig, '<add\s+tagPrefix="([^"]+)"[^>]*>')) {
-        $tagPrefix = $registration.Groups[1].Value
+    #
+    # This is the filter the dry-run plan cannot apply, because the artifact is
+    # not downloaded yet when the plan runs. The plan says so rather than
+    # promising the outcome of a comparison it has not made.
+    foreach ($tagPrefix in @($found.Registrations.Keys)) {
         if ([regex]::IsMatch($merged, '<add\s+tagPrefix="' + [regex]::Escape($tagPrefix) + '"')) { continue }
         if (-not [regex]::IsMatch($merged, '<controls[^>]*>')) { continue }
-        $registrationText = $registration.Value
+        $registrationText = $found.Registrations[$tagPrefix]
         $merged = ([regex]'<controls[^>]*>').Replace($merged, { param($m) ($m.Value + "`r`n        " + $registrationText) }, 1)
         $carried += "tagPrefix:$tagPrefix"
     }
 
     # Reported, not moved. See the .DESCRIPTION.
     $dropped = @()
-    foreach ($setting in [regex]::Matches($ExistingWebConfig, '<add\s+key="([^"]+)"[^>]*>')) {
-        $key = $setting.Groups[1].Value
-        if ($keys -contains $key) { continue }
+    foreach ($key in @($found.AppSettings.Keys)) {
+        if ($found.OwnedKeys -contains $key) { continue }
         if ([regex]::IsMatch($merged, '<add\s+key="' + [regex]::Escape($key) + '"')) { continue }
         $dropped += $key
     }
@@ -1524,7 +1815,7 @@ function Write-RuntimeConfiguration {
         # timeout.
         $existingConnectionConfig = Join-Path $Path "web.ConnectionStrings.config"
         if (Test-Path $existingConnectionConfig) {
-            Write-Host "No connection string supplied; leaving the existing web.ConnectionStrings.config in place."
+            Write-DeployStep "No connection string supplied; leaving the existing web.ConnectionStrings.config in place."
         }
         else {
             throw "No connection string was supplied and $existingConnectionConfig does not exist. web.config binds connectionStrings with a configSource, so the site would fail every request at startup. Re-run with write_connection_string enabled, or restore that file on the server."
@@ -1628,6 +1919,600 @@ function Invoke-SiteProbe {
     }
 
     return $outcome
+}
+
+
+function Write-DeployScriptProvenance {
+    <#
+        .SYNOPSIS
+        States which copy of this script is running and when it was last refreshed.
+
+        .DESCRIPTION
+        What the VM runs is not necessarily what is in the repository. The agent
+        executes whatever copy of Deployment/PrTestEnvironments was on disk when
+        the box was last bootstrapped, and the refresh that is supposed to keep
+        that current -- Sync-DeploymentScripts in Invoke-PrEnvironmentCommandQueue
+        -- reports only through Write-Host, before the command loop starts, where
+        nothing captures it. So a fix merged to the repository can sit looking
+        deployed and be inert on the box, and no artifact of a deploy says which
+        of the two happened.
+
+        One hash in the timeline settles it: compare it against
+        Get-FileHash of the repository copy and the question is answered in
+        seconds rather than by reading the script on the box. The sync state
+        beside it comes from the file Sync-DeploymentScripts now writes, and its
+        absence is itself the finding -- it means no refresh has ever recorded a
+        result on this machine.
+    #>
+    param([Parameter(Mandatory = $false)][string]$ScriptPath = $PSCommandPath)
+
+    if ([string]::IsNullOrWhiteSpace($ScriptPath) -or -not (Test-Path $ScriptPath)) {
+        Write-DeployStep "Running script: path unavailable, so its version cannot be stated."
+        return
+    }
+
+    $name = Split-Path $ScriptPath -Leaf
+    try {
+        $hash = (Get-FileHash -Path $ScriptPath -Algorithm SHA256).Hash
+        $written = (Get-Item $ScriptPath).LastWriteTimeUtc.ToString('o')
+        Write-DeployStep "Running $name sha256 $hash (written $written). Compare with: Get-FileHash Deployment/PrTestEnvironments/$name"
+    }
+    catch {
+        Write-DeployStep "Running ${name}: could not hash it ($($_.Exception.Message))."
+        return
+    }
+
+    $statePath = Join-Path (Split-Path -Parent $ScriptPath) 'script-sync-state.json'
+    if (-not (Test-Path $statePath)) {
+        Write-DeployStep "No script-sync-state.json beside it: the agent's script refresh has never recorded a result on this box, so these scripts are whatever the last bootstrap installed."
+        return
+    }
+
+    try {
+        $state = Get-Content -Raw -Path $statePath | ConvertFrom-Json
+        $entry = $state.files | Where-Object { $_.name -eq $name } | Select-Object -First 1
+        if ($null -eq $entry) {
+            Write-DeployStep "Script refresh last ran $($state.lastRunUtc) and did not see $name in the bootstrap prefix."
+            return
+        }
+        Write-DeployStep "Script refresh last ran $($state.lastRunUtc); $name was '$($entry.status)'$(if ($entry.detail) { " ($($entry.detail))" })."
+    }
+    catch {
+        Write-DeployStep "Could not read script-sync-state.json: $($_.Exception.Message)."
+    }
+}
+
+function Write-PluginAssemblyReport {
+    <#
+        .SYNOPSIS
+        States whether the server's plugin assemblies are in bin, in the timeline
+        rather than left to be inferred from a green run.
+
+        .DESCRIPTION
+        Every BinaryFileType on this catalog stores through
+        rocks.pillars.AmazonStorageProvider.S3BlobStorage and Rock 19 ships no
+        core S3 provider, so a bin without these assemblies is a site where every
+        image answers 404 -- while the health check, which only asks whether the
+        app domain routes a request, passes happily.
+
+        Both modes, for different reasons. A dedicated site builds bin from the
+        artifact plus an overlay, so a zero here means the overlay source is the
+        thing to go look at. An in-place deploy never copies these assemblies at
+        all -- they belong to the server and the artifact has none -- so a zero
+        there means the non-purging copy is no longer the only thing touching
+        bin, which is a much more serious finding and exactly the class of
+        surprise this pipeline keeps producing.
+
+        A warning and not a throw: a site with no images is still worth having up
+        to look at.
+    #>
+    param([Parameter(Mandatory = $true)][string]$SiteRoot)
+
+    $pluginAssemblies = @(Get-ChildItem -Path (Join-Path $SiteRoot 'bin') -Filter 'rocks.pillars.*.dll' -ErrorAction SilentlyContinue)
+    Write-DeployStep "Plugin assemblies present in bin: $($pluginAssemblies.Count) ($($pluginAssemblies.Name -join ', '))."
+    if ($pluginAssemblies.Count -eq 0) {
+        Write-Warning "No rocks.pillars.* assemblies in bin. Binary file storage will not load and every image on the site will answer 404."
+    }
+    return $pluginAssemblies.Count
+}
+
+function Assert-DeployedCoreVersion {
+    <#
+        .SYNOPSIS
+        Fails the deploy if the Rock.dll now on the site is not the one in the
+        artifact.
+
+        .DESCRIPTION
+        robocopy reports success for a run in which individual files were skipped,
+        and a locked bin\Rock.dll is exactly the file most likely to be skipped
+        and least survivable to skip: the site keeps the old core assembly and
+        every other assembly around it is new. Nothing downstream detects that --
+        the health check can still pass, because the old Rock may well start.
+
+        Comparing the file version of one assembly across the two trees is enough
+        to catch it, and it throws rather than warns because there is no reading
+        of a version mismatch here that is acceptable to leave running.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$SiteRoot,
+        [Parameter(Mandatory = $true)][string]$ArtifactRoot
+    )
+
+    $sitePath = Join-Path $SiteRoot 'bin\Rock.dll'
+    $artifactPath = Join-Path $ArtifactRoot 'bin\Rock.dll'
+    if (-not (Test-Path $sitePath) -or -not (Test-Path $artifactPath)) {
+        Write-DeployStep "Core version check skipped: Rock.dll is missing from the site or the artifact."
+        return
+    }
+
+    $siteVersion = (Get-Item $sitePath).VersionInfo.FileVersion
+    $artifactVersion = (Get-Item $artifactPath).VersionInfo.FileVersion
+    if ($siteVersion -ne $artifactVersion) {
+        throw "The copy did not land: bin\Rock.dll on the site is $siteVersion but the artifact ships $artifactVersion. The site is now a mix of two Rock versions; restore the backup rather than starting it."
+    }
+    Write-DeployStep "Core version check: bin\Rock.dll is $siteVersion on both the artifact and the site."
+}
+
+function Invoke-SiteContentProbe {
+    <#
+        .SYNOPSIS
+        Like Invoke-SiteProbe, but keeps the body and the headers.
+
+        .DESCRIPTION
+        Invoke-SiteProbe deliberately reads nothing but the status code, which is
+        the right shape for a health check polled every few seconds. It is the
+        wrong shape for asking "did Rock render this, or did something else
+        answer for it" -- a question this pipeline has already got wrong once, by
+        reading a 302 as proof the site was up when the redirect was a
+        maintenance rule answered at the CDN edge and Rock was returning 500 to
+        everything behind it.
+
+        Redirects are still not followed, for the reason given on Invoke-SiteProbe:
+        the Location is absolute and following it leaves the loopback.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [Parameter(Mandatory = $false)][string]$HostHeader = '',
+        [Parameter(Mandatory = $false)][int]$TimeoutSeconds = 60,
+        [Parameter(Mandatory = $false)][int]$MaxBodyBytes = 262144
+    )
+
+    $outcome = @{ StatusCode = 0; Body = ''; Server = ''; Error = '' }
+
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
+
+    $response = $null
+    try {
+        $request = [System.Net.HttpWebRequest]::Create($Url)
+        $request.Method = 'GET'
+        $request.Timeout = $TimeoutSeconds * 1000
+        $request.ReadWriteTimeout = $TimeoutSeconds * 1000
+        $request.AllowAutoRedirect = $false
+        $request.UserAgent = 'RockDeploySmokeCheck'
+        if (![string]::IsNullOrWhiteSpace($HostHeader)) { $request.Host = $HostHeader }
+        $response = $request.GetResponse()
+    }
+    catch [System.Net.WebException] {
+        # The error response carries the body, and on a failed deploy the body is
+        # the ASP.NET error page -- the single most useful thing on the box.
+        $response = $_.Exception.Response
+        $outcome.Error = $_.Exception.Message
+    }
+    catch {
+        $outcome.Error = $_.Exception.Message
+        return $outcome
+    }
+
+    if ($null -eq $response) { return $outcome }
+    try {
+        try { $outcome.StatusCode = [int]$response.StatusCode } catch { }
+        try { $outcome.Server = [string]$response.Headers['Server'] } catch { }
+        $stream = $response.GetResponseStream()
+        $reader = New-Object System.IO.StreamReader($stream)
+        try {
+            # Capped rather than read to the end: a Rock page is a few hundred KB
+            # and the markers being looked for are all in the first screenful, so
+            # there is no reason to hold a megabyte of HTML in a deploy script.
+            $buffer = New-Object char[] $MaxBodyBytes
+            $read = $reader.Read($buffer, 0, $MaxBodyBytes)
+            if ($read -gt 0) { $outcome.Body = (New-Object string($buffer, 0, $read)) }
+        }
+        finally { $reader.Dispose() }
+    }
+    catch { $outcome.Error = $_.Exception.Message }
+    finally { try { $response.Close() } catch { } }
+
+    return $outcome
+}
+
+function Invoke-DeploySmokeCheck {
+    <#
+        .SYNOPSIS
+        Asks the deployed site for a page Rock has to render itself, and says what
+        came back.
+
+        .DESCRIPTION
+        Test-EnvironmentHealth passing means the app domain started and routed a
+        request. It does not mean Rock is serving pages: / answers 302 to the
+        login page, and a 302 is produced before most of what a deploy can break
+        is ever touched.
+
+        So this asks for the login page over the loopback and looks for
+        __VIEWSTATE, the hidden field every ASP.NET WebForms render emits. Present
+        means Rock compiled a page, ran it and returned it. Absent, on a 200,
+        means something that is not Rock answered -- a static error document, an
+        IIS placeholder, a proxy.
+
+        A warning rather than a throw, deliberately, and this is the one place in
+        the script where that is a close call. A 404 here is a routing choice a
+        site is entitled to make, and failing a production deploy that is
+        genuinely healthy costs more than the signal is worth. A 5xx is different
+        and is reported as an outright failure of the check, which the caller
+        turns into diagnostics.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$HostName,
+        [Parameter(Mandatory = $false)][int]$TimeoutSeconds = 60
+    )
+
+    $url = "https://127.0.0.1/Login"
+    $probe = Invoke-SiteContentProbe -Url $url -HostHeader $HostName -TimeoutSeconds $TimeoutSeconds
+
+    if ($probe.StatusCode -eq 0) {
+        Write-Warning "Smoke check could not reach $url with Host: $HostName ($($probe.Error))."
+        return $false
+    }
+
+    if ($probe.StatusCode -ge 500) {
+        Write-Warning "Smoke check: $url returned $($probe.StatusCode). The site routes requests but cannot render its login page."
+        return $false
+    }
+
+    if ($probe.StatusCode -ge 400) {
+        Write-DeployStep "Smoke check: $url returned $($probe.StatusCode), so it proves nothing either way. Not treating that as a failure."
+        return $true
+    }
+
+    if ($probe.Body -match '__VIEWSTATE') {
+        Write-DeployStep "Smoke check passed: $url returned $($probe.StatusCode) and Rock rendered the page ($($probe.Body.Length) chars, __VIEWSTATE present)."
+        return $true
+    }
+
+    Write-Warning "Smoke check: $url returned $($probe.StatusCode) but the response has no __VIEWSTATE, so Rock did not render it. Something else is answering for this site."
+    return $false
+}
+function Invoke-DedicatedSiteReplace {
+    <#
+    .SYNOPSIS
+        Replace a site this pipeline owns outright, wholesale.
+
+    .DESCRIPTION
+        One of the two things a deploy can be. It ran as top-level script, which
+        meant nothing could call it: Import-ScriptFunction lifts function
+        definitions, so every Pester test in this repository stopped at the last
+        function and the ordering below -- stash, wipe, move, grant, restore,
+        overlay -- was covered only by Python tests matching the text of their
+        own source. Those assert what the file says, not what it does, and the
+        difference is the whole of what this extraction buys.
+
+        The ordering is the dangerous part and it is why this is one function and
+        not five. Between the wipe and the restore the site does not exist, and
+        every read that has to happen before it must have happened before it.
+        A caller cannot get that wrong here because it cannot reach inside.
+
+        Returns the same record Invoke-InPlaceOverlay returns, so the run that
+        follows does not have to know which branch produced it.
+
+    .PARAMETER ExistingWebConfig
+        The site's own web.config as text, read before this was called -- this
+        deletes the file that holds it.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)][string]$SitePath,
+        [Parameter(Mandatory = $true)][string]$ExtractPath,
+        [Parameter(Mandatory = $true)][string]$SiteName,
+        [Parameter(Mandatory = $true)][string]$AppPoolName,
+        [Parameter(Mandatory = $true)][string]$HostName,
+        # No `= ''` on any of these. An unsupplied [string] is already the empty
+        # string, so stating it buys nothing -- and for -CertificateThumbprint and
+        # -SharedAssetSourcePath it would restate a script-level default this
+        # function cannot honestly match. The script reads those from the
+        # environment at the entry point; a branch function that went and read the
+        # environment itself would be taking a decision it exists to be handed.
+        # See ScriptDefaults.Tests.ps1: a function that omits a default is being
+        # stricter than the script, not drifting from it.
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$CertificateThumbprint,
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$ConnectionString,
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$ExistingWebConfig,
+        # The collections keep theirs: an unsupplied [string[]] is $null, not @().
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$PreservedFiles = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$SharedAssetSourcePath,
+        [Parameter(Mandatory = $true)][string]$SharedAssetDirectories,
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$ServerOwnedDirectories = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$ServerOwnedThemeFiles = @()
+    )
+
+    # A dedicated site owns its whole directory, so replace it wholesale and
+    # let the shared-asset overlay backfill server-only files afterwards.
+    #
+    # $PreservedFiles has to be carried across that replace by hand. The
+    # InPlace branch below hands the list to robocopy as /XF exclusions, but
+    # there is no copy to exclude anything from here -- the directory is
+    # deleted outright. Skipping this is how a deploy that supplies no
+    # connection string destroys the site: the wipe takes
+    # web.ConnectionStrings.config with it, Write-RuntimeConfiguration
+    # declines to write a replacement it was not given and reports that it is
+    # "leaving the existing" file in place, and web.config is left pointing a
+    # configSource at a file that no longer exists. Every request then 500s
+    # before Rock starts, including the error page.
+    $preservedStash = @{}
+    foreach ($file in $PreservedFiles) {
+        $existing = Join-Path $SitePath $file
+        if (Test-Path $existing) {
+            $preservedStash[$file] = Get-Content -Raw -Path $existing
+        }
+    }
+
+    if (Test-Path $SitePath) { Remove-Item $SitePath -Recurse -Force }
+    Move-Item -Path $ExtractPath -Destination $SitePath
+
+    # Move-Item within a volume is a rename, so the tree keeps the ACLs it
+    # inherited at $ExtractPath and never picks up inheritance from the site
+    # root's parent. Nothing else here grants anything, so the app pool
+    # identity lands with read access and no write access -- and Rock needs
+    # write access, because it compiles the legacy LESS themes to .css on a
+    # background thread at every application start.
+    #
+    # The failure is close to invisible, which is why this went unnoticed from
+    # January to August 2026. RockTheme.Compile writes each theme's files in
+    # directory order, so it dies on bootstrap.css -- the first one -- with
+    # UnauthorizedAccessException, and its catch abandons that theme's whole
+    # loop before ever reaching theme.css. The exception is logged to
+    # ExceptionLog and nowhere else: Global.asax only surfaces compile
+    # messages through Debug.WriteLine guarded by IsDevelopmentEnvironment.
+    # The stale .css keeps being served with a 200, so every health check
+    # passes while every theme silently rots.
+    #
+    # InPlace deploys robocopy into a directory that already exists and so
+    # inherit its ACLs -- which is the only reason production was unaffected.
+    # This branch is the one that needs the grant.
+    #
+    # (OI)(CI) makes the ACE inheritable, so NTFS propagates it to the
+    # existing children and to whatever the preserved-file restore and the
+    # shared-asset overlay write afterwards. No /T: it would walk the whole
+    # site for no gain, as Expand-Archive leaves inheritance enabled.
+    $appPoolIdentity = "IIS AppPool\$AppPoolName"
+    & icacls $SitePath /grant "${appPoolIdentity}:(OI)(CI)(M)" /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not grant $appPoolIdentity modify rights on $SitePath (icacls exit code $LASTEXITCODE). Rock cannot compile its themes without it."
+    }
+    Write-DeployStep "Granted $appPoolIdentity modify rights on $SitePath."
+
+    foreach ($file in $preservedStash.Keys) {
+        $restoreTo = Join-Path $SitePath $file
+        # Only fill a gap. The artifact shipping its own copy means the branch
+        # is authoritative for that file, exactly as in the InPlace path.
+        if (!(Test-Path $restoreTo)) {
+            Ensure-Directory -Path (Split-Path -Parent $restoreTo)
+            $preservedStash[$file] | Out-File -FilePath $restoreTo -Encoding UTF8 -Force -NoNewline
+            Write-DeployStep "Preserved $file across the site replace."
+        }
+    }
+
+    $sharedAssetSource = Resolve-SharedAssetSource -ConfiguredPath $SharedAssetSourcePath
+
+    Sync-SharedSiteAssets `
+        -SourceRoot $sharedAssetSource `
+        -DestinationRoot $SitePath `
+        -DirectoryList $SharedAssetDirectories
+
+    # Second pass, and it has to be second: the overlay above skips anything
+    # the artifact already placed, which is exactly the set this pass exists
+    # to replace. See $ServerOwnedDirectories for why Font Awesome cannot be
+    # solved by the first pass or by committing the files.
+    # Discovered against the base site rather than against the new one: the
+    # question this answers is "which of these does production actually
+    # have", and only paths it has can be restored from it.
+    $serverOwnedPaths = @($ServerOwnedDirectories) + @(Get-ServerOwnedThemeFilePaths `
+        -SiteRoot $sharedAssetSource `
+        -FileNames $ServerOwnedThemeFiles)
+
+    Sync-ServerOwnedAssets `
+        -SourceRoot $sharedAssetSource `
+        -DestinationRoot $SitePath `
+        -RelativePaths $serverOwnedPaths
+
+    # Again, after the overlay. The strip above ran on the extracted artifact;
+    # the overlay has since backfilled Plugins from the base site and brought
+    # that site's own bin/obj along with it.
+    Remove-PluginBuildArtifacts -Path $SitePath
+
+    # Whether the plugin assemblies actually arrived, stated in the timeline
+    # rather than inferred from a green run. Every BinaryFileType on this
+    # catalog stores through rocks.pillars.AmazonStorageProvider.S3BlobStorage
+    # and Rock 19 ships no core S3 provider, so if this reports 0 then every
+    # image on the site will 404 and the overlay source is the thing to go
+    # look at -- not the catalog, and not the artifact. A warning and not a
+    # throw: a site with no images is still worth having up to look at.
+    Write-PluginAssemblyReport -SiteRoot $SitePath | Out-Null
+
+    Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString -ExistingWebConfig $ExistingWebConfig
+    Ensure-AppPool -Name $AppPoolName
+    Ensure-Website -Name $SiteName -PhysicalPath $SitePath -HostHeader $HostName -PoolName $AppPoolName -Thumbprint $CertificateThumbprint
+
+    # The same two fields the in-place branch hands back, so the run that follows
+    # can ask what happened rather than ask which branch ran.
+    return @{
+        # Nothing to roll back to. This branch deleted the directory it deployed
+        # into; it did not copy it aside. An empty path is how the caller knows
+        # not to offer rollback advice it cannot honour.
+        BackupPath                    = ''
+        # And so no migration reading either: the reading exists only to qualify
+        # "restore the files", and there are no files to restore.
+        PreDeployMigrationFingerprint = $null
+    }
+}
+
+function Invoke-InPlaceOverlay {
+    <#
+    .SYNOPSIS
+        Copy the artifact over a site that already exists and is not ours.
+
+    .DESCRIPTION
+        The other of the two things a deploy can be, and the one production uses.
+        It ran as top-level script for the same reason and at the same cost as
+        the branch above.
+
+        What this does that the other does not is leave a way back. It copies the
+        site aside first, and it reads Rock's migration log before the copy so
+        that the advice it hands back can say whether restoring those files is
+        enough on its own. Both facts travel in the returned record; the reading
+        used to be taken in the dedicated-site branch and read here, where under
+        Set-StrictMode it was a terminating error on every in-place run that got
+        far enough to need it.
+
+        No /MIR and no /PURGE anywhere in here. Files the server legitimately
+        owns -- uploaded content, its own fonts, its theme overrides -- are on the
+        far side of this copy and a purge would take them permanently.
+
+    .PARAMETER ExistingWebConfig
+        The site's own web.config as text, read before this was called -- the copy
+        writes the artifact's file over the top of it.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)][string]$SitePath,
+        [Parameter(Mandatory = $true)][string]$ExtractPath,
+        [Parameter(Mandatory = $true)][string]$EnvironmentName,
+        [Parameter(Mandatory = $true)][string]$Sha,
+        [Parameter(Mandatory = $true)][string]$BackupRoot,
+        [Parameter(Mandatory = $true)][string]$ManifestPath,
+        # As above: the empty string is what an unsupplied [string] already is,
+        # and the collections need their @() because an unsupplied [string[]] is not.
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$ConnectionString,
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$ExistingWebConfig,
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$PreservedDirectories = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$PreservedFiles = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$ServerOwnedDirectories = @(),
+        [Parameter(Mandatory = $false)][AllowEmptyCollection()][string[]]$ServerOwnedThemeFiles = @()
+    )
+
+    # Read before the copy, compared after the site fails to come up. See
+    # Get-MigrationFingerprint: it decides whether the rollback advice this run
+    # hands back can honestly say "restore the files". It is taken here, in the
+    # branch that makes the backup, because that advice is only ever offered
+    # where there is a backup for it to qualify. It used to be taken in the
+    # dedicated-site branch and read here, which under Set-StrictMode made the
+    # unhealthy-deploy path a terminating error on every in-place run.
+    $preDeployMigrationFingerprint = Get-MigrationFingerprint -SiteRoot $SitePath
+
+    $backupPath = Join-Path (Join-Path $BackupRoot $EnvironmentName) ((Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss") + "-$Sha")
+    Ensure-Directory -Path $backupPath
+    Write-DeployStep "Backing up $SitePath to $backupPath (excluding preserved user data)."
+
+    # Back up what the deploy can actually damage: build output and config.
+    # Uploaded Content is excluded because it is not being touched and copying
+    # it would multiply the site's disk usage on every deploy.
+    $backupExclusions = @()
+    foreach ($directory in $PreservedDirectories) {
+        $backupExclusions += '/XD'
+        $backupExclusions += (Join-Path $SitePath $directory)
+    }
+    # Through Write-Host rather than straight out. The success stream is this
+    # function's return value now, and robocopy's job summary -- bytes copied,
+    # files skipped, retries -- would otherwise be handed back as if it were the
+    # record. Write-Host is where every other line of this deploy already goes,
+    # so the summary still reaches the log the operator reads.
+    & robocopy $SitePath $backupPath /E @backupExclusions /R:2 /W:2 /NFL /NDL /NP | Write-Host
+    $backupExit = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
+    if ($backupExit -gt 7) {
+        throw "Backup failed with robocopy exit code $backupExit; refusing to deploy."
+    }
+    Write-DeployStep "Backup complete."
+
+    # Copy the artifact over the live site. No /MIR and no /PURGE: files the
+    # server legitimately owns must survive, and a purge here would delete
+    # uploaded content and break the site permanently.
+    $copyExclusions = @()
+    foreach ($directory in $PreservedDirectories) {
+        $copyExclusions += '/XD'
+        $copyExclusions += (Join-Path $ExtractPath $directory)
+    }
+    foreach ($file in $PreservedFiles) {
+        $copyExclusions += '/XF'
+        $copyExclusions += (Join-Path $ExtractPath $file)
+    }
+
+    # Excluded from the copy but deliberately not from the backup above: if
+    # this exclusion is ever wrong, the backup is what puts the fonts back.
+    # Production's Pro webfonts predate this pipeline by five years and no
+    # deploy has ever run against them, so this exclusion is the only thing
+    # standing between the v19 cutover and every Pro-only icon on the site
+    # turning into an empty box.
+    foreach ($directory in $ServerOwnedDirectories) {
+        $copyExclusions += '/XD'
+        $copyExclusions += (ConvertTo-NativePath -Path (Join-Path $ExtractPath $directory))
+    }
+
+    # /XF and not /XD, because these are single files inside directories the
+    # artifact does own and must keep writing. Discovered against $SitePath:
+    # only a file production actually has is excluded, so a theme v19 adds
+    # still gets its override file from the artifact rather than landing
+    # without one and failing to compile.
+    #
+    # Excluded from the copy and deliberately not from the backup, on the
+    # same reasoning as Font Awesome above. If this is ever wrong, the backup
+    # is what puts the brand back.
+    $themeOverrides = @(Get-ServerOwnedThemeFilePaths -SiteRoot $SitePath -FileNames $ServerOwnedThemeFiles)
+    foreach ($file in $themeOverrides) {
+        $copyExclusions += '/XF'
+        $copyExclusions += (ConvertTo-NativePath -Path (Join-Path $ExtractPath $file))
+    }
+    Write-DeployStep "Keeping this site's own copies of $($themeOverrides.Count) theme override file(s): $($themeOverrides -join ', ')."
+
+    Write-DeployStep "Copying the artifact over $SitePath."
+    & robocopy $ExtractPath $SitePath /E @copyExclusions /R:3 /W:5 /NFL /NDL /NP | Write-Host
+    $copyExit = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
+    if ($copyExit -gt 7) {
+        throw "Deploy copy failed with robocopy exit code $copyExit. The previous site files are backed up at $backupPath."
+    }
+
+    Write-DeployStep "Copy complete."
+
+    # Here and not later: the pool is still stopped, so nothing holds a lock
+    # on bin, and nothing has tried to start Rock against the stale assembly
+    # yet. Both calls are wrapped because a deploy that has already copied
+    # successfully must not be failed by its own housekeeping.
+    try {
+        Invoke-OrphanedAssemblyReconciliation -SiteRoot $SitePath -ArtifactRoot $ExtractPath -QuarantineRoot (Join-Path $backupPath 'quarantined-orphans') | Out-Null
+    }
+    catch { Write-DeployStep "Orphan check failed: $($_.Exception.Message). Continuing; see the diagnostics report if the site does not come up." }
+
+    try { Write-OrphanedBlockReport -SiteRoot $SitePath -ArtifactRoot $ExtractPath | Out-Null }
+    catch { Write-DeployStep "Block check failed: $($_.Exception.Message). Continuing." }
+
+    # Not wrapped, unlike the two checks above. Those report on things that
+    # are wrong and survivable; this one only fires when the copy silently
+    # did not happen, and the correct response to that is to stop.
+    Assert-DeployedCoreVersion -SiteRoot $SitePath -ArtifactRoot $ExtractPath
+
+    # In-place too, and not only on a dedicated site. The artifact ships no
+    # plugin assemblies, so on this path the count is a statement about what
+    # the copy left alone -- which is the half nothing has ever checked.
+    Write-PluginAssemblyReport -SiteRoot $SitePath | Out-Null
+
+    Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString -ExistingWebConfig $ExistingWebConfig
+    Ensure-Directory -Path (Split-Path -Parent $ManifestPath)
+
+    # The same two fields the dedicated-site branch hands back.
+    return @{
+        BackupPath                    = $backupPath
+        PreDeployMigrationFingerprint = $preDeployMigrationFingerprint
+    }
 }
 
 function Test-EnvironmentHealth {
@@ -1738,15 +2623,37 @@ try {
     Ensure-Directory -Path $EnvironmentRoot
     Ensure-Directory -Path $EnvironmentPath
 
-    Write-Host "=== Rock environment deploy ==="
-    Write-Host "  environment : $EnvironmentName"
-    Write-Host "  mode        : $Mode"
-    Write-Host "  sha         : $Sha"
-    Write-Host "  artifact    : $ArtifactGcsPath"
-    Write-Host "  host        : $HostName"
-    Write-Host "  site path   : $SitePath"
-    Write-Host "  iis site    : $SiteName (app pool $AppPoolName)"
+    # The header goes through Write-DeployStep like everything else, so the
+    # timeline file carries it too. Get-CommandLogText recovers that file when the
+    # job stream comes back short, and appends it under the capture -- which reads
+    # correctly only while the capture survives to supply the header. When the
+    # capture is lost outright, a recovered timeline that opened with "Deploy
+    # started." named neither the environment, the sha, nor the mode, and there is
+    # nothing else on the box that would say. Eight lines at +00:00:00, nine on the
+    # branch that takes a backup, is the whole cost.
+    Write-DeployStep "=== Rock environment deploy ==="
+    Write-DeployStep "  environment : $EnvironmentName"
+    Write-DeployStep "  mode        : $Mode"
+    Write-DeployStep "  sha         : $Sha"
+    Write-DeployStep "  artifact    : $ArtifactGcsPath"
+    Write-DeployStep "  host        : $HostName"
+    Write-DeployStep "  site path   : $SitePath"
+    Write-DeployStep "  iis site    : $SiteName (app pool $AppPoolName)"
+    # InPlace only. DedicatedSite takes no backup at all -- Invoke-DedicatedSiteReplace
+    # hands back an empty BackupPath precisely so the rollback line can be skipped --
+    # so a root printed there would name a directory the run never writes to.
+    #
+    # Here rather than only in the dry run's plan, because the run that needs it is
+    # the apply run: this is where production's sole rollback copy lands, and where
+    # the manifest lands with it. The queue can now move it, which is the reason a
+    # header that recites the site path and not this one had stopped being complete.
+    # A cutover that goes wrong is read back from this timeline, and the restore
+    # command in the runbook is the one line a reader has to be able to fill in.
+    if ($Mode -eq 'InPlace') {
+        Write-DeployStep "  backups     : $(Join-Path $BackupRoot $EnvironmentName)"
+    }
     Write-DeployStep "Deploy started."
+    Write-DeployScriptProvenance
 
     if ($Mode -eq 'InPlace' -and -not $Apply) {
         # Through Write-DeployStep rather than Write-Host, because this plan is the
@@ -1785,37 +2692,32 @@ try {
             -SiteRoot $plannedSource `
             -FileNames $ServerOwnedThemeFiles)
         Write-DeployStep "Would keep this site's own theme override files: $(if ($plannedOverrides.Count -gt 0) { $plannedOverrides -join ', ' } else { 'none found' })"
-        # Enumerated off the box rather than computed against the artifact: a dry
-        # run returns before the artifact is downloaded, so there is no incoming
-        # file yet to merge against. What the plan can state truthfully is which
-        # server-owned settings this site actually has for the apply run to carry.
+        # Asked of the merge rather than worked out again here. A dry run returns
+        # before the artifact is downloaded, so there is no incoming file yet to
+        # merge against -- but which server-owned settings this site has is the
+        # read half of that merge, and it is the half the plan is about.
         #
         # The operator reads this line to check that the values the site depends on
         # are the ones the deploy has found. A production plan that reports "none
-        # found" for PasswordKey is the signal to stop.
+        # found" for PasswordKey is the signal to stop. Worked out twice, the two
+        # answers drifted, and the one the operator reads was the wrong one.
         $plannedWebConfigPath = Join-Path $SitePath 'web.config'
         if (Test-Path $plannedWebConfigPath) {
-            $plannedWebConfig = Get-Content -Raw -Path $plannedWebConfigPath
-            $plannedCarry = @()
-            foreach ($key in $ServerOwnedAppSettings) {
-                if ([regex]::IsMatch($plannedWebConfig, '<add\s+key="' + [regex]::Escape($key) + '"[^>]*>')) { $plannedCarry += $key }
-            }
-            foreach ($prefix in $ServerOwnedAppSettingPrefixes) {
-                foreach ($found in [regex]::Matches($plannedWebConfig, '<add\s+key="(' + [regex]::Escape($prefix) + '[^"]*)"[^>]*>')) {
-                    $plannedCarry += $found.Groups[1].Value
-                }
-            }
-            if ([regex]::IsMatch($plannedWebConfig, '<machineKey\b[^>]*>')) { $plannedCarry += 'machineKey' }
-            Write-DeployStep "Would carry this site's own web.config settings across: $(if ($plannedCarry.Count -gt 0) { (@($plannedCarry | Select-Object -Unique)) -join ', ' } else { 'none found' })"
+            $planned = Get-ServerOwnedWebConfigSettings `
+                -ExistingWebConfig (Get-Content -Raw -Path $plannedWebConfigPath) `
+                -AppSettingKeys $ServerOwnedAppSettings `
+                -AppSettingKeyPrefixes $ServerOwnedAppSettingPrefixes
 
-            # Listed separately because these are carried only where the artifact
-            # registers no prefix of its own, and which of them that applies to is
-            # not knowable until the artifact is here.
-            $plannedPrefixes = @()
-            foreach ($registration in [regex]::Matches($plannedWebConfig, '<add\s+tagPrefix="([^"]+)"[^>]*>')) {
-                $plannedPrefixes += $registration.Groups[1].Value
-            }
-            Write-DeployStep "Would carry any of this site's control registrations the artifact does not have: $(if ($plannedPrefixes.Count -gt 0) { (@($plannedPrefixes | Select-Object -Unique)) -join ', ' } else { 'none found' })"
+            $plannedCarry = @($planned.OwnedKeys)
+            if (![string]::IsNullOrWhiteSpace($planned.MachineKey)) { $plannedCarry += 'machineKey' }
+            Write-DeployStep "Would carry this site's own web.config settings across: $(if ($plannedCarry.Count -gt 0) { $plannedCarry -join ', ' } else { 'none found' })"
+
+            # Candidates, not a promise. Each one is carried only where the
+            # artifact registers no prefix of its own, and the artifact is not here
+            # yet -- so this line names what will be considered, and the apply run's
+            # own line names what was carried.
+            $plannedPrefixes = @($planned.Registrations.Keys)
+            Write-DeployStep "Would consider carrying this site's control registrations, for any the artifact does not register itself: $(if ($plannedPrefixes.Count -gt 0) { $plannedPrefixes -join ', ' } else { 'none found' })"
         }
         else {
             Write-DeployStep "Would carry this site's own web.config settings across: there is no web.config at $plannedWebConfigPath."
@@ -1848,211 +2750,52 @@ try {
     Write-DeployStep "Stopping app pool $AppPoolName. The site is offline from here."
     Stop-EnvironmentAppPool -Name $AppPoolName
 
-    if ($Mode -eq 'DedicatedSite') {
-        # A dedicated site owns its whole directory, so replace it wholesale and
-        # let the shared-asset overlay backfill server-only files afterwards.
-        #
-        # $PreservedFiles has to be carried across that replace by hand. The
-        # InPlace branch below hands the list to robocopy as /XF exclusions, but
-        # there is no copy to exclude anything from here -- the directory is
-        # deleted outright. Skipping this is how a deploy that supplies no
-        # connection string destroys the site: the wipe takes
-        # web.ConnectionStrings.config with it, Write-RuntimeConfiguration
-        # declines to write a replacement it was not given and reports that it is
-        # "leaving the existing" file in place, and web.config is left pointing a
-        # configSource at a file that no longer exists. Every request then 500s
-        # before Rock starts, including the error page.
-        # Read before anything overwrites it. The site's own web.config carries
-        # values this branch has no other copy of -- see
-        # Merge-ServerOwnedWebConfigSettings -- and both branches destroy it: the
-        # dedicated site by deleting the directory, the in-place copy by writing
-        # the artifact's file over the top.
-        $existingWebConfig = ''
-        $existingWebConfigPath = Join-Path $SitePath 'web.config'
-        if (Test-Path $existingWebConfigPath) {
-            $existingWebConfig = Get-Content -Raw -Path $existingWebConfigPath
-        }
+    # Read before either branch runs, because both destroy it: the dedicated
+    # site by deleting the directory, the in-place copy by writing the
+    # artifact's file over the top. The site's own web.config carries values
+    # nothing else on this box has a copy of -- see
+    # Merge-ServerOwnedWebConfigSettings. It was read twice, in ten identical
+    # lines, once inside each branch.
+    $existingWebConfig = ''
+    $existingWebConfigPath = Join-Path $SitePath 'web.config'
+    if (Test-Path $existingWebConfigPath) {
+        $existingWebConfig = Get-Content -Raw -Path $existingWebConfigPath
+    }
 
-        $preservedStash = @{}
-        foreach ($file in $PreservedFiles) {
-            $existing = Join-Path $SitePath $file
-            if (Test-Path $existing) {
-                $preservedStash[$file] = Get-Content -Raw -Path $existing
-            }
-        }
-
-        if (Test-Path $SitePath) { Remove-Item $SitePath -Recurse -Force }
-        Move-Item -Path $ExtractPath -Destination $SitePath
-
-        # Move-Item within a volume is a rename, so the tree keeps the ACLs it
-        # inherited at $ExtractPath and never picks up inheritance from the site
-        # root's parent. Nothing else here grants anything, so the app pool
-        # identity lands with read access and no write access -- and Rock needs
-        # write access, because it compiles the legacy LESS themes to .css on a
-        # background thread at every application start.
-        #
-        # The failure is close to invisible, which is why this went unnoticed from
-        # January to August 2026. RockTheme.Compile writes each theme's files in
-        # directory order, so it dies on bootstrap.css -- the first one -- with
-        # UnauthorizedAccessException, and its catch abandons that theme's whole
-        # loop before ever reaching theme.css. The exception is logged to
-        # ExceptionLog and nowhere else: Global.asax only surfaces compile
-        # messages through Debug.WriteLine guarded by IsDevelopmentEnvironment.
-        # The stale .css keeps being served with a 200, so every health check
-        # passes while every theme silently rots.
-        #
-        # InPlace deploys robocopy into a directory that already exists and so
-        # inherit its ACLs -- which is the only reason production was unaffected.
-        # This branch is the one that needs the grant.
-        #
-        # (OI)(CI) makes the ACE inheritable, so NTFS propagates it to the
-        # existing children and to whatever the preserved-file restore and the
-        # shared-asset overlay write afterwards. No /T: it would walk the whole
-        # site for no gain, as Expand-Archive leaves inheritance enabled.
-        $appPoolIdentity = "IIS AppPool\$AppPoolName"
-        & icacls $SitePath /grant "${appPoolIdentity}:(OI)(CI)(M)" /Q | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "Could not grant $appPoolIdentity modify rights on $SitePath (icacls exit code $LASTEXITCODE). Rock cannot compile its themes without it."
-        }
-        Write-Host "Granted $appPoolIdentity modify rights on $SitePath."
-
-        foreach ($file in $preservedStash.Keys) {
-            $restoreTo = Join-Path $SitePath $file
-            # Only fill a gap. The artifact shipping its own copy means the branch
-            # is authoritative for that file, exactly as in the InPlace path.
-            if (!(Test-Path $restoreTo)) {
-                Ensure-Directory -Path (Split-Path -Parent $restoreTo)
-                $preservedStash[$file] | Out-File -FilePath $restoreTo -Encoding UTF8 -Force -NoNewline
-                Write-Host "Preserved $file across the site replace."
-            }
-        }
-
-        $sharedAssetSource = Resolve-SharedAssetSource -ConfiguredPath $SharedAssetSourcePath
-
-        Sync-SharedSiteAssets `
-            -SourceRoot $sharedAssetSource `
-            -DestinationRoot $SitePath `
-            -DirectoryList $SharedAssetDirectories
-
-        # Second pass, and it has to be second: the overlay above skips anything
-        # the artifact already placed, which is exactly the set this pass exists
-        # to replace. See $ServerOwnedDirectories for why Font Awesome cannot be
-        # solved by the first pass or by committing the files.
-        # Discovered against the base site rather than against the new one: the
-        # question this answers is "which of these does production actually
-        # have", and only paths it has can be restored from it.
-        $serverOwnedPaths = @($ServerOwnedDirectories) + @(Get-ServerOwnedThemeFilePaths `
-            -SiteRoot $sharedAssetSource `
-            -FileNames $ServerOwnedThemeFiles)
-
-        Sync-ServerOwnedAssets `
-            -SourceRoot $sharedAssetSource `
-            -DestinationRoot $SitePath `
-            -RelativePaths $serverOwnedPaths
-
-        # Again, after the overlay. The strip above ran on the extracted artifact;
-        # the overlay has since backfilled Plugins from the base site and brought
-        # that site's own bin/obj along with it.
-        Remove-PluginBuildArtifacts -Path $SitePath
-
-        # Whether the plugin assemblies actually arrived, stated in the timeline
-        # rather than inferred from a green run. Every BinaryFileType on this
-        # catalog stores through rocks.pillars.AmazonStorageProvider.S3BlobStorage
-        # and Rock 19 ships no core S3 provider, so if this reports 0 then every
-        # image on the site will 404 and the overlay source is the thing to go
-        # look at -- not the catalog, and not the artifact. A warning and not a
-        # throw: a site with no images is still worth having up to look at.
-        $pluginAssemblies = @(Get-ChildItem -Path (Join-Path $SitePath 'bin') -Filter 'rocks.pillars.*.dll' -ErrorAction SilentlyContinue)
-        Write-DeployStep "Plugin assemblies present in bin: $($pluginAssemblies.Count) ($($pluginAssemblies.Name -join ', '))."
-        if ($pluginAssemblies.Count -eq 0) {
-            Write-Warning "No rocks.pillars.* assemblies in bin. Binary file storage will not load and every image on the site will answer 404."
-        }
-
-        Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString -ExistingWebConfig $existingWebConfig
-        Ensure-AppPool -Name $AppPoolName
-        Ensure-Website -Name $SiteName -PhysicalPath $SitePath -HostHeader $HostName -PoolName $AppPoolName -Thumbprint $CertificateThumbprint
+    # One name per branch, and the only thing left to decide here is which one.
+    # Both hand back the same record, so nothing below has to know which branch
+    # ran in order to know whether a variable exists -- a question this file
+    # asked three times and got wrong once.
+    $deployed = if ($Mode -eq 'DedicatedSite') {
+        Invoke-DedicatedSiteReplace `
+            -SitePath $SitePath `
+            -ExtractPath $ExtractPath `
+            -SiteName $SiteName `
+            -AppPoolName $AppPoolName `
+            -HostName $HostName `
+            -CertificateThumbprint $CertificateThumbprint `
+            -ConnectionString $ConnectionString `
+            -ExistingWebConfig $existingWebConfig `
+            -PreservedFiles $PreservedFiles `
+            -SharedAssetSourcePath $SharedAssetSourcePath `
+            -SharedAssetDirectories $SharedAssetDirectories `
+            -ServerOwnedDirectories $ServerOwnedDirectories `
+            -ServerOwnedThemeFiles $ServerOwnedThemeFiles
     }
     else {
-        # Read before anything overwrites it. The site's own web.config carries
-        # values this branch has no other copy of -- see
-        # Merge-ServerOwnedWebConfigSettings -- and both branches destroy it: the
-        # dedicated site by deleting the directory, the in-place copy by writing
-        # the artifact's file over the top.
-        $existingWebConfig = ''
-        $existingWebConfigPath = Join-Path $SitePath 'web.config'
-        if (Test-Path $existingWebConfigPath) {
-            $existingWebConfig = Get-Content -Raw -Path $existingWebConfigPath
-        }
-
-        $backupPath = Join-Path (Join-Path $BackupRoot $EnvironmentName) ((Get-Date).ToUniversalTime().ToString("yyyyMMdd-HHmmss") + "-$Sha")
-        Ensure-Directory -Path $backupPath
-        Write-DeployStep "Backing up $SitePath to $backupPath (excluding preserved user data)."
-
-        # Back up what the deploy can actually damage: build output and config.
-        # Uploaded Content is excluded because it is not being touched and copying
-        # it would multiply the site's disk usage on every deploy.
-        $backupExclusions = @()
-        foreach ($directory in $PreservedDirectories) {
-            $backupExclusions += '/XD'
-            $backupExclusions += (Join-Path $SitePath $directory)
-        }
-        & robocopy $SitePath $backupPath /E @backupExclusions /R:2 /W:2 /NFL /NDL /NP
-        $backupExit = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
-        if ($backupExit -gt 7) {
-            throw "Backup failed with robocopy exit code $backupExit; refusing to deploy."
-        }
-        Write-DeployStep "Backup complete."
-
-        # Copy the artifact over the live site. No /MIR and no /PURGE: files the
-        # server legitimately owns must survive, and a purge here would delete
-        # uploaded content and break the site permanently.
-        $copyExclusions = @()
-        foreach ($directory in $PreservedDirectories) {
-            $copyExclusions += '/XD'
-            $copyExclusions += (Join-Path $ExtractPath $directory)
-        }
-        foreach ($file in $PreservedFiles) {
-            $copyExclusions += '/XF'
-            $copyExclusions += (Join-Path $ExtractPath $file)
-        }
-
-        # Excluded from the copy but deliberately not from the backup above: if
-        # this exclusion is ever wrong, the backup is what puts the fonts back.
-        # Production's Pro webfonts predate this pipeline by five years and no
-        # deploy has ever run against them, so this exclusion is the only thing
-        # standing between the v19 cutover and every Pro-only icon on the site
-        # turning into an empty box.
-        foreach ($directory in $ServerOwnedDirectories) {
-            $copyExclusions += '/XD'
-            $copyExclusions += (ConvertTo-NativePath -Path (Join-Path $ExtractPath $directory))
-        }
-
-        # /XF and not /XD, because these are single files inside directories the
-        # artifact does own and must keep writing. Discovered against $SitePath:
-        # only a file production actually has is excluded, so a theme v19 adds
-        # still gets its override file from the artifact rather than landing
-        # without one and failing to compile.
-        #
-        # Excluded from the copy and deliberately not from the backup, on the
-        # same reasoning as Font Awesome above. If this is ever wrong, the backup
-        # is what puts the brand back.
-        $themeOverrides = @(Get-ServerOwnedThemeFilePaths -SiteRoot $SitePath -FileNames $ServerOwnedThemeFiles)
-        foreach ($file in $themeOverrides) {
-            $copyExclusions += '/XF'
-            $copyExclusions += (ConvertTo-NativePath -Path (Join-Path $ExtractPath $file))
-        }
-        Write-DeployStep "Keeping this site's own copies of $($themeOverrides.Count) theme override file(s): $($themeOverrides -join ', ')."
-
-        Write-DeployStep "Copying the artifact over $SitePath."
-        & robocopy $ExtractPath $SitePath /E @copyExclusions /R:3 /W:5 /NFL /NDL /NP
-        $copyExit = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
-        if ($copyExit -gt 7) {
-            throw "Deploy copy failed with robocopy exit code $copyExit. The previous site files are backed up at $backupPath."
-        }
-
-        Write-DeployStep "Copy complete."
-        Write-RuntimeConfiguration -Path $SitePath -Connection $ConnectionString -ExistingWebConfig $existingWebConfig
-        Ensure-Directory -Path (Split-Path -Parent $ManifestPath)
+        Invoke-InPlaceOverlay `
+            -SitePath $SitePath `
+            -ExtractPath $ExtractPath `
+            -EnvironmentName $EnvironmentName `
+            -Sha $Sha `
+            -BackupRoot $BackupRoot `
+            -ManifestPath $ManifestPath `
+            -ConnectionString $ConnectionString `
+            -ExistingWebConfig $existingWebConfig `
+            -PreservedDirectories $PreservedDirectories `
+            -PreservedFiles $PreservedFiles `
+            -ServerOwnedDirectories $ServerOwnedDirectories `
+            -ServerOwnedThemeFiles $ServerOwnedThemeFiles
     }
 
     $manifest = [ordered]@{
@@ -2089,22 +2832,60 @@ try {
     if (-not (Test-EnvironmentHealth -Url "https://$HostName/" -TimeoutSeconds $HealthCheckTimeoutSeconds -HostHeader $HostName -AppPoolName $AppPoolName)) {
         # Gather the evidence while it is still fresh, and never let a problem
         # gathering it replace the failure it was meant to explain.
-        try { Save-UnhealthyDiagnostics -SiteRoot $SitePath -Url "https://$HostName/" }
+        $diagnosticsUri = $null
+        try { $diagnosticsUri = Save-UnhealthyDiagnostics -SiteRoot $SitePath -Url "https://$HostName/" }
         catch { Write-Warning "Could not collect diagnostics: $($_.Exception.Message)" }
 
-        if ($Mode -eq 'InPlace') {
-            throw "Deploy completed but the site did not become healthy. Roll back from $backupPath if needed."
+        # In the thrown message and not only in the log above. The exception is
+        # what the workflow surfaces and what the operator reads first; a report
+        # nobody is told about is a report nobody opens.
+        $diagnosticsHint = if ($diagnosticsUri) { " Diagnostics: gsutil cat $diagnosticsUri" } else { ' Diagnostics were not collected.' }
+
+        # Asked of the record the branch handed back, not of $Mode. Only a branch
+        # that copied the site aside can offer "roll back from here", and only
+        # that branch takes the reading that says whether restoring those files
+        # is enough on its own. Both facts arrive together or neither does.
+        if (![string]::IsNullOrWhiteSpace($deployed.BackupPath)) {
+            $migrationHint = ''
+            $postDeployMigrationFingerprint = Get-MigrationFingerprint -SiteRoot $SitePath
+            if ($postDeployMigrationFingerprint -ne $deployed.PreDeployMigrationFingerprint) {
+                # The files are only half the state. Rock migrates on first
+                # request, so by the time a health check fails the schema may
+                # already be the new version, and putting the old binaries back
+                # on their own leaves them talking to a schema they do not know.
+                $migrationHint = " Database migrations ran during this deploy (MigrationLog.csv changed), so restoring files alone is NOT a rollback -- restore the pre-deploy database backup as well, or the old assemblies will run against the new schema."
+            }
+            throw "Deploy completed but the site did not become healthy. Roll back from $($deployed.BackupPath) if needed.$migrationHint$diagnosticsHint"
         }
-        throw "Deploy completed but https://$HostName/ did not become healthy within $HealthCheckTimeoutSeconds seconds."
+        throw "Deploy completed but https://$HostName/ did not become healthy within $HealthCheckTimeoutSeconds seconds.$diagnosticsHint"
+    }
+
+    # After the health check and not instead of it. Health is "the app domain
+    # started and routes"; this is "Rock renders a page". A deploy can pass the
+    # first and fail the second, and the difference is invisible from a status
+    # code -- see Invoke-DeploySmokeCheck.
+    #
+    # It does not fail the deploy. The site is up by the definition this pipeline
+    # has always used, an operator is reading this log, and the useful thing to
+    # hand them is the evidence, not a red run they have to re-do. So collect the
+    # diagnostics the same way a health failure would and say where they are.
+    if (-not (Invoke-DeploySmokeCheck -HostName $HostName)) {
+        Write-DeployStep "The site is healthy but the smoke check did not pass. Collecting diagnostics; this deploy is not being failed."
+        try {
+            $smokeDiagnosticsUri = Save-UnhealthyDiagnostics -SiteRoot $SitePath -Url "https://$HostName/"
+            if ($smokeDiagnosticsUri) { Write-DeployStep "Smoke-check diagnostics: gsutil cat $smokeDiagnosticsUri" }
+        }
+        catch { Write-Warning "Could not collect smoke-check diagnostics: $($_.Exception.Message)" }
     }
 
     # Repeated at the end on purpose. It was printed once, before the copy, and by
     # now it is thousands of characters up a log somebody is reading because
-    # something went wrong. $backupPath only exists on the InPlace branch -- a
-    # dedicated site is replaced wholesale and has nothing to roll back to -- and
-    # Set-StrictMode makes reading it anywhere else a terminating error.
-    if ($Mode -eq 'InPlace') {
-        Write-DeployStep "Done. Roll back with: robocopy $backupPath $SitePath /E"
+    # something went wrong. Only one of the two branches has anywhere to roll back
+    # to -- a dedicated site is replaced wholesale -- and it says so by handing
+    # back a backup path, which is a question that can be asked without knowing
+    # which branch ran.
+    if (![string]::IsNullOrWhiteSpace($deployed.BackupPath)) {
+        Write-DeployStep "Done. Roll back with: robocopy $($deployed.BackupPath) $SitePath /E"
     }
     else {
         Write-DeployStep "Done."

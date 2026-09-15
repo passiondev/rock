@@ -28,8 +28,17 @@ class CertificateRenewalTests(unittest.TestCase):
 
     def test_queue_supports_certificate_renewal_command(self):
         text = QUEUE_SCRIPT.read_text()
-        self.assertIn('"renew-certificate"', text)
-        self.assertIn("Invoke-PrEnvironmentCertificateRenewal.ps1", text)
+        self.assertIn("renew-certificate", harness.command_contract_verbs(text))
+
+        contract = harness.command_contract(text, "renew-certificate")
+        self.assertEqual(contract.get("Script"), "Invoke-PrEnvironmentCertificateRenewal.ps1")
+
+        # The only verb whose whole argument list is something the agent knows
+        # rather than something the queued document carries. A renewal that took a
+        # field from the command would be a renewal a dispatch box could aim.
+        self.assertEqual(contract.get("Runtime"), {"DeployRoot": "DeployRoot"})
+        for kind in ("Required", "Optional", "Flag", "List", "Verbatim"):
+            self.assertNotIn(kind, contract)
 
     def test_bootstrap_copies_certificate_renewal_script_to_vm(self):
         text = BOOTSTRAP_WORKFLOW.read_text()

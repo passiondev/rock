@@ -232,6 +232,43 @@ function Get-CommandLogText {
     return ($CaptureText.TrimEnd() + "`n`n=== deploy timeline recovered from the box ===`n" + $timeline.TrimEnd())
 }
 
+function Get-SecretFieldNamePattern {
+    <#
+    .SYNOPSIS
+        The shape of a command field name whose value must never reach a log.
+
+    .DESCRIPTION
+        A shape, not a list of known names. CONTEXT.md states the rule -- redaction
+        keys on the shape of a field name -- because two producers once redacted
+        `connectionString` while the one holding the sandbox password called the
+        same thing `sandboxConnectionString`, and the log that mattered was the one
+        that had never heard of the second name.
+
+        Both halves of the queue need the identical rule: the producer redacts what
+        it echoes into a public Actions log, the agent redacts what it uploads to
+        the bucket, and a field name nobody has invented yet has to be covered by
+        both without either being edited. Copied rather than shared, because no
+        module can reach the VM (ADR-0001); test_shared_powershell_helpers.py is
+        what holds the copies identical.
+    #>
+    return '(?i)(connectionstring|password|secret|token|credential)'
+}
+
+function Get-PasswordValuePattern {
+    <#
+    .SYNOPSIS
+        The keyword backstop for a secret sitting inside an ordinary value.
+
+    .DESCRIPTION
+        The name rule cannot see a password embedded in a value that arrived under
+        an innocuous name, or quoted inside a line of output a deploy printed. This
+        catches `password=` up to the next delimiter. The two patterns together are
+        what "redacted" means on both sides of the queue, which is why they are
+        named and copied as a pair.
+    #>
+    return '(?i)(password\s*=\s*)([^;"''\r\n]+)'
+}
+
 function Get-RedactedText {
     param(
         [Parameter(Mandatory = $false)][string]$Text,
@@ -248,25 +285,33 @@ function Get-RedactedText {
             $redacted = $redacted.Replace($secret, '<redacted>')
         }
     }
-    $redacted = [regex]::Replace($redacted, '(?i)(password\s*=\s*)([^;"''\r\n]+)', '${1}<redacted>')
+    $redacted = [regex]::Replace($redacted, (Get-PasswordValuePattern), '${1}<redacted>')
     return $redacted
 }
 
 function Get-CommandSecrets {
     param([Parameter(Mandatory = $true)]$Command)
 
+    # Every field whose name reads as a secret, rather than the two whose names
+    # happened to exist when this was written. The producer has keyed on the shape
+    # since the connectionString / sandboxConnectionString split; this side kept
+    # the pair as a literal list, so a third name -- the case the shape rule exists
+    # for -- would have been redacted in the public Actions log and printed in full
+    # in the log this agent uploads to the bucket. Worse of the two places.
+    $namePattern = Get-SecretFieldNamePattern
+
     $secrets = @()
-    foreach ($property in @('connectionString', 'sandboxConnectionString')) {
-        if ($Command.PSObject.Properties.Name -contains $property) {
-            $value = [string]$Command.$property
-            if (![string]::IsNullOrWhiteSpace($value)) {
-                $secrets += $value
-                # Also redact the password on its own: the full string may be
-                # line-wrapped or partially quoted in the output.
-                $match = [regex]::Match($value, '(?i)password\s*=\s*([^;]+)')
-                if ($match.Success) { $secrets += $match.Groups[1].Value.Trim() }
-            }
-        }
+    foreach ($property in $Command.PSObject.Properties) {
+        if ($property.Name -notmatch $namePattern) { continue }
+
+        $value = [string]$property.Value
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+
+        $secrets += $value
+        # Also redact the password on its own: the full string may be
+        # line-wrapped or partially quoted in the output.
+        $match = [regex]::Match($value, (Get-PasswordValuePattern))
+        if ($match.Success) { $secrets += $match.Groups[2].Value.Trim() }
     }
     return $secrets
 }
@@ -450,6 +495,20 @@ function Sync-DeploymentScripts {
     $objects = Get-GcsObjectList -Prefix $Prefix | Where-Object {
         $_ -like '*.ps1' -and $_.StartsWith($Prefix) -and -not $_.Substring($Prefix.Length).Contains('/')
     }
+
+    # Everything this function says, it says through Write-Host and Write-Warning,
+    # and it runs before the command loop starts -- so none of it is captured in a
+    # command result and none of it reaches the bucket. That is why "the script
+    # refresh has never delivered a file to connect-srv-test" has stood as an
+    # unexplained claim for weeks: there has never been an artifact that would show
+    # the difference between not delivering and not being watched.
+    #
+    # This records the outcome per file where the next deploy can read it back and
+    # print it -- see Write-DeployScriptProvenance in Deploy-RockEnvironment.ps1.
+    # Until that evidence exists there is nothing to fix and nothing to justify
+    # deleting either, so the function stays and starts reporting.
+    $syncResults = @()
+
     foreach ($object in $objects) {
         $name = Split-Path $object -Leaf
 
@@ -471,12 +530,16 @@ function Sync-DeploymentScripts {
             [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$null, [ref]$parseErrors) | Out-Null
             if ($null -ne $parseErrors -and $parseErrors.Count -gt 0) {
                 Write-Warning "Skipped $name from ${Prefix}: it does not parse ($($parseErrors[0].Message)). Keeping the copy already on disk."
+                $syncResults += [ordered]@{ name = $name; status = 'skipped-unparseable'; detail = $parseErrors[0].Message }
                 continue
             }
 
             $localPath = Join-Path $Destination $name
             if (Test-Path $localPath) {
-                if ((Get-Content $localPath -Raw) -eq $text) { continue }
+                if ((Get-Content $localPath -Raw) -eq $text) {
+                    $syncResults += [ordered]@{ name = $name; status = 'identical'; detail = '' }
+                    continue
+                }
             }
 
             # Staged and moved rather than written in place: a write interrupted partway
@@ -486,238 +549,553 @@ function Sync-DeploymentScripts {
             [System.IO.File]::WriteAllText($stagingPath, $text, (New-Object System.Text.UTF8Encoding($false)))
             Move-Item -LiteralPath $stagingPath -Destination $localPath -Force
             Write-Host "Refreshed $name from $Prefix."
+            $syncResults += [ordered]@{ name = $name; status = 'refreshed'; detail = "$($text.Length) chars" }
         }
         catch {
             Write-Warning "Could not refresh ${name}: $($_.Exception.Message). Keeping the copy already on disk."
+            $syncResults += [ordered]@{ name = $name; status = 'error'; detail = $_.Exception.Message }
         }
+    }
+
+    # Best effort by design. This file is a diagnostic; failing to write it must
+    # not turn a successful refresh into a failed one, and an agent that cannot
+    # write beside its own scripts has a larger problem than this line.
+    try {
+        $state = [ordered]@{
+            lastRunUtc   = (Get-Date).ToUniversalTime().ToString('o')
+            prefix       = $Prefix
+            objectsSeen  = $objects.Count
+            files        = @($syncResults)
+        }
+        $statePath = Join-Path $Destination 'script-sync-state.json'
+        [System.IO.File]::WriteAllText($statePath, ($state | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+    }
+    catch {
+        Write-Warning "Could not record the script sync state: $($_.Exception.Message)."
     }
 }
 
-# Commands run inside a background job with a per-command timeout. Without this,
-# a command that hangs (for example a certificate renewal blocked on win-acme)
-# never returns, so this once-per-minute task -- which Windows will not start a
-# second instance of while one is running -- wedges and stops processing every
-# other command. The poll loop in the queueing workflow then times out with no
-# result instead of seeing a real failure. On timeout the job is killed and a
-# failed result is written, keeping the queue healthy and the workflow informed.
-# Defaults are kept comfortably under each workflow's own poll window so the
-# workflow reports the failure rather than timing out first.
-$CommandTimeoutsSeconds = @{
-    'deploy'             = 1500
-    'deploy-environment' = 1800
-    'stop'               = 300
-    'destroy'            = 300
-    'renew-certificate'  = 720
-    # Metadata-only by default and quick, but -MeasureSizes full-scans every table
-    # that has a legacy column, and the catalog this is aimed at is 115 GB. The
-    # fallback of 600s would kill a real scan part-way and report it as a failure,
-    # which on a read-only diagnostic is the worst kind of wrong answer: it looks
-    # like the catalog is unreadable rather than merely large.
-    'find-legacy-text-columns' = 1800
-    # Batched UPDATEs over every Person and PhoneNumber row in a prod-derived
-    # catalog. The dry run is five COUNT(*)s and returns in seconds; -Apply rewrites
-    # millions of rows and is the case this number has to cover. Killing it part-way
-    # is survivable -- every batch commits on its own and the predicates skip rows
-    # already done, so a rerun resumes -- but a half-anonymized catalog reported as a
-    # failure invites someone to conclude the run did nothing and leave real
-    # addresses in place.
-    'anonymize-staging' = 3600
-    # One SELECT and one UPDATE against a table with a handful of rows. Short on
-    # purpose: nothing about this command can legitimately take minutes, so a run
-    # that hangs is a lock or a dead connection, and failing fast says so.
-    'set-theme-customization' = 300
+function Get-CommandBindingKind {
+    <#
+        .SYNOPSIS
+        The ways a field of a queued command can reach a script parameter.
+
+        .DESCRIPTION
+        Named here rather than restated in each contract row and again in the
+        binder, so that a section name nobody recognises is a refusal instead of a
+        binding that quietly does nothing.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param()
+
+    return @('Required', 'Optional', 'Flag', 'List', 'Verbatim', 'Runtime')
 }
-$FallbackCommandTimeoutSeconds = 600
 
-$CommandRunner = {
-    param($DeployRoot, $Command, $StepLogPath)
+function Get-CommandContractSection {
+    <#
+        .SYNOPSIS
+        The sections of a contract row that bind no field.
 
-    Set-StrictMode -Version Latest
-    $ErrorActionPreference = "Stop"
+        .DESCRIPTION
+        Named beside the binding kinds for the same reason those are named: the
+        binder refuses a section it does not recognise, so every section that is
+        deliberately not a binding has to be listed somewhere, and a list written
+        out inside the binder is one the tests cannot ask for.
 
-    switch ($Command.command) {
-        "deploy" {
-            & (Join-Path $DeployRoot "Deploy-PrEnvironment.ps1") `
-                -PrNumber $Command.prNumber `
-                -Sha $Command.sha `
-                -ArtifactGcsPath $Command.artifactGcsPath `
-                -HostName $Command.hostName `
-                -SandboxConnectionString $Command.sandboxConnectionString
-        }
-        "deploy-environment" {
-            # Long-lived named environments (staging, production). Optional fields
-            # are only forwarded when present so an older queued command still
-            # runs, and so production can omit connectionString to keep the one
-            # already on disk.
-            $arguments = @{
-                EnvironmentName = [string]$Command.environmentName
-                Sha             = [string]$Command.sha
-                ArtifactGcsPath = [string]$Command.artifactGcsPath
-                HostName        = [string]$Command.hostName
+            Script          The file to run, a bare name joined onto $DeployRoot.
+            TimeoutSeconds  How long the background job may take.
+            Unreachable     Script parameters a queued document is not allowed to
+                            set, by name, so that the set of parameters is
+                            accounted for rather than merely partly listed.
+
+        Unreachable is the one that earns a section of its own. Deploy-RockEnvironment.ps1
+        takes seventeen parameters and this table reached thirteen of them; the
+        other four were not a decision recorded anywhere, they were the absence of
+        one. A parameter added to a deployment script and never wired here looks
+        exactly like a parameter deliberately left on its default, and the first
+        reader to notice is an operator who wants to set it during an incident.
+        Naming them turns the sweep in CommandContract.Tests.ps1 into a real
+        question: every parameter is bound, or it is listed here with a reason.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param()
+
+    return @('Script', 'TimeoutSeconds', 'Unreachable')
+}
+
+function Get-CommandContract {
+    <#
+        .SYNOPSIS
+        What one queued verb runs, how long it may take, and how the fields of a
+        queued document reach that script's parameters.
+
+        .DESCRIPTION
+        Adding a verb used to take four edits in four places -- a timeout table, a
+        switch arm inside the background job, the secret list, and the producer's
+        payload -- and nothing asserted that the four agreed. Three of those are one
+        row here. The fourth stopped being a list when redaction moved to keying on
+        the shape of a field name, so a new secret-shaped field needs no edit at all.
+
+        Commands run inside a background job with a per-command timeout. Without
+        one, a command that hangs -- a certificate renewal blocked on win-acme, say
+        -- never returns, so this once-per-minute task, which Windows will not start
+        a second instance of while one is running, wedges and stops processing every
+        other command. The poll loop in the queueing workflow then times out with no
+        result instead of seeing a real failure. On timeout the job is killed and a
+        failed result is written, keeping the queue healthy and the workflow
+        informed. Each TimeoutSeconds is kept comfortably under its own workflow's
+        poll window so the workflow reports the failure rather than timing out first.
+
+        The binding kinds are a vocabulary, not a convenience. Each is a rule about
+        what a missing or blank value means, and the versions written out by hand
+        inside the job disagreed with one another:
+
+            Required  Present and non-blank, or the command is refused by name.
+            Optional  Forwarded when present and non-blank. Absent means "leave the
+                      script's own default alone" -- which is how a production
+                      deploy omits connectionString and keeps the one on the box.
+            Flag      Forwarded as $true when present and truthy, omitted otherwise.
+                      A switch that has to be asked for, which is what makes -Apply
+                      a dry run by default.
+            List      One comma-separated field split into an array. The queued
+                      document stays a flat map of scalars like every other field,
+                      so a hand-written command is still hand-writable.
+            Verbatim  Forwarded whenever the property exists, empty or not. Only for
+                      a field whose empty value means something -- clearing a block
+                      rather than omitting it.
+            Runtime   Not from the document at all: a value this agent knows and the
+                      script needs. The key names the value, the value names the
+                      parameter.
+
+        Beside those, each row carries an Unreachable list: script parameters a
+        queued document may not set, named so that the row accounts for the whole
+        signature rather than describing part of it. See Get-CommandContractSection
+        for why that is a section and not a comment, and CommandContract.Tests.ps1
+        for the sweep that holds every row to it.
+
+        The table lives inside a function because the Pester suites read functions
+        out of these scripts rather than running them -- see Import-ScriptFunction.
+        A hashtable at script scope would be unreachable, which is how the old one
+        went unchecked.
+
+        Script is a bare file name, joined onto $DeployRoot by the caller. The
+        bootstrap copies Deployment/PrTestEnvironments and Deployment/Database into
+        the same directory on the box, so two of these live in a different folder in
+        this repository than they do on the VM.
+
+        .PARAMETER Command
+        The verb to look up. Omit it for the whole table, which is what the tests
+        sweep.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $false)][string]$Command)
+
+    $contracts = [ordered]@{
+
+        'deploy' = @{
+            Script         = 'Deploy-PrEnvironment.ps1'
+            TimeoutSeconds = 1500
+            Required       = [ordered]@{
+                prNumber                = 'PrNumber'
+                sha                     = 'Sha'
+                artifactGcsPath         = 'ArtifactGcsPath'
+                hostName                = 'HostName'
+                sandboxConnectionString = 'SandboxConnectionString'
             }
-            foreach ($optional in @('mode', 'connectionString', 'targetSitePath', 'targetSiteName', 'targetAppPoolName', 'environmentRoot')) {
-                if (($Command.PSObject.Properties.Name -contains $optional) -and ![string]::IsNullOrWhiteSpace([string]$Command.$optional)) {
-                    $parameterName = $optional.Substring(0, 1).ToUpperInvariant() + $optional.Substring(1)
-                    $arguments[$parameterName] = [string]$Command.$optional
-                }
+            # EnvironmentRoot is where the whole fleet lives, and the certificate
+            # renewal job walks that one tree; a command that moved one PR site out
+            # of it would leave that site's certificate to expire unrenewed. The
+            # other three are machine configuration the bootstrap sets as
+            # environment variables on the box, so the answer differs per VM and a
+            # queued document written on a runner does not know it.
+            Unreachable    = @(
+                'EnvironmentRoot',
+                'CertificateThumbprint',
+                'SharedAssetSourcePath',
+                'SharedAssetDirectories'
+            )
+        }
+
+        # Long-lived named environments (staging, production).
+        'deploy-environment' = @{
+            Script         = 'Deploy-RockEnvironment.ps1'
+            TimeoutSeconds = 1800
+            Required       = [ordered]@{
+                environmentName = 'EnvironmentName'
+                sha             = 'Sha'
+                artifactGcsPath = 'ArtifactGcsPath'
+                hostName        = 'HostName'
+            }
+            # Optional so that an older queued command still runs, and so that
+            # production can omit connectionString and keep the one already on disk.
+            Optional       = [ordered]@{
+                mode              = 'Mode'
+                connectionString  = 'ConnectionString'
+                targetSitePath    = 'TargetSitePath'
+                targetSiteName    = 'TargetSiteName'
+                targetAppPoolName = 'TargetAppPoolName'
+                environmentRoot   = 'EnvironmentRoot'
+                # Reachable, and by a hand-written command only: no workflow input
+                # sets it. On InPlace this decides where the sole rollback copy of
+                # production goes and, because the manifest must never sit under
+                # $EnvironmentRoot where the renewal job would find it, where the
+                # manifest goes too -- and it was the one parameter with that much
+                # riding on it that nothing could state. It stays out of
+                # env-deploy-command.yml deliberately: every restore path in the
+                # production runbook is written out as
+                # C:\RockBackups\production\<utc>-<sha>, the rollback included, and a
+                # dispatch box that could move it would make all of them wrong for
+                # the one run somebody reads them during. A
+                # full disk on the morning of a cutover is what the escape hatch is
+                # for, and that operator is writing the queued document by hand.
+                backupRoot        = 'BackupRoot'
             }
             # InPlace deploys are a dry run unless the command explicitly opts in.
-            if (($Command.PSObject.Properties.Name -contains 'apply') -and $Command.apply) {
-                $arguments['Apply'] = $true
-            }
+            Flag           = [ordered]@{ apply = 'Apply' }
+            # Only this command writes a timeline. It is the one that takes the site
+            # offline, and the only one whose log going quiet costs an operator the
+            # window they need.
+            Runtime        = [ordered]@{ StepLogPath = 'StepLogPath' }
+            # HealthCheckTimeoutSeconds is held under this row's own TimeoutSeconds,
+            # which is 1800 and is what the agent kills the job at. A command that
+            # raised the health check past it would not get a longer wait, it would
+            # get a killed job reported as a failure while the site was still
+            # migrating -- the one outcome that makes an operator roll back a deploy
+            # that was working. Moving it means moving both numbers and the 60-minute
+            # job limit in env-deploy-command.yml, which is an edit, not a field.
+            # The other three are the same machine configuration the PR deploy reads,
+            # and unreachable for the same reason.
+            Unreachable    = @(
+                'CertificateThumbprint',
+                'SharedAssetSourcePath',
+                'SharedAssetDirectories',
+                'HealthCheckTimeoutSeconds'
+            )
+        }
 
-            # Only this command writes a timeline. It is the one that takes the
-            # site offline, and the only one whose log going quiet costs an
-            # operator the window they need.
-            if (![string]::IsNullOrWhiteSpace($StepLogPath)) {
-                $arguments['StepLogPath'] = $StepLogPath
-            }
+        # Both take EnvironmentRoot and neither offers it. A stop or a destroy
+        # aimed at a root other than the one the deploy used would find no site and
+        # report success, which is the worst answer a destroy can give: the
+        # environment is still up and the queue says it is gone.
+        'stop' = @{
+            Script         = 'Stop-PrEnvironment.ps1'
+            TimeoutSeconds = 300
+            Required       = [ordered]@{ prNumber = 'PrNumber' }
+            Unreachable    = @('EnvironmentRoot')
+        }
 
-            & (Join-Path $DeployRoot "Deploy-RockEnvironment.ps1") @arguments
+        'destroy' = @{
+            Script         = 'Destroy-PrEnvironment.ps1'
+            TimeoutSeconds = 300
+            Required       = [ordered]@{ prNumber = 'PrNumber' }
+            Unreachable    = @('EnvironmentRoot')
         }
-        "stop" {
-            & (Join-Path $DeployRoot "Stop-PrEnvironment.ps1") -PrNumber $Command.prNumber
-        }
-        "destroy" {
-            & (Join-Path $DeployRoot "Destroy-PrEnvironment.ps1") -PrNumber $Command.prNumber
-        }
-        "renew-certificate" {
-            & (Join-Path $DeployRoot "Invoke-PrEnvironmentCertificateRenewal.ps1") -DeployRoot $DeployRoot
-        }
-        "find-legacy-text-columns" {
-            # Read-only, and deliberately the only Deployment/Database script this
-            # agent can reach. Convert-LegacyTextColumns.ps1 is -Apply-gated and
-            # rewrites column types; it stays a by-hand script with a human reading
-            # the finder's output first, so there is no branch for it here.
-            #
-            # This exists because the finder had nowhere to run. The catalog is behind
-            # a PSC endpoint with no public IP, and Cloud SQL refuses any login but the
-            # owning `sqlserver` account into the database it owns -- so neither a
-            # runner nor a workstation nor a hand-made diagnostic login can open it.
-            # The VM already holds a working connection string on every deploy. Rather
-            # than issue a second credential, the finder runs where that one already is.
-            if (-not ($Command.PSObject.Properties.Name -contains 'connectionString')) {
-                throw "find-legacy-text-columns requires a connectionString."
-            }
-            $arguments = @{ ConnectionString = [string]$Command.connectionString }
-            if (($Command.PSObject.Properties.Name -contains 'measureSizes') -and $Command.measureSizes) {
-                $arguments['MeasureSizes'] = $true
-            }
 
-            & (Join-Path $DeployRoot "Find-LegacyTextColumns.ps1") @arguments
+        'renew-certificate' = @{
+            Script         = 'Invoke-PrEnvironmentCertificateRenewal.ps1'
+            TimeoutSeconds = 720
+            # The only verb whose whole argument list is something this agent knows
+            # rather than something the queued document carries.
+            Runtime        = [ordered]@{ DeployRoot = 'DeployRoot' }
+            # Which is the point of the row, so the rest of the signature is
+            # unreachable by design rather than by omission. This one runs on a
+            # timer against every manifest on the box; a queued document that could
+            # narrow its roots or shorten its window would turn the fleet-wide
+            # renewal into a partial one, and the next anybody heard of it would be
+            # an expired certificate on a site nobody dispatched anything for.
+            Unreachable    = @(
+                'EnvironmentRoot',
+                'AdditionalManifestRoots',
+                'RenewWithinDays',
+                'PerHostTimeoutSeconds',
+                'WinAcmeDownloadUrl'
+            )
         }
-        "anonymize-staging" {
-            # Replaces real email addresses and phone numbers in a prod-derived
-            # staging catalog with undeliverable substitutes. Here for the same
-            # reason the finder is: the catalog is reachable from this VM and from
-            # nowhere else.
-            #
-            # Unlike the finder this one writes, so the arm carries its own gates
-            # rather than trusting the caller to have set them. The script refuses
-            # the production instance by address and refuses a catalog that does not
-            # match expectedCatalog, and it is a dry run without apply. Those checks
-            # live in the script because that is where they are enforced; they are
-            # restated here because this arm is what a queued JSON document can
-            # reach, and a command is easier to hand-write than a script is to edit.
-            if (-not ($Command.PSObject.Properties.Name -contains 'connectionString')) {
-                throw "anonymize-staging requires a connectionString."
+
+        # Read-only, and deliberately the only Deployment/Database script this agent
+        # can reach. Convert-LegacyTextColumns.ps1 is -Apply-gated and rewrites
+        # column types; it stays a by-hand script with a human reading the finder's
+        # output first, so there is no row for it here.
+        #
+        # This exists because the finder had nowhere to run. The catalog is behind a
+        # PSC endpoint with no public IP, and Cloud SQL refuses any login but the
+        # owning `sqlserver` account into the database it owns -- so neither a runner
+        # nor a workstation nor a hand-made diagnostic login can open it. The VM
+        # already holds a working connection string on every deploy. Rather than
+        # issue a second credential, the finder runs where that one already is.
+        'find-legacy-text-columns' = @{
+            Script         = 'Find-LegacyTextColumns.ps1'
+            # Metadata-only by default and quick, but -MeasureSizes full-scans every
+            # table that has a legacy column, and the catalog this is aimed at is
+            # 115 GB. The fallback would kill a real scan part-way and report it as a
+            # failure, which on a read-only diagnostic is the worst kind of wrong
+            # answer: it looks like the catalog is unreadable rather than merely large.
+            TimeoutSeconds = 1800
+            Required       = [ordered]@{ connectionString = 'ConnectionString' }
+            Flag           = [ordered]@{ measureSizes = 'MeasureSizes' }
+            # OutFile writes beside the script on a box whose disk nobody watches,
+            # and the command result already carries the finding; CommandTimeoutSeconds
+            # is the SQL command's own limit and belongs under this row's 1800, for
+            # the reason spelled out on deploy-environment.
+            Unreachable    = @('OutFile', 'CommandTimeoutSeconds')
+        }
+
+        # Replaces real email addresses and phone numbers in a prod-derived staging
+        # catalog with undeliverable substitutes. Here for the same reason the finder
+        # is: the catalog is reachable from this VM and from nowhere else.
+        #
+        # Unlike the finder this one writes, so the row carries its own gates rather
+        # than trusting the caller to have set them. The script refuses the production
+        # instance by address and refuses a catalog that does not match
+        # expectedCatalog, and it is a dry run without apply. Those checks live in the
+        # script because that is where they are enforced; they are restated here
+        # because this row is what a queued JSON document can reach, and a command is
+        # easier to hand-write than a script is to edit.
+        'anonymize-staging' = @{
+            Script         = 'Invoke-StagingAnonymization.ps1'
+            # Batched UPDATEs over every Person and PhoneNumber row in a prod-derived
+            # catalog. The dry run is five COUNT(*)s and returns in seconds; -Apply
+            # rewrites millions of rows and is the case this number has to cover.
+            # Killing it part-way is survivable -- every batch commits on its own and
+            # the predicates skip rows already done, so a rerun resumes -- but a
+            # half-anonymized catalog reported as a failure invites someone to
+            # conclude the run did nothing and leave real addresses in place.
+            TimeoutSeconds = 3600
+            Required       = [ordered]@{
+                connectionString = 'ConnectionString'
+                # No fallback and no default. Every other optional field on every
+                # other command degrades to something sensible when it is missing;
+                # this one must not, because the value it carries is the operator
+                # stating which catalog they mean to destroy contact data in. Absent
+                # means unstated, and unstated is not a catalog name.
+                expectedCatalog  = 'ExpectedCatalog'
             }
-            # No fallback and no default. Every other optional field on every other
-            # command degrades to something sensible when it is missing; this one
-            # must not, because the value it carries is the operator stating which
-            # catalog they mean to destroy contact data in. Absent means unstated,
-            # and unstated is not a catalog name.
-            if (-not ($Command.PSObject.Properties.Name -contains 'expectedCatalog') -or
-                [string]::IsNullOrWhiteSpace([string]$Command.expectedCatalog)) {
-                throw "anonymize-staging requires an expectedCatalog naming the catalog to rewrite."
-            }
-            $arguments = @{
-                ConnectionString = [string]$Command.connectionString
-                ExpectedCatalog  = [string]$Command.expectedCatalog
-            }
-            if (($Command.PSObject.Properties.Name -contains 'apply') -and $Command.apply) {
-                $arguments['Apply'] = $true
-            }
+            Flag           = [ordered]@{ apply = 'Apply' }
             # Domains whose rows keep their real values, so the people testing on
             # staging can still sign in and still receive the mail they are testing.
-            # Carried as one comma-separated string rather than a JSON array so the
-            # queued document stays a flat map of scalars like every other command
-            # here, and so a hand-written command is still hand-writable.
             #
             # Absent or empty means anonymize everyone. That is the old behaviour and
             # the stricter of the two, so a command written before this field existed
             # keeps working and errs toward removing more contact data, not less. The
             # script validates each domain before it reaches a query.
-            if (($Command.PSObject.Properties.Name -contains 'keepEmailDomains') -and
-                ![string]::IsNullOrWhiteSpace([string]$Command.keepEmailDomains)) {
-                $keepDomains = @(
-                    ([string]$Command.keepEmailDomains).Split(',') |
-                        ForEach-Object { $_.Trim() } |
-                        Where-Object { ![string]::IsNullOrWhiteSpace($_) }
-                )
-                if ($keepDomains.Count -gt 0) {
-                    $arguments['KeepEmailDomains'] = $keepDomains
-                }
-            }
-
-            & (Join-Path $DeployRoot "Invoke-StagingAnonymization.ps1") @arguments
+            List           = [ordered]@{ keepEmailDomains = 'KeepEmailDomains' }
+            # BatchSize is a tuning knob over millions of rows and the script's own
+            # default is the one that has been run; OutFile and CommandTimeoutSeconds
+            # are unreachable for the reasons the finder's row gives.
+            Unreachable    = @('BatchSize', 'OutFile', 'CommandTimeoutSeconds')
         }
-        "set-theme-customization" {
-            # Writes a theme's brand colours and custom CSS into
-            # Theme.AdditionalSettingsJson. Here for the same reason the other two
-            # database commands are: the catalog is reachable from this VM and from
-            # nowhere else.
-            #
-            # This is the database half of the internal site's branding. The .less
-            # half ships in the artifact; this half is per-catalog, and the v19
-            # migration that repoints the internal site at RockNextGen creates the
-            # row with it empty. So the theme it addresses may not have existed
-            # until the deploy that ran just before this command.
-            #
-            # -Apply-gated like anonymize-staging, and for the same reason: the
-            # queued document is easier to hand-write than the script is to edit, so
-            # the arm forwards the gate rather than assuming the caller set it.
-            if (-not ($Command.PSObject.Properties.Name -contains 'connectionString')) {
-                throw "set-theme-customization requires a connectionString."
+
+        # Writes a theme's brand colours and custom CSS into
+        # Theme.AdditionalSettingsJson. Here for the same reason the other two
+        # database commands are: the catalog is reachable from this VM and from
+        # nowhere else.
+        #
+        # This is the database half of the internal site's branding. The .less half
+        # ships in the artifact; this half is per-catalog, and the v19 migration that
+        # repoints the internal site at RockNextGen creates the row with it empty. So
+        # the theme it addresses may not have existed until the deploy that ran just
+        # before this command.
+        'set-theme-customization' = @{
+            Script         = 'Set-RockThemeCustomization.ps1'
+            # One SELECT and one UPDATE against a table with a handful of rows. Short
+            # on purpose: nothing about this command can legitimately take minutes, so
+            # a run that hangs is a lock or a dead connection, and failing fast says so.
+            TimeoutSeconds = 300
+            Required       = [ordered]@{
+                themeName        = 'ThemeName'
+                connectionString = 'ConnectionString'
             }
-            if (-not ($Command.PSObject.Properties.Name -contains 'themeName') -or
-                [string]::IsNullOrWhiteSpace([string]$Command.themeName)) {
-                throw "set-theme-customization requires a themeName."
-            }
-            $arguments = @{
-                ThemeName        = [string]$Command.themeName
-                ConnectionString = [string]$Command.connectionString
-            }
-            if (($Command.PSObject.Properties.Name -contains 'apply') -and $Command.apply) {
-                $arguments['Apply'] = $true
-            }
+            # -Apply-gated like anonymize-staging, and for the same reason: the queued
+            # document is easier to hand-write than the script is to edit, so the row
+            # forwards the gate rather than assuming the caller set it.
+            Flag           = [ordered]@{ apply = 'Apply' }
             # Variable assignments arrive as one comma-separated string of name=value
-            # pairs, keeping the queued document a flat map of scalars like every
-            # other command here. A colour cannot contain a comma; the script rejects
-            # anything that is not name=value before it reaches a query.
-            if (($Command.PSObject.Properties.Name -contains 'variableValues') -and
-                ![string]::IsNullOrWhiteSpace([string]$Command.variableValues)) {
-                $variableAssignments = @(
-                    ([string]$Command.variableValues).Split(',') |
-                        ForEach-Object { $_.Trim() } |
-                        Where-Object { ![string]::IsNullOrWhiteSpace($_) }
-                )
-                if ($variableAssignments.Count -gt 0) {
-                    $arguments['VariableValues'] = $variableAssignments
-                }
-            }
+            # pairs. A colour cannot contain a comma; the script rejects anything that
+            # is not name=value before it reaches a query.
+            List           = [ordered]@{ variableValues = 'VariableValues' }
             # Presence, not emptiness, decides whether the override block is written:
             # an empty string is how an operator clears it, and treating that as
-            # "absent" would make clearing impossible. Every other optional field
-            # here degrades on whitespace; this one must not.
-            if ($Command.PSObject.Properties.Name -contains 'customOverrides') {
-                $arguments['CustomOverrides'] = [string]$Command.customOverrides
-            }
-
-            & (Join-Path $DeployRoot "Set-RockThemeCustomization.ps1") @arguments
+            # "absent" would make clearing impossible. Every other optional field here
+            # degrades on whitespace; this one must not.
+            Verbatim       = [ordered]@{ customOverrides = 'CustomOverrides' }
+            # RollbackScriptPath is the undo for the one UPDATE this makes, and it
+            # is written whether or not anybody asked: a queued command that could
+            # point it somewhere else could point it somewhere unwritable, and the
+            # write would go ahead with the undo silently missing.
+            Unreachable    = @('RollbackScriptPath', 'CommandTimeoutSeconds')
         }
-        default { throw "Unknown command: $($Command.command)" }
     }
+
+    if ([string]::IsNullOrWhiteSpace($Command)) { return $contracts }
+    if (-not $contracts.Contains($Command)) { throw "Unknown command: $Command" }
+    return $contracts[$Command]
+}
+
+function Split-CommandList {
+    <#
+        .SYNOPSIS
+        One comma-separated field of a queued document, as an array.
+
+        .DESCRIPTION
+        Written out twice word for word before this existed -- once for the
+        anonymizer's keep list and once for the theme's variable assignments.
+
+        Comma-separated rather than a JSON array so that the queued document stays a
+        flat map of scalars like every other field, and so that a hand-written
+        command is still hand-writable.
+
+        Blanks are dropped and an all-blank value yields nothing, which is what lets
+        the caller read "nothing survived" as "the field was not stated".
+
+        .PARAMETER Value
+        The raw field value.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param([Parameter(Mandatory = $false)][AllowEmptyString()][string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
+
+    return @($Value.Split(',') |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { ![string]::IsNullOrWhiteSpace($_) })
+}
+
+function Resolve-CommandArguments {
+    <#
+        .SYNOPSIS
+        The script one queued command runs, and the arguments to splat at it.
+
+        .DESCRIPTION
+        This was a switch inside the scriptblock handed to Start-Job, which put it in
+        a different runspace from every test in this repository: nothing could call
+        it, so what it did was asserted by matching the text of its own source. The
+        payload-to-argument step was written out five times, the comma-split list
+        parser twice word for word, and three different rules governed a blank value
+        with nothing saying which was meant where.
+
+        Binding here rather than inside the job also moves a refusal to before the
+        job starts, into the loop's own try, so a command the agent will not run
+        comes back as a failed result carrying the reason rather than as a job that
+        died.
+
+        .PARAMETER Command
+        The parsed command document.
+
+        .PARAMETER DeployRoot
+        Where the agent keeps the deployment scripts. A Runtime value, and also what
+        the caller joins the returned Script onto.
+
+        .PARAMETER StepLogPath
+        The deploy timeline this command should write, for the one contract that asks
+        for it.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]$Command,
+        [Parameter(Mandatory = $false)][string]$DeployRoot,
+        [Parameter(Mandatory = $false)][string]$StepLogPath
+    )
+
+    # Read through PSObject throughout: Set-StrictMode -Version Latest makes a
+    # missing property a terminating error, and a queued document is a JSON file that
+    # may have been written before any field here existed.
+    $present = @($Command.PSObject.Properties.Name)
+    if ($present -notcontains 'command') {
+        throw "The queued document names no command."
+    }
+
+    $name = [string]$Command.command
+    $contract = Get-CommandContract -Command $name
+
+    if (-not $contract.Contains('Script')) {
+        throw "The contract for '$name' names no script to run."
+    }
+
+    # A section name that is not a binding kind binds nothing at all, silently:
+    # `Flags` where `Flag` was meant drops -Apply, and every queued run becomes a dry
+    # run that reports success. Refusing is the only outcome that says so.
+    #
+    # The sections that bind nothing are asked for rather than spelled out here.
+    # They were two names compared inline, which is the shape that makes adding a
+    # third an edit in two files where only one of them refuses.
+    $kinds = Get-CommandBindingKind
+    $sections = Get-CommandContractSection
+    foreach ($section in @($contract.Keys)) {
+        if ($sections -contains $section) { continue }
+        if ($kinds -notcontains $section) {
+            throw "The contract for '$name' declares a '$section' section, which is neither a binding kind ($($kinds -join ', ')) nor a section that binds nothing ($($sections -join ', '))."
+        }
+    }
+
+    $binding = @{}
+    foreach ($kind in $kinds) {
+        $binding[$kind] = if ($contract.Contains($kind)) { $contract[$kind] } else { [ordered]@{} }
+    }
+
+    $arguments = @{}
+
+    foreach ($field in @($binding.Required.Keys)) {
+        if ($present -notcontains $field -or [string]::IsNullOrWhiteSpace([string]$Command.$field)) {
+            throw "$name requires $field."
+        }
+        $arguments[$binding.Required[$field]] = [string]$Command.$field
+    }
+
+    foreach ($field in @($binding.Optional.Keys)) {
+        if ($present -notcontains $field) { continue }
+        if ([string]::IsNullOrWhiteSpace([string]$Command.$field)) { continue }
+        $arguments[$binding.Optional[$field]] = [string]$Command.$field
+    }
+
+    foreach ($field in @($binding.Flag.Keys)) {
+        if ($present -notcontains $field) { continue }
+        if (-not $Command.$field) { continue }
+        $arguments[$binding.Flag[$field]] = $true
+    }
+
+    foreach ($field in @($binding.List.Keys)) {
+        if ($present -notcontains $field) { continue }
+        $values = @(Split-CommandList -Value ([string]$Command.$field))
+        if ($values.Count -eq 0) { continue }
+        $arguments[$binding.List[$field]] = $values
+    }
+
+    foreach ($field in @($binding.Verbatim.Keys)) {
+        if ($present -notcontains $field) { continue }
+        $arguments[$binding.Verbatim[$field]] = [string]$Command.$field
+    }
+
+    $runtime = @{ DeployRoot = $DeployRoot; StepLogPath = $StepLogPath }
+    foreach ($value in @($binding.Runtime.Keys)) {
+        if (-not $runtime.ContainsKey($value)) {
+            throw "The contract for '$name' asks for a runtime value named '$value', which this agent does not have."
+        }
+        if ([string]::IsNullOrWhiteSpace($runtime[$value])) { continue }
+        $arguments[$binding.Runtime[$value]] = $runtime[$value]
+    }
+
+    return @{
+        Script    = [string]$contract.Script
+        Arguments = $arguments
+    }
+}
+
+# Three lines, and that is the point. Start-Job runs this in its own runspace,
+# where nothing defined above is in scope and no test can reach: whatever lives
+# here can only ever be checked by matching its own source text. So the deciding
+# is done before the job starts -- see Resolve-CommandArguments -- and what
+# crosses into the runspace is a script name and a hashtable of arguments, both
+# of which survive the serializer Start-Job puts them through.
+$CommandRunner = {
+    param($DeployRoot, $ScriptName, $Arguments)
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = "Stop"
+
+    & (Join-Path $DeployRoot $ScriptName) @Arguments
 
     if (-not $?) { throw "Command script reported failure." }
 }
@@ -750,17 +1128,22 @@ foreach ($commandObject in $commands) {
         $CommandId = $command.commandId
         Write-Host "Processing PR environment command ${CommandId}: $($command.command)"
 
-        $timeoutSeconds = $FallbackCommandTimeoutSeconds
-        if ($CommandTimeoutsSeconds.ContainsKey([string]$command.command)) {
-            $timeoutSeconds = $CommandTimeoutsSeconds[[string]$command.command]
-        }
+        # Unknown verbs are refused here rather than inside the job, so the result
+        # says "Unknown command" instead of reporting that a job failed.
+        $timeoutSeconds = [int](Get-CommandContract -Command ([string]$command.command)).TimeoutSeconds
         if (($command.PSObject.Properties.Name -contains 'timeoutSeconds') -and $command.timeoutSeconds) {
             $timeoutSeconds = [int]$command.timeoutSeconds
         }
 
         $commandSecrets = Get-CommandSecrets -Command $command
 
-        $job = Start-Job -ScriptBlock $CommandRunner -ArgumentList $DeployRoot, $command, $stepLogPath
+        # Bound before the job starts, because the job is a runspace this script and
+        # its tests cannot reach. A command whose fields do not satisfy its contract
+        # is refused here, by this try, and comes back as a failed result naming the
+        # field -- not as a job that died.
+        $plan = Resolve-CommandArguments -Command $command -DeployRoot $DeployRoot -StepLogPath $stepLogPath
+
+        $job = Start-Job -ScriptBlock $CommandRunner -ArgumentList $DeployRoot, $plan.Script, $plan.Arguments
         $finished = Wait-Job -Job $job -Timeout $timeoutSeconds
 
         # Surface the command's output into the scheduled-task log regardless of

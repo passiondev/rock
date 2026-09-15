@@ -202,8 +202,18 @@ jobs:
           queue-name: ${{ env.QUEUE_NAME }}
           command-id: ${{ env.COMMAND_ID }}
           command: anonymize-staging
+          # toJSON, not a quoted interpolation. Both of these are free-text
+          # dispatch inputs, and a value carrying a double quote or a
+          # backslash would close the JSON string early: the payload is
+          # assembled by interpolation before anything parses it, so what
+          # reaches the action is a broken document rather than a rejected
+          # field. toJSON emits the quotes and the escaping together.
           payload: |
-            {"expectedCatalog": "${{ inputs.expected_catalog }}", "apply": false, "keepEmailDomains": "${{ inputs.keep_email_domains }}"}
+            {
+              "expectedCatalog": ${{ toJSON(inputs.expected_catalog) }},
+              "apply": false,
+              "keepEmailDomains": ${{ toJSON(inputs.keep_email_domains) }}
+            }
           secret-value: ${{ env.CONNECTION_STRING }}
 
       - name: Wait for the VM to report the plan
@@ -300,8 +310,18 @@ jobs:
           queue-name: ${{ env.QUEUE_NAME }}
           command-id: ${{ env.COMMAND_ID }}
           command: anonymize-staging
+          # toJSON, not a quoted interpolation. Both of these are free-text
+          # dispatch inputs, and a value carrying a double quote or a
+          # backslash would close the JSON string early: the payload is
+          # assembled by interpolation before anything parses it, so what
+          # reaches the action is a broken document rather than a rejected
+          # field. toJSON emits the quotes and the escaping together.
           payload: |
-            {"expectedCatalog": "${{ inputs.expected_catalog }}", "apply": true, "keepEmailDomains": "${{ inputs.keep_email_domains }}"}
+            {
+              "expectedCatalog": ${{ toJSON(inputs.expected_catalog) }},
+              "apply": true,
+              "keepEmailDomains": ${{ toJSON(inputs.keep_email_domains) }}
+            }
           secret-value: ${{ env.CONNECTION_STRING }}
 
       - name: Wait for the VM to finish

@@ -102,6 +102,11 @@ def _run_guard(version, pinned_branch, staging_db_name, layout="assemblyinfo", f
         _write_version(workdir, version, layout)
 
         env = dict(os.environ)
+        # The guard sources .github/scripts/rock-version.sh through
+        # $GITHUB_WORKSPACE, which Actions sets to the checkout and these runs
+        # have to supply -- the working directory is a fixture tree, so a
+        # relative path would not find it.
+        env["GITHUB_WORKSPACE"] = str(REPO_ROOT)
         env["PINNED_BASE_BRANCH"] = pinned_branch
         env["STAGING_DB_NAME"] = staging_db_name
         env["PR_TEST_DB_NAME"] = fleet_db_name
@@ -223,6 +228,7 @@ class StagingCatalogVersionGuardTests(unittest.TestCase):
         script = _guard_script()
         with tempfile.TemporaryDirectory() as workdir:
             env = dict(os.environ)
+            env["GITHUB_WORKSPACE"] = str(REPO_ROOT)
             env["PINNED_BASE_BRANCH"] = "passion-18.4.1"
             env["STAGING_DB_NAME"] = ""
             env["GITHUB_OUTPUT"] = str(pathlib.Path(workdir) / "github_output")
@@ -299,6 +305,7 @@ class StagingCatalogVersionGuardTests(unittest.TestCase):
 
         script = _guard_script()
         env = dict(os.environ)
+        env["GITHUB_WORKSPACE"] = str(REPO_ROOT)
         env["PINNED_BASE_BRANCH"] = f"passion-{declared}"
         env["STAGING_DB_NAME"] = ""
         env["GITHUB_OUTPUT"] = os.devnull
@@ -330,6 +337,7 @@ class StagingCatalogVersionGuardTests(unittest.TestCase):
             stale.write_text('[assembly: AssemblyVersion( "18.4.1" )]\n')
 
             env = dict(os.environ)
+            env["GITHUB_WORKSPACE"] = str(REPO_ROOT)
             env["PINNED_BASE_BRANCH"] = "passion-18.4.1"
             env["STAGING_DB_NAME"] = ""
             env["GITHUB_OUTPUT"] = str(pathlib.Path(workdir) / "github_output")

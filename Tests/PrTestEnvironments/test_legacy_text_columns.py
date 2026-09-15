@@ -34,24 +34,16 @@ QUEUE_AGENT = (
 )
 FINDER_COMMAND = "find-legacy-text-columns"
 
-WRITE_VERBS = [
-    r"\bALTER\s+TABLE\b",
-    r"\bUPDATE\s+\[",
-    r"\bDELETE\s+FROM\b",
-    r"\bINSERT\s+INTO\b",
-    r"\bDROP\s+\w",
-    r"\bTRUNCATE\s+TABLE\b",
-    r"\bCREATE\s+(TABLE|INDEX|PROCEDURE)\b",
-    r"\bEXEC(UTE)?\s+sp_",
-]
+# Taken from the harness rather than written here, because
+# test_database_write_scripts.py sorts Deployment/Database with the same list and
+# a verb added to one copy would leave the other scanning for less.
+WRITE_VERBS = harness.SQL_WRITE_VERBS
 
 
-def _strip_comments(text):
-    """Drop block and line comments. The finder's whole reason for existing is a
-    write it deliberately does not perform, and explaining that in a comment must
-    not trip the scan that checks it performs no writes."""
-    text = re.sub(r"<#.*?#>", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
-    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+# Comments stripped by the harness. The finder's whole reason for existing is
+# a write it deliberately does not perform, and explaining that in a comment
+# must not trip the scan that checks it performs no writes.
+_strip_comments = harness.strip_powershell_comments
 
 
 class ScriptsExistTests(unittest.TestCase):
@@ -381,9 +373,11 @@ class TheFinderCanActuallyBeRunTests(unittest.TestCase):
         a queue fault rather than a missing feature."""
         agent = QUEUE_AGENT.read_text()
 
-        self.assertIn(f'"{FINDER_COMMAND}" {{', agent)
-        self.assertIn(FINDER.name, agent)
-        self.assertIn(f"'{FINDER_COMMAND}' = ", agent)
+        self.assertIn(FINDER_COMMAND, harness.command_contract_verbs(agent))
+
+        contract = harness.command_contract(agent, FINDER_COMMAND)
+        self.assertEqual(contract.get("Script"), FINDER.name)
+        self.assertIsNotNone(contract.get("TimeoutSeconds"))
 
     def test_a_workflow_exists_to_dispatch_that_command(self):
         """workflow_dispatch runs the workflow file from the repository's default

@@ -33,7 +33,8 @@ BeforeAll {
     Import-Module (Join-Path $PSScriptRoot 'ScriptFunctions.psm1') -Force
 
     $script:DeployScript = Get-RepositoryPath 'Deployment/PrTestEnvironments/Deploy-RockEnvironment.ps1'
-    . (Import-ScriptFunction -Path $script:DeployScript -Name 'Write-DeployStep')
+    . (Import-ScriptFunction -Path $script:DeployScript -Name 'Write-DeployStep' `
+            -Supplied 'DeployStartedUtc', 'DeployStepLogPath')
 
     $script:AgentScript = Get-RepositoryPath 'Deployment/PrTestEnvironments/Invoke-PrEnvironmentCommandQueue.ps1'
     . (Import-ScriptFunction -Path $script:AgentScript -Name 'Get-CommandLogText', 'Get-StepLogPath')

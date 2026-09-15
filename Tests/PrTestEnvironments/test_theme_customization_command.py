@@ -52,15 +52,9 @@ SYSTEM_GUIDS = REPO_ROOT / "Rock" / "SystemGuid" / "DefinedValue.cs"
 THEME_SERVICE = REPO_ROOT / "Rock" / "Model" / "CMS" / "Theme" / "ThemeService.cs"
 
 
-def _strip_comments(text):
-    """Drop block and line comments from PowerShell.
-
-    Every claim here is about what the script does, and the script explains all of
-    it in prose -- it names the settings key, it describes the merge, it says the
-    rollback is written first. A scan that could not tell an explanation from the
-    thing explained would be satisfied by a script that only commented."""
-    text = re.sub(r"<#.*?#>", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
-    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+# Comments stripped by the harness, for the reason every caller has: these
+# scripts explain in prose the shapes the tests scan for.
+_strip_comments = harness.strip_powershell_comments
 
 
 def _locate(case, text, needle, what):
@@ -75,11 +69,9 @@ def _locate(case, text, needle, what):
     return index
 
 
-def _agent_arm():
-    """The switch arm for this command, comments removed."""
-    agent = _strip_comments(QUEUE_AGENT.read_text())
-    arm = agent[agent.index(f'"{THEME_COMMAND}" {{') :]
-    return arm[: arm.index("default {")]
+def _contract():
+    """This command's row of the queue agent's contract table."""
+    return harness.command_contract(QUEUE_AGENT.read_text(), THEME_COMMAND)
 
 
 class ScriptExistsTests(unittest.TestCase):
@@ -333,12 +325,10 @@ class TheCommandCanActuallyBeRunTests(unittest.TestCase):
     ability to run it was not one of the things anything was looking at."""
 
     def test_the_queue_agent_invokes_the_script_by_the_name_it_has(self):
-        arm = _agent_arm()
-
-        self.assertIn(
+        self.assertEqual(
+            _contract().get("Script"),
             THEME_SCRIPT.name,
-            arm,
-            "the arm does not name the script -- renaming the file left the arm "
+            "the row does not name the script -- renaming the file left the row "
             "pointing at a path that does not exist",
         )
 
@@ -358,38 +348,40 @@ class TheCommandCanActuallyBeRunTests(unittest.TestCase):
         for command in queued:
             self.assertEqual(command, THEME_COMMAND)
 
-        self.assertIn(f'"{THEME_COMMAND}" {{', _strip_comments(QUEUE_AGENT.read_text()))
+        self.assertIn(
+            THEME_COMMAND, harness.command_contract_verbs(QUEUE_AGENT.read_text())
+        )
 
     def test_the_agent_requires_a_theme_name(self):
         """Defaulting it would pick a theme on the operator's behalf, against a
         catalog they named explicitly."""
-        arm = _agent_arm()
-
-        self.assertRegex(arm, r"throw\s+\"set-theme-customization requires a themeName")
-        self.assertRegex(
-            arm, r"throw\s+\"set-theme-customization requires a connectionString"
+        self.assertEqual(
+            set(_contract().get("Required", {})),
+            {"themeName", "connectionString"},
+            "a field that stops being Required is one the agent will now run without",
         )
 
     def test_the_agent_defaults_the_command_to_a_dry_run(self):
-        arm = _agent_arm()
+        """Apply is a Flag, which is the binding kind that has to be asked for.
+        Moved to Optional it would be forwarded whenever the field is present --
+        including `apply: false`, which binds a switch to $true."""
+        contract = _contract()
 
-        self.assertRegex(
-            arm,
-            r"-contains 'apply'\)\s*-and\s*\$Command\.apply\)",
-            "the agent does not gate Apply on the command explicitly asking for it",
-        )
+        self.assertEqual(contract.get("Flag", {}).get("apply"), "Apply")
+        for kind in ("Required", "Optional", "Verbatim"):
+            self.assertNotIn("apply", contract.get(kind, {}))
 
     def test_the_agent_decides_the_override_block_on_presence(self):
         """Every other optional field here degrades on whitespace. This one must
         not: an empty string is how an operator clears the block, and reading that
-        as absent makes clearing it impossible."""
-        arm = _agent_arm()
+        as absent makes clearing it impossible. Verbatim is the binding kind that
+        says so -- forwarded whenever the property exists, empty or not."""
+        contract = _contract()
 
-        match = re.search(r".*contains 'customOverrides'.*", arm)
-        self.assertIsNotNone(match, "the arm does not forward customOverrides at all")
+        self.assertEqual(contract.get("Verbatim", {}).get("customOverrides"), "CustomOverrides")
         self.assertNotIn(
-            "IsNullOrWhiteSpace",
-            match.group(0),
+            "customOverrides",
+            contract.get("Optional", {}),
             "an empty override block is treated as absent, so it can never be cleared",
         )
 
@@ -397,14 +389,13 @@ class TheCommandCanActuallyBeRunTests(unittest.TestCase):
         """One SELECT and one UPDATE against a table with a handful of rows. Short
         on purpose, unlike the anonymizer's hour: nothing here can legitimately take
         minutes, so a run that hangs is a lock, and failing fast says so."""
-        agent = QUEUE_AGENT.read_text()
+        timeout = _contract().get("TimeoutSeconds")
 
-        match = re.search(rf"'{THEME_COMMAND}'\s*=\s*(\d+)", agent)
-        self.assertIsNotNone(match, "no timeout is declared for the command")
+        self.assertIsNotNone(timeout, "no timeout is declared for the command")
         self.assertLessEqual(
-            int(match.group(1)),
+            timeout,
             600,
-            "the timeout is at or above the fallback, so declaring it buys nothing",
+            "a theme write that has been running ten minutes is blocked, not slow",
         )
 
 

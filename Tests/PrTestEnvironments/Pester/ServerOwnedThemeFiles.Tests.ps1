@@ -33,7 +33,7 @@ BeforeAll {
         'Resolve-SharedAssetSource',
         'Sync-ServerOwnedAssets',
         'Ensure-Directory',
-        'Write-DeployStep'))
+        'Write-DeployStep') -Supplied 'DeployStartedUtc', 'DeployStepLogPath')
 
     $script:OverrideFiles = @('_variable-overrides.less', '_css-overrides.less')
 
@@ -179,8 +179,11 @@ Describe 'Sync-ServerOwnedAssets with a path that names a file' {
 
         # Write-DeployStep stamps elapsed time against this. Nothing here reads the
         # log, so any fixed start will do -- but it has to exist, or every call
-        # through the function under test dies subtracting from $null.
+        # through the function under test dies subtracting from $null. The log path
+        # is empty on purpose: the function skips the file when it is blank, and
+        # leaving it undefined would have the same effect without saying so.
         $script:DeployStartedUtc = (Get-Date).ToUniversalTime()
+        $script:DeployStepLogPath = ''
     }
 
     BeforeEach {

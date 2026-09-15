@@ -200,8 +200,17 @@ jobs:
           queue-name: ${{ env.QUEUE_NAME }}
           command-id: ${{ env.COMMAND_ID }}
           command: set-theme-customization
+          # toJSON, not a quoted interpolation. variable_values is a
+          # free-text list of name=value pairs and theme_name is a free-text
+          # name; a double quote or a backslash in either would close the
+          # JSON string early and break the whole document, because the
+          # payload is interpolated before anything parses it.
           payload: |
-            {"themeName": "${{ inputs.theme_name }}", "variableValues": "${{ inputs.variable_values }}", "apply": false}
+            {
+              "themeName": ${{ toJSON(inputs.theme_name) }},
+              "variableValues": ${{ toJSON(inputs.variable_values) }},
+              "apply": false
+            }
           secret-value: ${{ env.CONNECTION_STRING }}
 
       - name: Wait for the VM to report the plan
@@ -294,8 +303,17 @@ jobs:
           queue-name: ${{ env.QUEUE_NAME }}
           command-id: ${{ env.COMMAND_ID }}
           command: set-theme-customization
+          # toJSON, not a quoted interpolation. variable_values is a
+          # free-text list of name=value pairs and theme_name is a free-text
+          # name; a double quote or a backslash in either would close the
+          # JSON string early and break the whole document, because the
+          # payload is interpolated before anything parses it.
           payload: |
-            {"themeName": "${{ inputs.theme_name }}", "variableValues": "${{ inputs.variable_values }}", "apply": true}
+            {
+              "themeName": ${{ toJSON(inputs.theme_name) }},
+              "variableValues": ${{ toJSON(inputs.variable_values) }},
+              "apply": true
+            }
           secret-value: ${{ env.CONNECTION_STRING }}
 
       - name: Wait for the VM to report the write
