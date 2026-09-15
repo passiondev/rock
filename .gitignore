@@ -61,3 +61,10 @@ node_modules
 # Python bytecode from the PR test environment test suite
 __pycache__/
 *.py[cod]
+
+# Pester's NUnit result file. Pester writes it to whatever directory it was
+# invoked from, under this exact name, whenever result output is switched on
+# (-CI, or -OutputFile). The suite in deployment-pipeline-tests.yml runs with
+# -Output Detailed -PassThru and leaves TestResult.Enabled at its default of
+# false, so CI never produces one -- this is only ever a local run's leftover.
+testResults.xml
