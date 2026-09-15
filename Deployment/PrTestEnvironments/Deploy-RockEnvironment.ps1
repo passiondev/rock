@@ -460,9 +460,39 @@ function Resolve-DeploymentTarget {
         throw "TargetSitePath does not exist: $TargetSitePath"
     }
 
-    $resolvedAppPool = if ([string]::IsNullOrWhiteSpace($TargetAppPoolName)) {
-        (Get-ItemProperty "IIS:\Sites\$TargetSiteName" -Name applicationPool).Value
-    } else { $TargetAppPoolName }
+    $resolvedAppPool = if (![string]::IsNullOrWhiteSpace($TargetAppPoolName)) {
+        $TargetAppPoolName
+    } else {
+        # Get-ItemProperty on an IIS site hands back a ConfigurationAttribute under
+        # some provider versions and a bare String under others, and the scheduled
+        # task runs Windows PowerShell 5.1, where it is the String. Reading .Value
+        # unconditionally is a terminating error there under Set-StrictMode.
+        #
+        # This is the one line in the file no staging deploy can reach: the
+        # DedicatedSite branch returns above, so InPlace -- production alone --
+        # is the first caller ever to run it, and it failed the first time it did
+        # (2026-09-14, dry run 34911854406). The Pester mock returned the .Value
+        # shape, so the suite was green throughout. Read both shapes.
+        $applicationPool = Get-ItemProperty "IIS:\Sites\$TargetSiteName" -Name applicationPool
+        $valueProperty = if ($null -ne $applicationPool) {
+            $applicationPool.PSObject.Properties['Value']
+        } else { $null }
+
+        $poolName = if ($valueProperty) {
+            [string]$valueProperty.Value
+        } else {
+            [string]$applicationPool
+        }
+
+        # An empty name would flow on into Stop-WebAppPool and the app pool ACL
+        # grant, which would act on nothing and report success. Name the site in
+        # the failure so the next reader knows which one to look at.
+        if ([string]::IsNullOrWhiteSpace($poolName)) {
+            throw "Could not read the application pool of IIS site '$TargetSiteName'. Pass -TargetAppPoolName explicitly, or check that the site name is right."
+        }
+
+        $poolName
+    }
 
     return @{
         SiteName    = $TargetSiteName

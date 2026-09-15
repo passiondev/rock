@@ -110,7 +110,10 @@ Describe 'Resolve-DeploymentTarget' {
             New-Item -ItemType Directory -Path $script:SitePath -Force | Out-Null
             $script:MissingPath = Join-Path $TestDrive 'not-a-directory'
 
-            # The IIS: drive is the one thing that cannot exist here.
+            # The IIS: drive is the one thing that cannot exist here. The shape
+            # this returns is load-bearing, not incidental -- see the two shape
+            # tests below. A mock that only ever returns one of them is what let
+            # a production-only crash through a green suite on 2026-09-14.
             Mock Get-ItemProperty { [pscustomobject]@{ Value = 'RockProdPool' } }
         }
 
@@ -143,6 +146,39 @@ Describe 'Resolve-DeploymentTarget' {
 
             $target.AppPoolName | Should -Be 'RockProdPool'
             Should -Invoke Get-ItemProperty -Times 1
+        }
+
+        It 'reads the app pool when IIS hands back a bare string' {
+            # What production actually returned, dry run 34911854406. Windows
+            # PowerShell 5.1's WebAdministration provider gives the String, and
+            # the .Value read that works against a ConfigurationAttribute is a
+            # terminating error under Set-StrictMode. InPlace is production-only,
+            # so this shape reached a real deploy before it ever reached a test.
+            Mock Get-ItemProperty { 'RockProdPool' }
+
+            $target = Resolve-DeploymentTarget -Mode 'InPlace' -TargetSitePath $script:SitePath `
+                -TargetSiteName 'Rock' @script:Common
+
+            $target.AppPoolName | Should -Be 'RockProdPool'
+        }
+
+        It 'refuses a site whose app pool reads back as nothing' {
+            # An empty name does not stop the deploy on its own: it flows into
+            # Stop-WebAppPool and the app pool ACL grant, which both act on
+            # nothing and report success.
+            Mock Get-ItemProperty { $null }
+
+            { Resolve-DeploymentTarget -Mode 'InPlace' -TargetSitePath $script:SitePath `
+                    -TargetSiteName 'Rock' @script:Common } |
+                Should -Throw "*application pool of IIS site 'Rock'*"
+        }
+
+        It 'refuses an app pool name that is only whitespace' {
+            Mock Get-ItemProperty { [pscustomobject]@{ Value = '   ' } }
+
+            { Resolve-DeploymentTarget -Mode 'InPlace' -TargetSitePath $script:SitePath `
+                    -TargetSiteName 'Rock' @script:Common } |
+                Should -Throw '*Could not read the application pool*'
         }
 
         It 'prefers an app pool it was named over the one IIS reports' {
